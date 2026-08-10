@@ -261,7 +261,7 @@ jobs:
           config: ${{ inputs.zizmor-config }}
       - name: Run Checkov
         if: inputs.use-checkov
-        uses: bridgecrewio/checkov-action@7b972723c44fb3d256283fac96fae5d7c1894bb7  # v12.3114.0
+        uses: bridgecrewio/checkov-action@9b70310bcd306d11740313070b940167d6b23085  # v12.3115.0
         with:
           directory: ${{ inputs.search-path }}
           framework: ${{ inputs.checkov-framework }}
