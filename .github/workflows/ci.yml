@@ -49,8 +49,6 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/markdown-lint.yml
-    with:
-      use-biome: true
   readme-generator-test:
     if: >
       github.event_name == 'push'
