@@ -99,7 +99,9 @@ jobs:
             [[ -n "${pattern}" ]] && patterns+=("${pattern}")
           done <<< "${FILE_NAMES}"
           [[ ${#patterns[@]} -eq 0 ]] && { echo "::error::file-names input produced no entries"; exit 1; }
-          git ls-files -z -- "${patterns[@]}" > "${RUNNER_TEMP}/markdown-files"
+          while IFS= read -r -d '' file; do
+            [[ -L "${file}" ]] || printf '%s\0' "${file}"
+          done < <(git ls-files -z -- "${patterns[@]}") > "${RUNNER_TEMP}/markdown-files"
       - name: Execute markdownlint-cli2
         working-directory: ${{ inputs.search-path }}
         run: xargs -0 -r -t markdownlint-cli2 --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdown-files"
