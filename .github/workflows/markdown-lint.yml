@@ -11,11 +11,18 @@ on:
       file-names:
         required: false
         type: string
-        description: Newline-separated file names or pathspecs passed to git ls-files
+        description: Newline-separated file names or pathspecs passed to git ls-files for Prettier and Biome
         default: |
           *.md
           *.markdown
           *.mdx
+      markdownlint-file-names:
+        required: false
+        type: string
+        description: Newline-separated file names or pathspecs passed to git ls-files for markdownlint-cli2
+        default: |
+          *.md
+          *.markdown
       use-markdownlint-cli2:
         required: false
         type: boolean
@@ -133,6 +140,7 @@ jobs:
           jq -e . <<< "${MARKDOWNLINT_CONFIG_DATA}" > "${config_file}"
           echo "MARKDOWNLINT_CONFIG_FILE=${config_file}" >> "${GITHUB_ENV}"
       - name: Create Markdown file list
+        if: inputs.use-prettier || inputs.use-biome
         working-directory: ${{ inputs.search-path }}
         env:
           FILE_NAMES: ${{ inputs.file-names }}
@@ -145,11 +153,25 @@ jobs:
           while IFS= read -r -d '' file; do
             [[ -L "${file}" ]] || printf '%s\0' "${file}"
           done < <(git ls-files -z -- "${patterns[@]}") > "${RUNNER_TEMP}/markdown-files"
+      - name: Create markdownlint-cli2 file list
+        if: inputs.use-markdownlint-cli2
+        working-directory: ${{ inputs.search-path }}
+        env:
+          FILE_NAMES: ${{ inputs.markdownlint-file-names }}
+        run: |
+          patterns=()
+          while IFS= read -r pattern; do
+            [[ -n "${pattern}" ]] && patterns+=("${pattern}")
+          done <<< "${FILE_NAMES}"
+          [[ ${#patterns[@]} -eq 0 ]] && { echo "::error::markdownlint-file-names input produced no entries"; exit 1; }
+          while IFS= read -r -d '' file; do
+            [[ -L "${file}" ]] || printf '%s\0' "${file}"
+          done < <(git ls-files -z -- "${patterns[@]}") > "${RUNNER_TEMP}/markdownlint-files"
       - name: Execute markdownlint-cli2
         if: inputs.use-markdownlint-cli2
         working-directory: ${{ inputs.search-path }}
         run: >
-          xargs -0 -r -t markdownlint-cli2 --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdown-files"
+          xargs -0 -r -t markdownlint-cli2 --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdownlint-files"
       - name: Check Markdown formatting with Prettier
         if: inputs.use-prettier
         working-directory: ${{ inputs.search-path }}
