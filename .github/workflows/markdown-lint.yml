@@ -15,11 +15,26 @@ on:
         default: |
           *.md
           *.markdown
+      use-markdownlint-cli2:
+        required: false
+        type: boolean
+        description: Use markdownlint-cli2 to lint Markdown files
+        default: true
       markdownlint-config-data:
         required: false
         type: string
         description: JSON data for the markdownlint-cli2 base configuration
         default: '{"config":{"MD013":false}}'
+      use-prettier:
+        required: false
+        type: boolean
+        description: Use Prettier to check Markdown formatting
+        default: true
+      use-biome:
+        required: false
+        type: boolean
+        description: Use Biome to check Markdown formatting when supported
+        default: false
       node-version:
         required: false
         type: string
@@ -54,7 +69,14 @@ jobs:
       MARKDOWNLINT_CLI2_VERSION: "0.23.2"
       # renovate: datasource=npm depName=prettier
       PRETTIER_VERSION: "3.9.6"
+      # renovate: datasource=npm depName=@biomejs/biome
+      BIOME_VERSION: "2.5.5"
     steps:
+      - name: Validate linter inputs
+        if: (! inputs.use-markdownlint-cli2) && (! inputs.use-prettier) && (! inputs.use-biome)
+        run: |
+          echo '::error::At least one of use-markdownlint-cli2, use-prettier, or use-biome must be true'
+          exit 1
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -69,20 +91,37 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/gha-for-devops/markdown-lint
-          key: markdown-lint-${{ runner.os }}-${{ inputs.node-version }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.PRETTIER_VERSION }}-${{ inputs.cache-salt }}
+          key: markdown-lint-${{ runner.os }}-${{ inputs.node-version }}-${{ inputs.use-markdownlint-cli2 }}-${{ inputs.use-prettier }}-${{ inputs.use-biome }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.PRETTIER_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
       - name: Install Markdown lint tools
         env:
-          MARKDOWNLINT_CLI2_VERSION: ${{ env.MARKDOWNLINT_CLI2_VERSION }}
-          PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
+          USE_MARKDOWNLINT_CLI2: ${{ inputs.use-markdownlint-cli2 }}
+          USE_PRETTIER: ${{ inputs.use-prettier }}
+          USE_BIOME: ${{ inputs.use-biome }}
         run: | # zizmor: ignore[adhoc-packages] installs pinned Markdown lint tools
-          [[ "${MARKDOWNLINT_CLI2_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid MARKDOWNLINT_CLI2_VERSION"; exit 1; }
-          [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
+          packages=()
+          needs_install=false
           tool_dir="${HOME}/.cache/gha-for-devops/markdown-lint"
-          if [[ ! -x "${tool_dir}/node_modules/.bin/markdownlint-cli2" || ! -x "${tool_dir}/node_modules/.bin/prettier" ]]; then
-            npm install --prefix "${tool_dir}" "markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}" "prettier@${PRETTIER_VERSION}"
+          if ${USE_MARKDOWNLINT_CLI2}; then
+            [[ "${MARKDOWNLINT_CLI2_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid MARKDOWNLINT_CLI2_VERSION"; exit 1; }
+            packages+=("markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}")
+            [[ -x "${tool_dir}/node_modules/.bin/markdownlint-cli2" ]] || needs_install=true
+          fi
+          if ${USE_PRETTIER}; then
+            [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
+            packages+=("prettier@${PRETTIER_VERSION}")
+            [[ -x "${tool_dir}/node_modules/.bin/prettier" ]] || needs_install=true
+          fi
+          if ${USE_BIOME}; then
+            [[ "${BIOME_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid BIOME_VERSION"; exit 1; }
+            packages+=("@biomejs/biome@${BIOME_VERSION}")
+            [[ -x "${tool_dir}/node_modules/.bin/biome" ]] || needs_install=true
+          fi
+          if ${needs_install}; then
+            npm install --prefix "${tool_dir}" "${packages[@]}"
           fi
           echo "${tool_dir}/node_modules/.bin" >> "${GITHUB_PATH}"
       - name: Create Markdown lint configuration
+        if: inputs.use-markdownlint-cli2
         env:
           MARKDOWNLINT_CONFIG_DATA: ${{ inputs.markdownlint-config-data }}
         run: |
@@ -103,8 +142,14 @@ jobs:
             [[ -L "${file}" ]] || printf '%s\0' "${file}"
           done < <(git ls-files -z -- "${patterns[@]}") > "${RUNNER_TEMP}/markdown-files"
       - name: Execute markdownlint-cli2
+        if: inputs.use-markdownlint-cli2
         working-directory: ${{ inputs.search-path }}
         run: xargs -0 -r -t markdownlint-cli2 --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdown-files"
       - name: Check Markdown formatting with Prettier
+        if: inputs.use-prettier
         working-directory: ${{ inputs.search-path }}
         run: xargs -0 -r -t prettier --check -- < "${RUNNER_TEMP}/markdown-files"
+      - name: Check Markdown formatting with Biome
+        if: inputs.use-biome
+        working-directory: ${{ inputs.search-path }}
+        run: xargs -0 -r -t biome format --files-ignore-unknown=true --no-errors-on-unmatched -- < "${RUNNER_TEMP}/markdown-files"
