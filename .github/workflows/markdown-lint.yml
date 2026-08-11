@@ -1,0 +1,96 @@
+---
+name: Lint for Markdown
+on:
+  workflow_call:
+    inputs:
+      search-path:
+        required: false
+        type: string
+        description: Path to search for Markdown files
+        default: .
+      file-names:
+        required: false
+        type: string
+        description: Newline-separated file names or pathspecs passed to git ls-files
+        default: |
+          *.md
+          *.markdown
+      node-version:
+        required: false
+        type: string
+        description: Node.js version to use
+        default: latest
+      enable-cache:
+        required: false
+        type: boolean
+        description: Cache pinned Markdown lint tools
+        default: true
+      cache-salt:
+        required: false
+        type: string
+        description: Optional value used to bust the Markdown lint cache
+        default: null
+      runs-on:
+        required: false
+        type: string
+        description: Runner to use
+        default: ubuntu-slim
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+jobs:
+  lint:
+    runs-on: ${{ inputs.runs-on }}
+    env:
+      # renovate: datasource=npm depName=markdownlint-cli2
+      MARKDOWNLINT_CLI2_VERSION: "0.23.2"
+      # renovate: datasource=npm depName=prettier
+      PRETTIER_VERSION: "3.9.5"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Cache Markdown lint tools
+        if: inputs.enable-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/gha-for-devops/markdown-lint
+          key: markdown-lint-${{ runner.os }}-${{ inputs.node-version }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.PRETTIER_VERSION }}-${{ inputs.cache-salt }}
+      - name: Install Markdown lint tools
+        env:
+          MARKDOWNLINT_CLI2_VERSION: ${{ env.MARKDOWNLINT_CLI2_VERSION }}
+          PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
+        run: | # zizmor: ignore[adhoc-packages] installs pinned Markdown lint tools
+          [[ "${MARKDOWNLINT_CLI2_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid MARKDOWNLINT_CLI2_VERSION"; exit 1; }
+          [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
+          tool_dir="${HOME}/.cache/gha-for-devops/markdown-lint"
+          if [[ ! -x "${tool_dir}/node_modules/.bin/markdownlint-cli2" || ! -x "${tool_dir}/node_modules/.bin/prettier" ]]; then
+            npm install --prefix "${tool_dir}" "markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}" "prettier@${PRETTIER_VERSION}"
+          fi
+          echo "${tool_dir}/node_modules/.bin" >> "${GITHUB_PATH}"
+      - name: Create Markdown file list
+        working-directory: ${{ inputs.search-path }}
+        env:
+          FILE_NAMES: ${{ inputs.file-names }}
+        run: |
+          patterns=()
+          while IFS= read -r pattern; do
+            [[ -n "${pattern}" ]] && patterns+=("${pattern}")
+          done <<< "${FILE_NAMES}"
+          [[ ${#patterns[@]} -eq 0 ]] && { echo "::error::file-names input produced no entries"; exit 1; }
+          git ls-files -z -- "${patterns[@]}" > "${RUNNER_TEMP}/markdown-files"
+      - name: Execute markdownlint-cli2
+        working-directory: ${{ inputs.search-path }}
+        run: xargs -0 -r -t markdownlint-cli2 < "${RUNNER_TEMP}/markdown-files"
+      - name: Check Markdown formatting with Prettier
+        working-directory: ${{ inputs.search-path }}
+        run: xargs -0 -r -t prettier --check < "${RUNNER_TEMP}/markdown-files"
