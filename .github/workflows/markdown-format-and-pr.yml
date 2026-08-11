@@ -26,7 +26,7 @@ on:
       use-biome:
         required: false
         type: boolean
-        description: Use Biome to format Markdown files
+        description: Use Biome to format Markdown files when supported
         default: false
       biome-glob:
         required: false
@@ -100,7 +100,7 @@ jobs:
         env:
           BIOME_GLOB: ${{ inputs.biome-glob }}
         run: >
-          biome format --write --files-ignore-unknown=true "${BIOME_GLOB}"
+          biome format --write --files-ignore-unknown=true --no-errors-on-unmatched "${BIOME_GLOB}"
       - name: Create output parameters
         id: parameters
         env:
