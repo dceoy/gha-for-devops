@@ -159,4 +159,4 @@ jobs:
         if: inputs.use-biome
         working-directory: ${{ inputs.search-path }}
         run: >
-          xargs -0 -r -t biome format --files-ignore-unknown=true --no-errors-on-unmatched -- < "${RUNNER_TEMP}/markdown-files"
+          xargs -0 -r -t biome format --files-ignore-unknown=true -- < "${RUNNER_TEMP}/markdown-files"
