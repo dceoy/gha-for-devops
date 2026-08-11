@@ -15,6 +15,11 @@ on:
         default: |
           *.md
           *.markdown
+      markdownlint-config-data:
+        required: false
+        type: string
+        description: JSON data for the markdownlint-cli2 base configuration
+        default: '{"config":{"MD013":false}}'
       node-version:
         required: false
         type: string
@@ -77,6 +82,13 @@ jobs:
             npm install --prefix "${tool_dir}" "markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}" "prettier@${PRETTIER_VERSION}"
           fi
           echo "${tool_dir}/node_modules/.bin" >> "${GITHUB_PATH}"
+      - name: Create Markdown lint configuration
+        env:
+          MARKDOWNLINT_CONFIG_DATA: ${{ inputs.markdownlint-config-data }}
+        run: |
+          config_file="${RUNNER_TEMP}/markdownlint-cli2.json"
+          jq -e . <<< "${MARKDOWNLINT_CONFIG_DATA}" > "${config_file}"
+          echo "MARKDOWNLINT_CONFIG_FILE=${config_file}" >> "${GITHUB_ENV}"
       - name: Create Markdown file list
         working-directory: ${{ inputs.search-path }}
         env:
@@ -90,7 +102,7 @@ jobs:
           git ls-files -z -- "${patterns[@]}" > "${RUNNER_TEMP}/markdown-files"
       - name: Execute markdownlint-cli2
         working-directory: ${{ inputs.search-path }}
-        run: xargs -0 -r -t markdownlint-cli2 -- < "${RUNNER_TEMP}/markdown-files"
+        run: xargs -0 -r -t markdownlint-cli2 --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdown-files"
       - name: Check Markdown formatting with Prettier
         working-directory: ${{ inputs.search-path }}
         run: xargs -0 -r -t prettier --check -- < "${RUNNER_TEMP}/markdown-files"
