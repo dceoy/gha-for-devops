@@ -92,7 +92,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/gha-for-devops/markdown-lint
-          key: markdown-lint-${{ runner.os }}-${{ inputs.node-version }}-${{ inputs.use-markdownlint-cli2 }}-${{ inputs.use-prettier }}-${{ inputs.use-biome }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.PRETTIER_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
+          key: markdown-lint-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ inputs.use-markdownlint-cli2 }}-${{ inputs.use-prettier }}-${{ inputs.use-biome }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.PRETTIER_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
       - name: Install Markdown lint tools
         env:
           USE_MARKDOWNLINT_CLI2: ${{ inputs.use-markdownlint-cli2 }}
@@ -102,20 +102,23 @@ jobs:
           packages=()
           needs_install=false
           tool_dir="${HOME}/.cache/gha-for-devops/markdown-lint"
+          installed_version() {
+            jq -r '.version // empty' "${tool_dir}/node_modules/${1}/package.json" 2> /dev/null || true
+          }
           if ${USE_MARKDOWNLINT_CLI2}; then
             [[ "${MARKDOWNLINT_CLI2_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid MARKDOWNLINT_CLI2_VERSION"; exit 1; }
             packages+=("markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}")
-            [[ -x "${tool_dir}/node_modules/.bin/markdownlint-cli2" ]] || needs_install=true
+            [[ "$(installed_version markdownlint-cli2)" == "${MARKDOWNLINT_CLI2_VERSION}" ]] || needs_install=true
           fi
           if ${USE_PRETTIER}; then
             [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
             packages+=("prettier@${PRETTIER_VERSION}")
-            [[ -x "${tool_dir}/node_modules/.bin/prettier" ]] || needs_install=true
+            [[ "$(installed_version prettier)" == "${PRETTIER_VERSION}" ]] || needs_install=true
           fi
           if ${USE_BIOME}; then
             [[ "${BIOME_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid BIOME_VERSION"; exit 1; }
             packages+=("@biomejs/biome@${BIOME_VERSION}")
-            [[ -x "${tool_dir}/node_modules/.bin/biome" ]] || needs_install=true
+            [[ "$(installed_version @biomejs/biome)" == "${BIOME_VERSION}" ]] || needs_install=true
           fi
           if ${needs_install}; then
             npm install --prefix "${tool_dir}" "${packages[@]}"
