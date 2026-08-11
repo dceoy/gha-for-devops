@@ -15,6 +15,7 @@ on:
         default: |
           *.md
           *.markdown
+          *.mdx
       use-markdownlint-cli2:
         required: false
         type: boolean
@@ -144,12 +145,15 @@ jobs:
       - name: Execute markdownlint-cli2
         if: inputs.use-markdownlint-cli2
         working-directory: ${{ inputs.search-path }}
-        run: xargs -0 -r -t markdownlint-cli2 --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdown-files"
+        run: >
+          xargs -0 -r -t markdownlint-cli2 --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdown-files"
       - name: Check Markdown formatting with Prettier
         if: inputs.use-prettier
         working-directory: ${{ inputs.search-path }}
-        run: xargs -0 -r -t prettier --check -- < "${RUNNER_TEMP}/markdown-files"
+        run: >
+          xargs -0 -r -t prettier --check -- < "${RUNNER_TEMP}/markdown-files"
       - name: Check Markdown formatting with Biome
         if: inputs.use-biome
         working-directory: ${{ inputs.search-path }}
-        run: xargs -0 -r -t biome format --files-ignore-unknown=true --no-errors-on-unmatched -- < "${RUNNER_TEMP}/markdown-files"
+        run: >
+          xargs -0 -r -t biome format --files-ignore-unknown=true --no-errors-on-unmatched -- < "${RUNNER_TEMP}/markdown-files"
