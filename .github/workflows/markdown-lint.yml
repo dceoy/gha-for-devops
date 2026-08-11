@@ -86,7 +86,7 @@ jobs:
         env:
           MARKDOWNLINT_CONFIG_DATA: ${{ inputs.markdownlint-config-data }}
         run: |
-          config_file="${RUNNER_TEMP}/markdownlint-cli2.json"
+          config_file="${RUNNER_TEMP}/workflow.markdownlint-cli2.jsonc"
           jq -e . <<< "${MARKDOWNLINT_CONFIG_DATA}" > "${config_file}"
           echo "MARKDOWNLINT_CONFIG_FILE=${config_file}" >> "${GITHUB_ENV}"
       - name: Create Markdown file list
