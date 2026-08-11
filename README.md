@@ -221,6 +221,7 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [json-lint.yml](.github/workflows/json-lint.yml)                                                                 | Lint for JSON                                                     |
 | [json-schema-validation.yml](.github/workflows/json-schema-validation.yml)                                       | Schema validation for JSON                                        |
 | [markdown-format-and-pr.yml](.github/workflows/markdown-format-and-pr.yml)                                       | Formatting for Markdown                                           |
+| [markdown-lint.yml](.github/workflows/markdown-lint.yml)                                                         | Lint for Markdown                                                 |
 | [microsoft-defender-for-devops.yml](.github/workflows/microsoft-defender-for-devops.yml)                         | Microsoft Defender for Devops                                     |
 | [opencode-bot.yml](.github/workflows/opencode-bot.yml)                                                           | Mention bot using OpenCode                                        |
 | [opencode-review.yml](.github/workflows/opencode-review.yml)                                                     | Pull request review using OpenCode                                |

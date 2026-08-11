@@ -1,0 +1,184 @@
+---
+name: Lint for Markdown
+on:
+  workflow_call:
+    inputs:
+      search-path:
+        required: false
+        type: string
+        description: Path to search for Markdown files
+        default: .
+      file-names:
+        required: false
+        type: string
+        description: Newline-separated file names or pathspecs passed to git ls-files for Prettier and Biome
+        default: |
+          *.md
+          *.markdown
+          *.mdx
+      markdownlint-file-names:
+        required: false
+        type: string
+        description: Newline-separated file names or pathspecs passed to git ls-files for markdownlint-cli2
+        default: |
+          *.md
+          *.markdown
+      use-markdownlint-cli2:
+        required: false
+        type: boolean
+        description: Use markdownlint-cli2 to lint Markdown files
+        default: true
+      markdownlint-config-data:
+        required: false
+        type: string
+        description: JSON data for the markdownlint-cli2 base configuration
+        default: '{"config":{"MD013":false}}'
+      use-prettier:
+        required: false
+        type: boolean
+        description: Use Prettier to check Markdown formatting
+        default: true
+      use-biome:
+        required: false
+        type: boolean
+        description: Use Biome to check Markdown formatting when supported
+        default: false
+      node-version:
+        required: false
+        type: string
+        description: Node.js version to use
+        default: latest
+      enable-cache:
+        required: false
+        type: boolean
+        description: Cache pinned Markdown lint tools
+        default: true
+      cache-salt:
+        required: false
+        type: string
+        description: Optional value used to bust the Markdown lint cache
+        default: null
+      runs-on:
+        required: false
+        type: string
+        description: Runner to use
+        default: ubuntu-slim
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+jobs:
+  lint:
+    runs-on: ${{ inputs.runs-on }}
+    env:
+      # renovate: datasource=npm depName=markdownlint-cli2
+      MARKDOWNLINT_CLI2_VERSION: 0.23.2
+      # renovate: datasource=npm depName=prettier
+      PRETTIER_VERSION: 3.9.6
+      # renovate: datasource=npm depName=@biomejs/biome
+      BIOME_VERSION: 2.5.5
+    steps:
+      - name: Validate linter inputs
+        if: (! inputs.use-markdownlint-cli2) && (! inputs.use-prettier) && (! inputs.use-biome)
+        run: |
+          echo '::error::At least one of use-markdownlint-cli2, use-prettier, or use-biome must be true'
+          exit 1
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+      - name: Cache Markdown lint tools
+        if: inputs.enable-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/gha-for-devops/markdown-lint
+          key: markdown-lint-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ inputs.use-markdownlint-cli2 }}-${{ inputs.use-prettier }}-${{ inputs.use-biome }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.PRETTIER_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
+      - name: Install Markdown lint tools
+        env:
+          USE_MARKDOWNLINT_CLI2: ${{ inputs.use-markdownlint-cli2 }}
+          USE_PRETTIER: ${{ inputs.use-prettier }}
+          USE_BIOME: ${{ inputs.use-biome }}
+        run: | # zizmor: ignore[adhoc-packages] installs pinned Markdown lint tools
+          packages=()
+          needs_install=false
+          tool_dir="${HOME}/.cache/gha-for-devops/markdown-lint"
+          installed_version() {
+            jq -r '.version // empty' "${tool_dir}/node_modules/${1}/package.json" 2> /dev/null || true
+          }
+          if ${USE_MARKDOWNLINT_CLI2}; then
+            [[ "${MARKDOWNLINT_CLI2_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid MARKDOWNLINT_CLI2_VERSION"; exit 1; }
+            packages+=("markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}")
+            [[ "$(installed_version markdownlint-cli2)" == "${MARKDOWNLINT_CLI2_VERSION}" ]] || needs_install=true
+          fi
+          if ${USE_PRETTIER}; then
+            [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
+            packages+=("prettier@${PRETTIER_VERSION}")
+            [[ "$(installed_version prettier)" == "${PRETTIER_VERSION}" ]] || needs_install=true
+          fi
+          if ${USE_BIOME}; then
+            [[ "${BIOME_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid BIOME_VERSION"; exit 1; }
+            packages+=("@biomejs/biome@${BIOME_VERSION}")
+            [[ "$(installed_version @biomejs/biome)" == "${BIOME_VERSION}" ]] || needs_install=true
+          fi
+          if ${needs_install}; then
+            npm install --prefix "${tool_dir}" "${packages[@]}"
+          fi
+          echo "${tool_dir}/node_modules/.bin" >> "${GITHUB_PATH}"
+      - name: Create Markdown lint configuration
+        if: inputs.use-markdownlint-cli2
+        env:
+          MARKDOWNLINT_CONFIG_DATA: ${{ inputs.markdownlint-config-data }}
+        run: |
+          config_file="${RUNNER_TEMP}/workflow.markdownlint-cli2.jsonc"
+          jq -e . <<< "${MARKDOWNLINT_CONFIG_DATA}" > "${config_file}"
+          echo "MARKDOWNLINT_CONFIG_FILE=${config_file}" >> "${GITHUB_ENV}"
+      - name: Create Markdown file list
+        if: inputs.use-prettier || inputs.use-biome
+        working-directory: ${{ inputs.search-path }}
+        env:
+          FILE_NAMES: ${{ inputs.file-names }}
+        run: |
+          patterns=()
+          while IFS= read -r pattern; do
+            [[ -n "${pattern}" ]] && patterns+=("${pattern}")
+          done <<< "${FILE_NAMES}"
+          [[ ${#patterns[@]} -eq 0 ]] && { echo "::error::file-names input produced no entries"; exit 1; }
+          while IFS= read -r -d '' file; do
+            [[ -L "${file}" ]] || printf '%s\0' "${file}"
+          done < <(git ls-files -z -- "${patterns[@]}") > "${RUNNER_TEMP}/markdown-files"
+      - name: Create markdownlint-cli2 file list
+        if: inputs.use-markdownlint-cli2
+        working-directory: ${{ inputs.search-path }}
+        env:
+          FILE_NAMES: ${{ inputs.markdownlint-file-names }}
+        run: |
+          patterns=()
+          while IFS= read -r pattern; do
+            [[ -n "${pattern}" ]] && patterns+=("${pattern}")
+          done <<< "${FILE_NAMES}"
+          [[ ${#patterns[@]} -eq 0 ]] && { echo "::error::markdownlint-file-names input produced no entries"; exit 1; }
+          while IFS= read -r -d '' file; do
+            [[ -L "${file}" ]] || printf '%s\0' "${file}"
+          done < <(git ls-files -z -- "${patterns[@]}") > "${RUNNER_TEMP}/markdownlint-files"
+      - name: Execute markdownlint-cli2
+        if: inputs.use-markdownlint-cli2
+        working-directory: ${{ inputs.search-path }}
+        run: >
+          xargs -0 -r -t markdownlint-cli2 --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdownlint-files"
+      - name: Check Markdown formatting with Prettier
+        if: inputs.use-prettier
+        working-directory: ${{ inputs.search-path }}
+        run: >
+          xargs -0 -r -t prettier --check -- < "${RUNNER_TEMP}/markdown-files"
+      - name: Check Markdown formatting with Biome
+        if: inputs.use-biome
+        working-directory: ${{ inputs.search-path }}
+        run: >
+          xargs -0 -r -t biome format --files-ignore-unknown=true -- < "${RUNNER_TEMP}/markdown-files"

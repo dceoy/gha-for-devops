@@ -41,6 +41,14 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/shell-lint.yml
+  markdown-lint:
+    if: >
+      github.event_name == 'push'
+      || github.event_name == 'pull_request'
+      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'lint')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/markdown-lint.yml
   readme-generator-test:
     if: >
       github.event_name == 'push'
@@ -127,6 +135,7 @@ jobs:
       && github.event.pull_request.user.login == 'dependabot[bot]'
     needs:
       - shell-lint
+      - markdown-lint
       - readme-generator-test
       - github-actions-lint-and-scan
     permissions:
