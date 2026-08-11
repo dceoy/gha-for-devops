@@ -54,9 +54,9 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     env:
       # renovate: datasource=npm depName=prettier
-      PRETTIER_VERSION: "3.9.6"
+      PRETTIER_VERSION: 3.9.6
       # renovate: datasource=npm depName=@biomejs/biome
-      BIOME_VERSION: "2.5.5"
+      BIOME_VERSION: 2.5.5
     steps:
       - name: Validate formatter inputs
         if: (! inputs.use-prettier) && (! inputs.use-biome)
