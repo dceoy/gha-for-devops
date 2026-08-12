@@ -34,11 +34,11 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
   elif [[ -n "${PACKAGE_DIRECTORY}" ]]; then
     uvx ruff format "${PACKAGE_DIRECTORY}"
     uvx ruff check --fix "${PACKAGE_DIRECTORY}"
-    npx -y pyright "${PACKAGE_DIRECTORY}"
+    uvx pyright "${PACKAGE_DIRECTORY}"
   else
     uvx ruff format --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
     uvx ruff check --fix --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --extend-select="${RUFF_LINT_EXTEND_SELECT}" --ignore="${RUFF_LINT_IGNORE}" .
-    npx -y pyright --threads=0 .
+    uvx pyright --threads=0 .
   fi
 fi
 
