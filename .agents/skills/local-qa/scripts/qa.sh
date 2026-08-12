@@ -32,13 +32,13 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
     poetry -C "${PACKAGE_DIRECTORY}" run ruff check --fix .
     poetry -C "${PACKAGE_DIRECTORY}" run pyright .
   elif [[ -n "${PACKAGE_DIRECTORY}" ]]; then
-    ruff format "${PACKAGE_DIRECTORY}"
-    ruff check --fix "${PACKAGE_DIRECTORY}"
-    pyright "${PACKAGE_DIRECTORY}"
+    uvx ruff format "${PACKAGE_DIRECTORY}"
+    uvx ruff check --fix "${PACKAGE_DIRECTORY}"
+    npx -y pyright "${PACKAGE_DIRECTORY}"
   else
-    ruff format --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
-    ruff check --fix --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --extend-select="${RUFF_LINT_EXTEND_SELECT}" --ignore="${RUFF_LINT_IGNORE}" .
-    pyright --threads=0 .
+    uvx ruff format --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
+    uvx ruff check --fix --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --extend-select="${RUFF_LINT_EXTEND_SELECT}" --ignore="${RUFF_LINT_IGNORE}" .
+    npx -y pyright --threads=0 .
   fi
 fi
 
@@ -67,27 +67,27 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
   fi
 
   if command -v biome > /dev/null 2>&1; then
-    biome check --write "${PACKAGE_DIRECTORY}"
+    npx -y @biomejs/biome check --write "${PACKAGE_DIRECTORY}"
   fi
   if command -v prettier > /dev/null 2>&1 && ! command -v biome > /dev/null 2>&1; then
-    prettier --write "${PACKAGE_DIRECTORY}/**/*.{js,jsx,ts,tsx,json,css,scss,md,mdx,html,htm}"
+    npx -y prettier --write "${PACKAGE_DIRECTORY}/**/*.{js,jsx,ts,tsx,json,css,scss,md,mdx,html,htm}"
   fi
   if command -v oxlint > /dev/null 2>&1; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
-      oxlint --fix --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
+      npx -y oxlint --fix --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
     else
-      oxlint --fix "${PACKAGE_DIRECTORY}"
+      npx -y oxlint --fix "${PACKAGE_DIRECTORY}"
     fi
   fi
   if command -v eslint > /dev/null 2>&1; then
-    eslint --fix --ext .js,.jsx,.ts,.tsx --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
+    npx -y eslint --fix --ext .js,.jsx,.ts,.tsx --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
   fi
 
   if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]]; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
-      tsc --noEmit --project "${TSCONFIG_JSON_FILE}"
+      npx -y --package typescript tsc --noEmit --project "${TSCONFIG_JSON_FILE}"
     else
-      tsc --noEmit
+      npx -y --package typescript tsc --noEmit
     fi
   fi
 else
@@ -133,13 +133,13 @@ done < <(git ls-files -- 'go.mod' '*/go.mod')
 if [[ -d '.github/workflows' ]]; then
   ZIZMOR_PATHS=('.github/workflows')
   [[ -d '.github/actions' ]] && ZIZMOR_PATHS+=('.github/actions')
-  zizmor --fix=safe "${ZIZMOR_PATHS[@]}"
+  uvx zizmor --fix=safe "${ZIZMOR_PATHS[@]}"
   N_WORKFLOW_YAML_FILES=$(git ls-files -- '.github/workflows/**.yml' '.github/workflows/**.yaml' | wc -l)
   if [[ "${N_WORKFLOW_YAML_FILES}" -gt 0 ]]; then
     git ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml' \
       | xargs -0 -t actionlint
     git ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml' \
-      | xargs -0 -t yamllint -d '{"extends": "relaxed", "rules": {"line-length": "disable"}}'
+      | xargs -0 -t uvx yamllint -d '{"extends": "relaxed", "rules": {"line-length": "disable"}}'
   fi
 fi
 
@@ -152,7 +152,7 @@ fi
 
 N_DOCKER_FILES=$(git ls-files -- 'Dockerfile' '*/Dockerfile' | wc -l)
 if [[ -d '.github/workflows' ]] || [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N_DOCKER_FILES}" -gt 0 ]]; then
-  checkov --framework=all --output=github_failed_only --directory=.
+  uvx checkov --framework=all --output=github_failed_only --directory=.
 fi
 if [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N_DOCKER_FILES}" -gt 0 ]]; then
   trivy filesystem --scanners vuln,secret,misconfig --skip-dirs .venv --skip-dirs .terraform --skip-dirs .terragrunt-cache --skip-dirs node_modules --skip-dirs .git .
