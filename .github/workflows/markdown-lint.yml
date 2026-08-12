@@ -32,7 +32,7 @@ on:
         required: false
         type: string
         description: JSON data for the markdownlint-cli2 base configuration
-        default: '{"config":{"MD013":false}}'
+        default: '{"config":{"MD013":false,"MD033":false,"MD041":false}}'
       use-prettier:
         required: false
         type: boolean
