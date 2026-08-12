@@ -16,13 +16,13 @@ on:
         required: false
         type: string
         description: Python version used to install zizmor, yamllint, and Checkov
-        default: "3.12"
+        default: '3.12'
       bats-version:
         required: false
         type: string
         description: Bats version to install
         # renovate: datasource=github-releases depName=bats-core/bats-core
-        default: "1.13.0"
+        default: 1.14.0
       install-bats-libraries:
         required: false
         type: boolean
@@ -60,17 +60,17 @@ jobs:
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:
       # renovate: datasource=github-releases depName=koalaman/shellcheck
-      SHELLCHECK_VERSION: v0.10.0
+      SHELLCHECK_VERSION: v0.11.0
       # renovate: datasource=github-releases depName=mvdan/sh
-      SHFMT_VERSION: v3.12.0
+      SHFMT_VERSION: v3.13.1
       # renovate: datasource=github-releases depName=rhysd/actionlint
       ACTIONLINT_VERSION: v1.7.12
       # renovate: datasource=pypi depName=zizmor versioning=pep440
-      ZIZMOR_VERSION: "1.28.0"
+      ZIZMOR_VERSION: 1.29.0
       # renovate: datasource=pypi depName=yamllint versioning=pep440
-      YAMLLINT_VERSION: "1.38.0"
+      YAMLLINT_VERSION: 1.38.0
       # renovate: datasource=pypi depName=checkov versioning=pep440
-      CHECKOV_VERSION: "3.3.8"
+      CHECKOV_VERSION: 3.3.9
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

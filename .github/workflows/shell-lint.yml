@@ -42,7 +42,7 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     env:
       # renovate: datasource=github-releases depName=koalaman/shellcheck
-      SHELLCHECK_VERSION: v0.10.0
+      SHELLCHECK_VERSION: v0.11.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
