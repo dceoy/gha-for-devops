@@ -99,6 +99,8 @@ jobs:
           use_bedrock: ${{ inputs.aws-role-to-assume != null }}
           prompt: '/review-pr REPO: ${{ github.repository }} PR_NUMBER: ${{ github.event.pull_request.number }}'
           claude_args: ${{ inputs.claude-args }}
+          plugins: pr-review-toolkit@claude-plugins-official
+          plugin_marketplaces: https://github.com/anthropics/claude-plugins-official.git
       - name: Fail on Claude Code permission denials
         id: permission_denials
         if: always() && steps.claude-review.outcome == 'success'
