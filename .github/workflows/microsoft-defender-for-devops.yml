@@ -8,7 +8,7 @@ on:
         type: string
         description: .NET version to use
         # renovate: datasource=dotnet-version depName=dotnet-sdk
-        default: "8.0.422"
+        default: 8.0.424
       runs-on:
         required: false
         type: string
