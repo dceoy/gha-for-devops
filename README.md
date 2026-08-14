@@ -105,26 +105,6 @@ jobs:
       command: .agents/skills/local-qa/scripts/qa.sh
 ```
 
-### Repository security gate
-
-Call the repository security workflow from the caller repository and choose the trigger there:
-
-```yaml
-name: Repository security
-on:
-  pull_request:
-
-jobs:
-  security:
-    permissions:
-      contents: read
-      actions: read
-      security-events: write
-    uses: dceoy/gha-for-devops/.github/workflows/repository-security-scan.yml@<commit-sha>
-```
-
-The reusable workflow composes the existing GitHub Actions and shell lint reusable workflows and adds a Trivy filesystem scan for vulnerabilities, secrets, and misconfigurations. Repository-specific security policy, organization ruleset wiring, cross-repository orchestration, and evidence aggregation belong outside `gha-for-devops`.
-
 ### Generated file update pull requests
 
 Run the `create-generated-update-pr` composite action as a step after your own generation and validation steps, in the same job and workspace, to open or refresh a pull request for the resulting changes. It requires `contents: write` and `pull-requests: write`, and reads `GH_TOKEN` from the step environment rather than an action input; the action runs `gh auth setup-git` internally, so `actions/checkout` does not need `persist-credentials: true`:
@@ -202,7 +182,6 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [python-pyinstaller.yml](.github/workflows/python-pyinstaller.yml)                                               | Build using PyInstaller                                           |
 | [r-package-format-and-pr.yml](.github/workflows/r-package-format-and-pr.yml)                                     | Formatting for R                                                  |
 | [r-package-lint.yml](.github/workflows/r-package-lint.yml)                                                       | Lint for R                                                        |
-| [repository-security-scan.yml](.github/workflows/repository-security-scan.yml)                                   | Repository security                                               |
 | [shell-lint.yml](.github/workflows/shell-lint.yml)                                                               | Lint for Shell                                                    |
 | [shell-project-ci.yml](.github/workflows/shell-project-ci.yml)                                                   | Run shell project CI                                              |
 | [terraform-deploy-to-aws.yml](.github/workflows/terraform-deploy-to-aws.yml)                                     | Deployment of AWS resources using Terraform                       |
