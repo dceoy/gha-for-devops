@@ -1,8 +1,0 @@
-# Organization-owned ShellCheck exclusions belong here. Passing this file
-# explicitly prevents a target repository's .shellcheckrc from changing the
-# standalone or embedded ShellCheck gates. The scanner separately rejects
-# target-owned source directives before either gate runs.
-
-# ShellCheck has no native ash mode and always checks ash scripts as dash,
-# emitting this advisory for every ash script regardless of its content.
-disable=SC2187

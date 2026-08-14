@@ -1,9 +1,0 @@
-name: Composite action ShellCheck finding
-description: Fixture with an inline shell finding
-runs:
-  using: composite
-  steps:
-    - shell: bash
-      run: |
-        # shellcheck-finding
-        echo $value

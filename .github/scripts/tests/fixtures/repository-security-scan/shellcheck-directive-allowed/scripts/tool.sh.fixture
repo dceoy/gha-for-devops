@@ -1,8 +1,0 @@
-#!fixture /usr/bin/env bash
-
-# shellcheck shell=bash
-export TOOL_VERSIONS=v1
-# shellcheck disable=SC2153
-[[ "${TOOL_VERSION}" =~ ^v[0-9]+$ ]] || exit 1
-# shellcheck disable=SC2016
-printf 'literal not expanded: $HOME\n'

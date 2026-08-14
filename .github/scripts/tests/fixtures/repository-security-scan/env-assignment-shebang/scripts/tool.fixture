@@ -1,3 +1,0 @@
-#!fixture /usr/bin/env -S FOO=bar bash
-
-printf '%s\n' $value  # shellcheck-finding

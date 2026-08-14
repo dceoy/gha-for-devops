@@ -1,9 +1,0 @@
-name: Composite action unquoted expression
-description: Fixture whose run body leaves an expression unquoted after masking
-runs:
-  using: composite
-  steps:
-    - shell: bash
-      run: |
-        # shellcheck-finding
-        echo ${{ inputs.value }}

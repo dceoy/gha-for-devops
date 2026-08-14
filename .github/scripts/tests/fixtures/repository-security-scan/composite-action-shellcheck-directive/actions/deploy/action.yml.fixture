@@ -1,9 +1,0 @@
-name: Composite action ShellCheck directive
-description: Fixture with a target-owned ShellCheck directive
-runs:
-  using: composite
-  steps:
-    - shell: bash
-      run: |
-        # shellcheck disable=SC2086
-        echo $value
