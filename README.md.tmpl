@@ -107,50 +107,23 @@ jobs:
 
 ### Repository security gate
 
-Use the centrally owned, read-only pull-request security policy without exposing scanner settings to the caller:
+Call the repository security workflow from the caller repository and choose the trigger there:
 
 ```yaml
 name: Repository security
 on:
   pull_request:
-  merge_group:
-
-permissions:
-  contents: read
 
 jobs:
   security:
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     uses: dceoy/gha-for-devops/.github/workflows/repository-security-scan.yml@<commit-sha>
 ```
 
-The reusable workflow runs zizmor, actionlint with embedded ShellCheck, standalone ShellCheck, Checkov, and separate Trivy vulnerability and secret gates. Every scanner runs before the aggregate result is enforced, and complete evidence is retained in the `repository-security-reports` artifact.
-
-The workflow declares its own `pull_request` and `merge_group` triggers in addition to `workflow_call`, so it can be selected directly as an organization ruleset workflow. A direct pull request run uses `github.event.pull_request.base.sha` as the trusted scanner and scans the pull request's synthetic merge commit; a direct merge-group run uses `github.event.merge_group.base_sha` as the trusted scanner and scans `github.event.merge_group.head_sha`. The `workflow_call` usage above is unaffected.
-
-For organization-wide enforcement, configure `.github/workflows/repository-security-scan.yml` at a reviewed full commit SHA as a ruleset required workflow for `pull_request` and `merge_group`. Require the stable `Repository security / scan` check. Target repositories need no secrets or write permissions, and fork and Dependabot pull requests use the same read-only path.
-
-A trusted organization controller (for example, a periodic scan orchestrator) can also call the workflow to scan an explicit immutable commit in another repository instead of the caller's own revision:
-
-```yaml
-jobs:
-  scan:
-    strategy:
-      matrix:
-        target:
-          - { repository: dceoy/segh, ref: <commit-sha>, id: segh, default-branch: main }
-    uses: dceoy/gha-for-devops/.github/workflows/repository-security-scan.yml@<commit-sha>
-    with:
-      target-repository: ${{"{{"}} matrix.target.repository {{"}}"}}
-      target-ref: ${{"{{"}} matrix.target.ref {{"}}"}}
-      repository-id: ${{"{{"}} matrix.target.id {{"}}"}}
-      default-branch: ${{"{{"}} matrix.target.default-branch {{"}}"}}
-      evidence-artifact-name: repository-security-reports-${{"{{"}} matrix.target.id {{"}}"}}
-    secrets:
-      TARGET_APP_CLIENT_ID: ${{"{{"}} secrets.TARGET_APP_CLIENT_ID {{"}}"}}
-      TARGET_APP_PRIVATE_KEY: ${{"{{"}} secrets.TARGET_APP_PRIVATE_KEY {{"}}"}}
-```
-
-`target-ref` must be a full lowercase 40-character commit SHA; the trusted scanner revision is always derived from the calling job's own workflow reference and never from `target-repository`. The called workflow mints a short-lived, repository-scoped GitHub App token restricted to `contents: read` and `metadata: read` for the target, disables LFS and submodules on checkout, and emits a compact `status.json` (`pass`, `findings`, `incomplete`, or `error`) bound to the supplied `repository-id`, `default-branch`, and commit SHA so a controller can aggregate results across matrix invocations.
+The reusable workflow composes the existing GitHub Actions and shell lint reusable workflows and adds a Trivy filesystem scan for vulnerabilities, secrets, and misconfigurations. Repository-specific security policy, organization ruleset wiring, cross-repository orchestration, and evidence aggregation belong outside `gha-for-devops`.
 
 ### Generated file update pull requests
 
