@@ -1,8 +1,0 @@
-name: Composite action expression with internal braces
-description: Fixture whose expression body contains literal braces from format()
-runs:
-  using: composite
-  steps:
-    - shell: bash
-      run: |
-        "${{ format('{0}/scripts/{1}.sh', github.action_path, 'stage-changes') }}"

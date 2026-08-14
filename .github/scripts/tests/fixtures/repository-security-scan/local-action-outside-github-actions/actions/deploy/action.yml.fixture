@@ -1,8 +1,0 @@
----
-name: Deploy
-description: Fixture local action outside .github/actions
-runs:
-  using: composite
-  steps:
-    - run: echo deploy
-      shell: bash

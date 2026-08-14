@@ -1,156 +1,47 @@
 ---
 name: Repository security
 on:
-  pull_request:
-  merge_group:
   workflow_call:
-    inputs:
-      target-repository:
-        required: false
-        type: string
-        description: >-
-          Explicit owner/name repository to scan on behalf of a trusted
-          organization controller (e.g. a periodic scan orchestrator). Empty
-          means scan the caller/event repository and revision, unchanged.
-        default: ''
-      target-ref:
-        required: false
-        type: string
-        description: >-
-          Full lowercase 40-character commit SHA to scan in target-repository.
-          Required when target-repository is set; rejected otherwise.
-        default: ''
-      repository-id:
-        required: false
-        type: string
-        description: Stable repository identity copied into periodic-scan status evidence
-        default: ''
-      default-branch:
-        required: false
-        type: string
-        description: Default branch identity copied into periodic-scan status evidence
-        default: ''
-      evidence-artifact-name:
-        required: false
-        type: string
-        description: >-
-          Unique evidence artifact name for matrix callers. Empty uses the
-          existing run-attempt-scoped name.
-        default: ''
-    secrets:
-      TARGET_APP_CLIENT_ID:
-        required: false
-        description: GitHub App client ID used to mint a repository-scoped token for target-repository
-      TARGET_APP_PRIVATE_KEY:
-        required: false
-        description: GitHub App private key used to mint a repository-scoped token for target-repository
-concurrency:
-  # Explicit target-mode matrix invocations are isolated by target repository
-  # and the periodic-scan controller run_id. Only pull_request runs cancel a
-  # superseded in-progress scan; merge_group and target-mode runs must all
-  # complete.
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ inputs.target-repository != '' && format('{0}-{1}', inputs.target-repository, github.run_id) || github.event.pull_request.number || github.event.merge_group.head_ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' && inputs.target-repository == '' }}
 permissions:
   contents: read
 jobs:
-  scan:
-    name: scan
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
+  github-actions:
     permissions:
       contents: read
-    env:
-      # Aqua resolves shims by searching for aqua.yaml from the process's
-      # working directory. The scanners run inside the untrusted checkout, so
-      # force every shim to use the trusted workflow revision instead.
-      AQUA_CONFIG: ${{ github.workspace }}/_trusted/aqua.yaml
+      security-events: write
+      actions: read
+    uses: ./.github/workflows/github-actions-lint-and-scan.yml
+    with:
+      search-path: .github/workflows
+      use-pyflakes: false
+      use-yamllint: false
+      zizmor-search-path: .github
+      zizmor-advanced-security: false
+  shell:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/shell-lint.yml
+  trivy:
+    name: Trivy filesystem scan
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
-      - name: Check out trusted scanner implementation
+      - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          repository: ${{ job.workflow_repository }}
-          # A direct pull request or merge-group run must use its base revision
-          # as the scanner. Reusable and ruleset runs retain the exact SHA of
-          # the workflow that defines this job, even for same-repository calls.
-          ref: ${{ job.workflow_ref == github.workflow_ref && github.event_name == 'pull_request' && github.event.pull_request.base.sha || job.workflow_ref == github.workflow_ref && github.event_name == 'merge_group' && github.event.merge_group.base_sha || job.workflow_sha }}
-          path: _trusted
+          fetch-depth: 1
           persist-credentials: false
-      - name: Resolve immutable scan target
-        # Only a trusted organization controller supplies target-repository
-        # (or, invalidly, target-ref alone) via workflow_call, where
-        # job.workflow_sha guarantees this helper exists at the exact
-        # revision being run. Direct pull_request and merge_group triggers
-        # never set either input, so this step is skipped and the default
-        # repository/ref path below uses plain event expressions instead of
-        # a helper that a direct trigger's trusted checkout (pinned to the
-        # base revision) may not contain yet. Running on target-ref alone
-        # lets resolve-target.sh reject that invalid combination instead of
-        # silently falling back to the event repository/ref.
-        if: inputs.target-repository != '' || inputs.target-ref != ''
-        id: target
-        shell: bash
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
         env:
-          TARGET_REPOSITORY: ${{ inputs.target-repository }}
-          TARGET_REF: ${{ inputs.target-ref }}
-          EVENT_NAME: ${{ github.event_name }}
-          EVENT_REPOSITORY: ${{ github.repository }}
-          EVENT_SHA: ${{ github.sha }}
-          MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
-        run: '"${GITHUB_WORKSPACE}/_trusted/.github/actions/repository-security-scan/resolve-target.sh"'
-      - name: Mint scoped token for explicit target repository
-        # Only a trusted organization controller supplies target-repository
-        # via workflow_call; direct pull_request/merge_group triggers never
-        # set it, so this step is skipped and github.token scans the caller
-        # repository unchanged.
-        if: inputs.target-repository != ''
-        id: target-app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
-        with:
-          client-id: ${{ secrets.TARGET_APP_CLIENT_ID }}
-          private-key: ${{ secrets.TARGET_APP_PRIVATE_KEY }}
-          owner: ${{ steps.target.outputs.owner }}
-          repositories: ${{ steps.target.outputs.name }}
-          permission-contents: read
-          permission-metadata: read
-      - name: Check out untrusted target revision
-        id: target-checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          repository: ${{ inputs.target-repository != '' && steps.target.outputs.repository || github.repository }}
-          # A merge queue must scan its synthetic head commit. Pull requests
-          # and reusable calls from other events scan the exact triggering
-          # commit, including the pull request's synthetic merge result. An
-          # explicit target-repository scans its supplied immutable SHA.
-          ref: ${{ inputs.target-repository != '' && steps.target.outputs.ref || (github.event_name == 'merge_group' && github.event.merge_group.head_sha || github.sha) }}
-          token: ${{ inputs.target-repository != '' && steps.target-app-token.outputs.token || github.token }}
-          path: _target
-          persist-credentials: false
-          lfs: false
-          submodules: false
-      - name: Run trusted repository security pipeline
-        # Must still run when target setup (resolution, token minting, or
-        # checkout) failed, so a malformed ref or inaccessible target still
-        # produces status/evidence instead of the job simply going red with
-        # nothing to classify or upload. Unlike always(), this must not run
-        # on cancellation: pull_request runs cancel a superseded in-progress
-        # scan, and always() would start the full scanner pipeline against
-        # its 45-minute timeout instead of aborting.
-        if: (! cancelled())
-        uses: ./_trusted/.github/actions/repository-security-scan
-        with:
-          repository-id: ${{ inputs.repository-id }}
-          default-branch: ${{ inputs.default-branch }}
-          # Use the raw requested inputs, not steps.target's resolved
-          # outputs: when target resolution itself fails (malformed
-          # target-repository/target-ref), those outputs are unset, and
-          # falling back to github.repository/github.sha would attribute
-          # the failed scan to the caller instead of the requested target.
-          # The event SHA fallback applies only when both target inputs are
-          # empty. A target-ref-only setup failure therefore retains the raw
-          # supplied ref in error evidence, while a target repository with an
-          # empty ref retains an empty commit-sha.
-          repository: ${{ inputs.target-repository == '' && inputs.target-ref == '' && github.repository || inputs.target-repository }}
-          commit-sha: ${{ inputs.target-repository == '' && inputs.target-ref == '' && (github.event_name == 'merge_group' && github.event.merge_group.head_sha || github.sha) || inputs.target-ref }}
-          evidence-artifact-name: ${{ inputs.evidence-artifact-name }}
-          setup-failed: ${{ steps.target.outcome == 'failure' || steps.target-app-token.outcome == 'failure' || steps.target-checkout.outcome == 'failure' }}
+          TRIVY_CHECKS_REPOSITORY: public.ecr.aws/aquasecurity/trivy-checks
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db

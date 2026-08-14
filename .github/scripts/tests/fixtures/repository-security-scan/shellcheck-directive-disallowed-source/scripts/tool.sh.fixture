@@ -1,5 +1,0 @@
-#!fixture /usr/bin/env bash
-
-# shellcheck source=/dev/null
-source /dev/null
-printf 'done\n'
