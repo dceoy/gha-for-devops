@@ -66,13 +66,8 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Install aqua and CLI tools
-        uses: aquaproj/aqua-installer@96a9bc20066c5bf5e275b41019cfc165b25f4e2e  # v4.0.5
-        with:
-          aqua_version: v2.60.2
-          aqua_opts: ""
-      - name: Verify yq and gomplate are installed
-        run: ./.github/scripts/install-yq-gomplate.sh
+      - name: Set up mise
+        uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14  # v4.2.3
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
@@ -182,13 +177,8 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: 24.18.0
-      - name: Install aqua and CLI tools
-        uses: aquaproj/aqua-installer@96a9bc20066c5bf5e275b41019cfc165b25f4e2e  # v4.0.5
-        with:
-          aqua_version: v2.60.2
-          aqua_opts: ""
-      - name: Verify yq and gomplate are installed
-        run: ./.github/scripts/install-yq-gomplate.sh
+      - name: Set up mise
+        uses: jdx/mise-action@9e7f7633ff6f6d6048a9418a68d48f288f50eb14  # v4.2.3
       - name: Install Prettier
         env:
           PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
