@@ -78,9 +78,25 @@ jobs:
         env:
           FILE_NAMES: ${{ inputs.file-names }}
         run: |
-          files=()
-          while IFS= read -r f; do
-            [[ -n "${f}" ]] && files+=("${f}")
+          patterns=()
+          while IFS= read -r pattern; do
+            [[ -n "${pattern}" ]] && patterns+=("${pattern}")
           done <<< "${FILE_NAMES}"
-          [[ ${#files[@]} -eq 0 ]] && { echo "::error::file-names input produced no entries"; exit 1; }
-          git ls-files -z -- "${files[@]}" | xargs -0 -r -t shellcheck --external-sources
+          [[ ${#patterns[@]} -eq 0 ]] && { echo "::error::file-names input produced no entries"; exit 1; }
+
+          declare -A selected=()
+          while IFS= read -r -d '' file; do
+            selected["${file}"]=1
+          done < <(git ls-files -z -- "${patterns[@]}")
+
+          shell_shebang='^#![[:space:]]*(/usr/bin/env[[:space:]]+([^[:space:]]+[[:space:]]+)*)?(/[^[:space:]]*/)?(busybox[[:space:]]+)?(sh|ash|dash|bash|ksh93|ksh88|ksh|oksh|bats)([[:space:]]|$)'
+          while IFS= read -r -d '' entry; do
+            mode=${entry%% *}
+            [[ "${mode}" == '100644' || "${mode}" == '100755' ]] || continue
+            file=${entry#*$'\t'}
+            first_line=''
+            IFS= read -r first_line < "${file}" || true
+            [[ "${first_line}" =~ ${shell_shebang} ]] && selected["${file}"]=1
+          done < <(git ls-files -z --stage)
+
+          ((${#selected[@]} == 0)) || printf '%s\0' "${!selected[@]}" | xargs -0 -r -t shellcheck --external-sources
