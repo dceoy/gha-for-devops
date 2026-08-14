@@ -8,11 +8,6 @@ on:
         type: string
         description: Path to search for GitHub Actions workflow files
         default: .github/workflows
-      actionlint-config-file:
-        required: false
-        type: string
-        description: Path to an actionlint config file
-        default: null
       go-version:
         required: false
         type: string
@@ -240,11 +235,8 @@ jobs:
           pip install "pyflakes==${PYFLAKES_VERSION}"
       - name: Execute actionlint
         env:
-          ACTIONLINT_CONFIG_FILE: ${{ inputs.actionlint-config-file }}
           SEARCH_PATH: ${{ inputs.search-path }}
         run: |
-          options=()
-          [[ -z "${ACTIONLINT_CONFIG_FILE}" ]] || options+=(--config-file "${ACTIONLINT_CONFIG_FILE}")
           files=()
           while IFS= read -r -d '' file; do
             files+=("${SEARCH_PATH}/${file}")
@@ -253,7 +245,7 @@ jobs:
             echo "No GitHub Actions workflow YAML files found under ${SEARCH_PATH}; skipping actionlint."
             exit 0
           fi
-          actionlint "${options[@]}" "${files[@]}"
+          actionlint "${files[@]}"
       - name: Run zizmor
         if: inputs.use-zizmor
         uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054  # v0.6.2
