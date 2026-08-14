@@ -38,6 +38,7 @@ jobs:
         with:
           scan-type: fs
           scan-ref: .
+          trivy-config: /dev/null
           scanners: vuln
           severity: HIGH,CRITICAL
           exit-code: '1'
@@ -50,6 +51,7 @@ jobs:
         with:
           scan-type: fs
           scan-ref: .
+          trivy-config: /dev/null
           scanners: secret,misconfig
           severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
           exit-code: '1'
