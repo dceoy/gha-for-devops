@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", "github>aquaproj/aqua-renovate-config#2.13.0"],
+  "extends": ["config:recommended"],
   "minimumReleaseAge": "7 days",
   "customManagers": [
     {
@@ -40,8 +40,13 @@
       "automergeType": "branch"
     },
     {
-      "description": "Require review for workflow tool versions and aqua.yaml packages updated by regex managers, including yq/gomplate versions and the aqua-registry ref pinned in aqua.yaml",
+      "description": "Require review for workflow tool versions updated by regex managers",
       "matchManagers": ["custom.regex"],
+      "automerge": false
+    },
+    {
+      "description": "Require review for mise-managed tool versions",
+      "matchManagers": ["mise"],
       "automerge": false
     }
   ]
