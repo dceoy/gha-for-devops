@@ -17,6 +17,7 @@ jobs:
       use-yamllint: false
       zizmor-search-path: .github
       zizmor-advanced-security: false
+      checkov-config-file: /dev/null
   shell:
     permissions:
       contents: read
@@ -43,6 +44,7 @@ jobs:
         env:
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db
+          TRIVY_IGNOREFILE: /dev/null
       - name: Run Trivy secret and misconfiguration scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         with:
@@ -53,3 +55,4 @@ jobs:
           exit-code: '1'
         env:
           TRIVY_CHECKS_REPOSITORY: public.ecr.aws/aquasecurity/trivy-checks
+          TRIVY_IGNOREFILE: /dev/null
