@@ -7,8 +7,4 @@ updates:
       interval: daily
     cooldown:
       default-days: 7
-    groups:
-      mise:
-        patterns:
-          - jdx/mise-action
     open-pull-requests-limit: 10
