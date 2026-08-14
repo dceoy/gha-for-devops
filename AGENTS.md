@@ -2,10 +2,11 @@
 
 ## Project Structure & Module Organization
 
-This repository publishes reusable GitHub Actions workflows for DevOps tasks. The `workflows` symlink points to `.github/workflows/` for convenience. The generated public documentation is `README.md`, and its source template is `README.md.tmpl` (a `gomplate` template). The README generator is the shell script `.github/scripts/update-readme.sh`, which extracts reusable workflow metadata with `yq`, renders the template with `gomplate`, and formats the output with Prettier. Local automation and agent instructions are under `.agents/`, including `.agents/skills/local-qa`.
+This repository publishes reusable GitHub Actions workflows for DevOps tasks. The `workflows` symlink points to `.github/workflows/` for convenience. The generated public documentation is `README.md`, and its source template is `README.md.tmpl` (a `gomplate` template). The README generator is the shell script `.github/scripts/update-readme.sh`, which extracts reusable workflow metadata with `yq`, renders the template with `gomplate`, and formats the output with Prettier. Repository tool versions are declared in `mise.toml`. Local automation and agent instructions are under `.agents/`, including `.agents/skills/local-qa`.
 
 ## Build, Test, and Development Commands
 
+- `mise install`: install the repository tools pinned in `mise.toml`.
 - `.github/scripts/update-readme.sh`: regenerate root `README.md` from `README.md.tmpl` and `.github/workflows` (requires `yq`, `gomplate`, and `prettier` on `PATH`).
 - `scripts/qa.sh`: run the local QA workflow defined by `.agents/skills/local-qa` after file changes.
 
