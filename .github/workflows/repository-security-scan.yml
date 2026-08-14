@@ -13,6 +13,7 @@ jobs:
     uses: ./.github/workflows/github-actions-lint-and-scan.yml
     with:
       search-path: .github/workflows
+      actionlint-config-file: /dev/null
       use-pyflakes: false
       use-yamllint: false
       zizmor-search-path: .github
