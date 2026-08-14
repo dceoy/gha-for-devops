@@ -99,4 +99,4 @@ jobs:
             [[ "${first_line}" =~ ${shell_shebang} ]] && selected["${file}"]=1
           done < <(git ls-files -z --stage)
 
-          ((${#selected[@]} == 0)) || printf '%s\0' "${!selected[@]}" | xargs -0 -r -t shellcheck --external-sources
+          ((${#selected[@]} == 0)) || printf '%s\0' "${!selected[@]}" | xargs -0 -r -t shellcheck --external-sources --
