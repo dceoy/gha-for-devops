@@ -105,35 +105,6 @@ jobs:
       command: .agents/skills/local-qa/scripts/qa.sh
 ```
 
-### Generated file update pull requests
-
-Run the `create-generated-update-pr` composite action as a step after your own generation and validation steps, in the same job and workspace, to open or refresh a pull request for the resulting changes. It requires `contents: write` and `pull-requests: write`, and reads `GH_TOKEN` from the step environment rather than an action input; the action runs `gh auth setup-git` internally, so `actions/checkout` does not need `persist-credentials: true`:
-
-```yaml
-jobs:
-  update:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - run: ./scripts/generate-docs.sh
-      - uses: dceoy/gha-for-devops/.github/actions/create-generated-update-pr@main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          paths: |
-            docs/**
-          branch: update-generated-docs
-          base: main
-          title: Update generated docs
-```
-
-Only the pathspecs listed in `paths` are ever staged or committed; unrelated workspace changes are left untouched. Re-running the action resets the same branch and updates the same open pull request instead of creating duplicates; if a later run finds no scoped changes, it closes that pull request instead of leaving it open with a stale diff. The generation step must run with `base` checked out (or a commit already merged into `base`); the action compares the checked-out commit against `base` on GitHub and fails before pushing anything if it is ahead of or diverged from `base`, so a mismatched checkout can never smuggle unrelated commits into the branch or pull request. See the action's `action.yml` for the full set of inputs (commit message, labels, draft mode, Git author) and outputs (`changed`, `branch`, `commit-sha`, `pr-number`, `pr-url`).
-
 ## Reusable Workflows
 
 Each workflow below exposes `workflow_call`; see its file for supported inputs, secrets, permissions, and defaults.
