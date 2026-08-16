@@ -12,9 +12,9 @@ on:
         type: string
         description: Additional arguments to pass directly to Claude Code Action
         default: >-
-          --allowedTools "Skill,Agent,Read,Glob,Grep,WebFetch,WebSearch,Bash(git:*),Bash(gh:*),mcp__github_inline_comment__create_inline_comment"
-          --model "opusplan"
-          --advisor "opus"
+          --allowedTools="Skill,Agent,Read,Glob,Grep,WebFetch,WebSearch,Bash(git:*),Bash(gh:*),mcp__github_inline_comment__create_inline_comment"
+          --model=opusplan
+          --advisor=opus
       aws-role-to-assume:
         required: false
         type: string
@@ -100,7 +100,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           use_bedrock: ${{ inputs.aws-role-to-assume != null }}
           prompt: '/review-pr REPO: ${{ github.repository }} PR_NUMBER: ${{ github.event.pull_request.number }}'
-          claude_args: ${{ inputs.claude-args }}
+          claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto', inputs.claude-args) || inputs.claude-args }}
           plugins: pr-review-toolkit@claude-plugins-official
           plugin_marketplaces: https://github.com/anthropics/claude-plugins-official.git
       - name: Fail on Claude Code permission denials
