@@ -98,9 +98,9 @@ jobs:
           (steps.merge-state.outputs.status == 'CLEAN' || steps.merge-state.outputs.status == 'UNSTABLE')
         run: |
           if ! check_output="$(gh pr checks --required "${PR_URL}" 2>&1)"; then
-            # Work around the gh CLI behavior where --required exits non-zero
-            # with this message when the PR branch has no required checks.
-            if grep -Fq "no required checks reported" <<<"${check_output}"; then
+            # Work around gh CLI behavior where --required exits non-zero
+            # when the PR branch has no required checks.
+            if grep -Eq "no (required )?checks reported" <<<"${check_output}"; then
               echo "${check_output}"
               echo "No required checks are configured for this pull request; skipping required-check verification."
             else
