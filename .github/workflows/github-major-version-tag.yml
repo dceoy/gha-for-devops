@@ -16,10 +16,18 @@ on:
         type: string
         description: Runner to use
         default: ubuntu-slim
+      app-client-id:
+        required: false
+        type: string
+        description: GitHub App client ID for workflow-capable tag updates
+        default: ''
     secrets:
       GH_TOKEN:
         required: false
         description: GitHub token
+      GH_APP_PRIVATE_KEY:
+        required: false
+        description: GitHub App private key used with app-client-id
   workflow_dispatch:  # checkov:skip=CKV_GHA_7:workflow_dispatch is used for manual trigger
     inputs:
       minor-version-tag:
@@ -42,9 +50,21 @@ jobs:
   create-major-version-tag:
     runs-on: ${{ inputs.runs-on || 'ubuntu-slim' }}
     env:
-      GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
       REPO_API: repos/${{ github.repository }}
     steps:
+      - name: Create GitHub App token
+        id: app-token
+        if: inputs.app-client-id != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ inputs.app-client-id }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-workflows: write
+      - name: Set GitHub token
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token || secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+        run: printf 'GH_TOKEN=%s\n' "${TOKEN}" >> "${GITHUB_ENV}"
       - name: Fetch the latest release tag
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
