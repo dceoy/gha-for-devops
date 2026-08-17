@@ -49,10 +49,11 @@ jobs:
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          tee -a "${GITHUB_ENV}" <<< "LATEST_TAG=$(
+          LATEST_TAG="$(
             gh release list --repo "${GITHUB_REPOSITORY}" --json tagName,isLatest \
               --jq '.[] | select(.isLatest) | .tagName'
           )"
+          tee -a "${GITHUB_ENV}" <<< "LATEST_TAG=${LATEST_TAG}"
       - name: Parse the major and minor version tags
         run: |
           if [[ -z "${LATEST_TAG:-}" ]]; then
