@@ -179,7 +179,7 @@ jobs:
           output-credentials: true
           output-env-credentials: false
       - name: Run PR-agent
-        uses: qodo-ai/pr-agent@743f52d80f3513193dfc7626f778c73478df6d0a  # v0.41.1
+        uses: qodo-ai/pr-agent@f6af7d77554ff8d26adffded077e6461329e92fa  # v0.42.0
         env:
           AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
