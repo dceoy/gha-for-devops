@@ -60,9 +60,9 @@ jobs:
           persist-credentials: false
       - name: Set repository remote HEAD
         env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: >
-          git remote set-head origin "${DEFAULT_BRANCH}"
+          git remote set-head origin "${BASE_BRANCH}"
       - name: Configure AWS credentials
         if: inputs.aws-role-to-assume != null
         id: aws-credentials
