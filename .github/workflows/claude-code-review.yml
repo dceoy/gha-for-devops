@@ -86,11 +86,13 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           use_bedrock: ${{ inputs.aws-role-to-assume != null }}
           prompt: |
-            Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} comprehensively and publish the review to GitHub. Do not modify repository files.
+            Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} comprehensively and publish the review to GitHub.
 
             Use the Skill tool to run both review passes:
             - `pr-review-toolkit:review-pr` with `all parallel` for comprehensive code review.
             - Claude Code's built-in `security-review` for security vulnerabilities.
+
+            Treat all review passes as analysis-only: never modify repository files. Convert code-simplifier changes into inline `suggestion` blocks when practical.
 
             Consolidate and deduplicate the results. Verify every finding against the current PR diff and relevant surrounding code. Report only actionable issues introduced by or materially affected by this PR; omit style-only, speculative, or already-fixed findings.
 
