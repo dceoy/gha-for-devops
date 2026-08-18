@@ -62,16 +62,6 @@ jobs:
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: git remote set-head origin "${DEFAULT_BRANCH}"
-      - name: Pin Sentry skills marketplace
-        env:
-          SENTRY_SKILLS_MARKETPLACE_DIR: ${{ runner.temp }}/sentry-skills
-          SENTRY_SKILLS_MARKETPLACE_SHA: 24fdb833b9e67670a027e3b482189100a69ff7f9
-        run: |
-          git init --quiet "${SENTRY_SKILLS_MARKETPLACE_DIR}"
-          git -C "${SENTRY_SKILLS_MARKETPLACE_DIR}" remote add origin https://github.com/getsentry/skills.git
-          git -C "${SENTRY_SKILLS_MARKETPLACE_DIR}" fetch --quiet --depth=1 origin "${SENTRY_SKILLS_MARKETPLACE_SHA}"
-          git -C "${SENTRY_SKILLS_MARKETPLACE_DIR}" checkout --quiet --detach FETCH_HEAD
-          test "$(git -C "${SENTRY_SKILLS_MARKETPLACE_DIR}" rev-parse HEAD)" = "${SENTRY_SKILLS_MARKETPLACE_SHA}"
       - name: Configure AWS credentials
         if: inputs.aws-role-to-assume != null
         id: aws-credentials
@@ -95,27 +85,20 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           use_bedrock: ${{ inputs.aws-role-to-assume != null }}
           prompt: |
-            Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} comprehensively and publish the review to GitHub.
+            Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} comprehensively and publish the review to GitHub. Do not modify repository files.
 
-            Perform all review analysis in this single Claude Code session. Analysis must be read-only; do not modify repository files.
+            Use the Skill tool to run both review passes:
+            - `pr-review-toolkit:review-pr` with `all parallel` for comprehensive code review.
+            - Claude Code's built-in `security-review` for security vulnerabilities.
 
-            Use the Skill tool to invoke all of these independent review passes:
-            - `pr-review-toolkit:review-pr` with `all parallel` to cover comments and documentation, test quality and gaps, silent failures and error handling, type design, general correctness and code quality, and simplification opportunities.
-            - Claude Code's built-in `security-review` skill to perform an independent automated security review.
-            - `sentry-skills:security-review` to independently investigate exploitable security vulnerabilities. Research surrounding code as needed, but report only issues introduced by or materially affected by this pull request.
+            Consolidate and deduplicate the results. Verify every finding against the current PR diff and relevant surrounding code. Report only actionable issues introduced by or materially affected by this PR; omit style-only, speculative, or already-fixed findings.
 
-            Do not skip a review pass merely because another pass covers similar concerns. After all passes complete, consolidate their findings, deduplicate overlaps, and verify every candidate against the current pull request diff and relevant surrounding code before publishing it. Report only actionable findings attributable to this pull request; avoid style-only comments, speculative issues, and findings already fixed in the current diff.
+            Prefer inline review comments for line-specific findings, using mcp__github_inline_comment__create_inline_comment whenever the changed line can be targeted. Do not use issue comments or `gh pr comment`.
 
-            Publish line-specific findings as inline review comments using mcp__github_inline_comment__create_inline_comment whenever the changed line can be targeted. Prefer inline comments over the review body. Do not use issue comments or `gh pr comment`.
-
-            After all inline comments are posted, always submit exactly one GitHub pull request review with action COMMENT using `gh pr review --comment`. The top-level review body must briefly summarize the review and the number/severity of actionable findings. If there are no actionable findings, still submit a COMMENT review explicitly stating that no actionable issues were found. Never approve or request changes.
+            After posting inline comments, always submit exactly one COMMENT review with `gh pr review --comment`. Briefly summarize the actionable findings and their severity; if there are none, explicitly state that no actionable issues were found. Never approve or request changes.
           claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto', inputs.claude-args) || inputs.claude-args }}
-          plugins: |-
-            pr-review-toolkit@claude-code-plugins
-            sentry-skills@sentry-skills
-          plugin_marketplaces: |-
-            https://github.com/anthropics/claude-code.git
-            ${{ runner.temp }}/sentry-skills
+          plugins: pr-review-toolkit@claude-code-plugins
+          plugin_marketplaces: https://github.com/anthropics/claude-code.git
       - name: Fail on Claude Code permission denials
         id: permission_denials
         if: always() && steps.claude-review.outcome == 'success'
