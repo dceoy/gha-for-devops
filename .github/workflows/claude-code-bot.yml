@@ -21,7 +21,7 @@ on:
         type: string
         description: Additional arguments to pass directly to Claude Code Action
         default: >-
-          --allowedTools="Skill,Agent,Read,Glob,Grep,WebFetch,WebSearch,Bash(git:*),Bash(gh:*),mcp__github_inline_comment__create_inline_comment"
+          --allowedTools="Skill,Agent,Task,Read,Glob,Grep,WebFetch,WebSearch,Bash(git:*),Bash(gh:*),mcp__github_inline_comment__create_inline_comment"
           --model=opusplan
           --advisor=opus
       aws-role-to-assume:
@@ -81,27 +81,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           persist-credentials: true
-      - name: Deploy agents and commands from claude-code-action
+      - name: Set repository remote HEAD
         env:
-          CLAUDE_CODE_ACTION_ROOT: ${{ github.workspace }}/../../_actions/anthropics/claude-code-action
-        run: |
-          if [[ ! -d "${CLAUDE_CODE_ACTION_ROOT}" ]]; then
-            echo "::error::claude-code-action not found at expected location: ${CLAUDE_CODE_ACTION_ROOT}"
-            exit 1
-          else
-            claude_dir="$(find "${CLAUDE_CODE_ACTION_ROOT}" -mindepth 2 -maxdepth 2 -type d -name .claude -print -quit)"
-            if [[ -z "${claude_dir}" ]]; then
-              echo "::error::Could not find .claude under ${CLAUDE_CODE_ACTION_ROOT}"
-              exit 1
-            else
-              install -d "${HOME}/.claude/agents" "${HOME}/.claude/commands"
-              rsync -av "${claude_dir}/agents/" "${HOME}/.claude/agents/"
-              rsync -av "${claude_dir}/commands/" "${HOME}/.claude/commands/"
-            fi
-          fi
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: >
+          git remote set-head origin "${DEFAULT_BRANCH}"
       - name: Configure AWS credentials
         if: inputs.aws-role-to-assume != null
         id: aws-credentials
