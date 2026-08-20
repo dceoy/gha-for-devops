@@ -219,7 +219,7 @@ jobs:
         run: exit 1
       - name: Run Checkov
         if: inputs.use-checkov
-        uses: bridgecrewio/checkov-action@358405ddafaa109ad35d3d607bbc7cf933c742d9  # v12.3116.0
+        uses: bridgecrewio/checkov-action@1246d92f57abae29d5db5f9aeeed2a9813e52d7d  # v12.3117.0
         with:
           directory: ${{ inputs.trivy-scan-ref }}
           framework: ${{ inputs.checkov-framework }}
