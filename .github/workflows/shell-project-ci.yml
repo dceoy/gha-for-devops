@@ -15,7 +15,7 @@ on:
       python-version:
         required: false
         type: string
-        description: Python version used to install zizmor, yamllint, and Checkov
+        description: Python version used to run zizmor, yamllint, and Checkov
         default: '3.12'
       bats-version:
         required: false
@@ -59,6 +59,7 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:
+      UV_EXCLUDE_NEWER: 7 days
       # renovate: datasource=github-releases depName=koalaman/shellcheck
       SHELLCHECK_VERSION: v0.11.0
       # renovate: datasource=github-releases depName=mvdan/sh
@@ -178,22 +179,32 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ inputs.python-version }}
-      - name: Cache Python QA tool downloads
-        if: inputs.enable-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      - name: Setup uv
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d  # v10.0.0
         with:
-          path: ~/.cache/pip
-          key: shell-project-ci-pip-${{ runner.os }}-${{ inputs.python-version }}-zizmor-${{ env.ZIZMOR_VERSION }}-yamllint-${{ env.YAMLLINT_VERSION }}-checkov-${{ env.CHECKOV_VERSION }}-${{ inputs.cache-salt }}
-      - name: Install zizmor, yamllint, and Checkov
+          enable-cache: ${{ inputs.enable-cache }}
+          cache-suffix: shell-project-ci-${{ inputs.cache-salt }}
+      - name: Provide Python QA tool wrappers
         env:
           ZIZMOR_VERSION: ${{ env.ZIZMOR_VERSION }}
           YAMLLINT_VERSION: ${{ env.YAMLLINT_VERSION }}
           CHECKOV_VERSION: ${{ env.CHECKOV_VERSION }}
-        run: | # zizmor: ignore[adhoc-packages] installs pinned Python QA tools
-          for version in "${ZIZMOR_VERSION}" "${YAMLLINT_VERSION}" "${CHECKOV_VERSION}"; do
+        run: | # zizmor: ignore[adhoc-packages] wrappers run pinned Python QA tools through uvx
+          mkdir -p "${HOME}/.local/bin"
+          create_wrapper() {
+            local tool="$1" version="$2"
             [[ "${version}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "::error::invalid pinned Python QA tool version: ${version}"; exit 1; }
-          done
-          pip install "zizmor==${ZIZMOR_VERSION}" "yamllint==${YAMLLINT_VERSION}" "checkov==${CHECKOV_VERSION}"
+            cat > "${HOME}/.local/bin/${tool}" <<EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec uvx --from "${tool}==${version}" "${tool}" "\$@"
+          EOF
+            chmod 0755 "${HOME}/.local/bin/${tool}"
+          }
+          create_wrapper zizmor "${ZIZMOR_VERSION}"
+          create_wrapper yamllint "${YAMLLINT_VERSION}"
+          create_wrapper checkov "${CHECKOV_VERSION}"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
       - name: Set up Bats
         uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
         with:
