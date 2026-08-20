@@ -86,6 +86,8 @@ defaults:
 jobs:
   cloudformation-lint:
     runs-on: ${{ inputs.runs-on }}
+    env:
+      UV_EXCLUDE_NEWER: 7 days
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -96,14 +98,13 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ inputs.python-version }}
-      - name: Install cfn-lint
-        run: >
-          pip install -U --no-cache-dir cfn-lint
+      - name: Setup uv
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d  # v10.0.0
       - name: Execute cfn-lint
         working-directory: ${{ inputs.search-path }}
-        run: >
+        run: >  # zizmor: ignore[adhoc-packages] runs cfn-lint through uvx
           git ls-files -z -- '*.cfn.yml' '*.cfn.yaml'
-          | xargs -0 -t cfn-lint
+          | xargs -0 -r -t uvx --from cfn-lint cfn-lint
       - name: Run Checkov
         if: inputs.use-checkov
         uses: bridgecrewio/checkov-action@358405ddafaa109ad35d3d607bbc7cf933c742d9  # v12.3116.0
