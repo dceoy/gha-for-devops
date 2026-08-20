@@ -8,36 +8,6 @@ on:
         type: string
         description: Path to search for files
         default: .
-      package-path:
-        required: false
-        type: string
-        description: Path containing an optional package.json and lockfile
-        default: .
-      node-version:
-        required: false
-        type: string
-        description: Node.js version to use
-        default: latest
-      pnpm-version:
-        required: false
-        type: string
-        description: Optional pnpm version override
-        default: ""
-      enable-cache:
-        required: false
-        type: boolean
-        description: Cache the pinned jsonlint tool download
-        default: true
-      cache-dependency-path:
-        required: false
-        type: string
-        description: Lockfile used to scope a package-manager cache
-        default: null
-      cache-salt:
-        required: false
-        type: string
-        description: Optional value used to bust the jsonlint cache
-        default: null
       runs-on:
         required: false
         type: string
@@ -52,75 +22,15 @@ defaults:
 jobs:
   lint:
     runs-on: ${{ inputs.runs-on }}
-    env:
-      # renovate: datasource=npm depName=jsonlint
-      JSONLINT_VERSION: 1.6.3
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Detect the package manager
-        env:
-          PNPM_VERSION: ${{ inputs.pnpm-version }}
-        working-directory: ${{ inputs.package-path }}
-        run: |
-          has_pnpm_version_source() {
-            jq -e '
-              def is_pnpm_manager: (type == "object") and (.name == "pnpm") and ((.version // "") != "");
-              ((.packageManager // "") as $pm | if ($pm | type) == "string" then ($pm | test("^pnpm@.+")) else false end)
-              or ((.devEngines.packageManager // null) | if type == "object" then is_pnpm_manager else false end)
-            ' package.json > /dev/null 2>&1
-          }
-          if [[ -f package-lock.json ]]; then
-            echo 'PACKAGE_MANAGER=npm' >> "${GITHUB_ENV}"
-            echo 'PACKAGE_LOCK_FILE=package-lock.json' >> "${GITHUB_ENV}"
-          elif [[ -f pnpm-lock.yaml ]]; then
-            echo 'PACKAGE_MANAGER=pnpm' >> "${GITHUB_ENV}"
-            echo 'PACKAGE_LOCK_FILE=pnpm-lock.yaml' >> "${GITHUB_ENV}"
-            if [[ -z "${PNPM_VERSION}" ]] && ! has_pnpm_version_source; then
-              echo 'PNPM_VERSION=latest' >> "${GITHUB_ENV}"
-            fi
-          elif [[ -f yarn.lock ]]; then
-            echo 'yarn.lock is not supported. Use package-lock.json or pnpm-lock.yaml.' >&2
-            exit 1
-          fi
-      - name: Setup pnpm before cache setup
-        if: inputs.enable-cache && env.PACKAGE_MANAGER == 'pnpm'
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86  # v6.0.10
-        with:
-          version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
-          package_json_file: ${{ format('{0}/package.json', inputs.package-path) }}
-      - name: Setup Node.js with package-manager cache
-        if: inputs.enable-cache && env.PACKAGE_MANAGER != ''
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
-        with:
-          node-version: ${{ inputs.node-version }}
-          cache: ${{ env.PACKAGE_MANAGER }}
-          cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE) }}
-      - name: Setup Node.js without package-manager cache
-        if: '! inputs.enable-cache || env.PACKAGE_MANAGER == '''''
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
-        with:
-          node-version: ${{ inputs.node-version }}
-      - name: Cache jsonlint
-        if: inputs.enable-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ~/.cache/gha-for-devops/jsonlint
-          key: jsonlint-${{ runner.os }}-${{ inputs.node-version }}-${{ env.JSONLINT_VERSION }}-${{ inputs.cache-salt }}
-      - name: Install jsonlint
-        env:
-          JSONLINT_VERSION: ${{ env.JSONLINT_VERSION }}
-        run: | # zizmor: ignore[adhoc-packages] installs pinned jsonlint tool
-          [[ "${JSONLINT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid JSONLINT_VERSION"; exit 1; }
-          tool_dir="${HOME}/.cache/gha-for-devops/jsonlint"
-          if [[ ! -x "${tool_dir}/node_modules/.bin/jsonlint" ]]; then
-            npm install --prefix "${tool_dir}" "jsonlint@${JSONLINT_VERSION}"
-          fi
-          echo "${tool_dir}/node_modules/.bin" >> "${GITHUB_PATH}"
-      - name: Execute jsonlint
+      - name: Validate JSON syntax
         working-directory: ${{ inputs.search-path }}
-        run: >
-          git ls-files -z -- '*.json' | xargs -0 -t jsonlint --quiet
+        run: |
+          while IFS= read -r -d '' file; do
+            jq empty "${file}"
+          done < <(git ls-files -z -- '*.json')
