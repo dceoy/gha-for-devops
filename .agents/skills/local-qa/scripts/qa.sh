@@ -43,23 +43,9 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
     PYRIGHT_CONFIG_FILE="${REPO_ROOT}/.pyrightconfig.local-qa.$$.json"
     trap 'rm -f "${PYRIGHT_CONFIG_FILE}"' EXIT
     if [[ -d .venv ]]; then
-      cat > "${PYRIGHT_CONFIG_FILE}" <<'EOF'
-{
-  "include": ["."],
-  "exclude": ["build", ".venv"],
-  "venvPath": ".",
-  "venv": ".venv",
-  "typeCheckingMode": "strict"
-}
-EOF
+      printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"venvPath":".","venv":".venv","typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
     else
-      cat > "${PYRIGHT_CONFIG_FILE}" <<'EOF'
-{
-  "include": ["."],
-  "exclude": ["build", ".venv"],
-  "typeCheckingMode": "strict"
-}
-EOF
+      printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
     fi
     uvx pyright --threads=0 --project "${PYRIGHT_CONFIG_FILE}"
     rm -f "${PYRIGHT_CONFIG_FILE}"
