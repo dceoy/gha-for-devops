@@ -8,7 +8,6 @@ setup() {
   WORKFLOWS=(
     bats-test.yml
     html-lint-and-scan.yml
-    json-lint.yml
     typescript-package-format-and-pr.yml
     typescript-package-lint-and-scan.yml
     typescript-package-script.yml
@@ -44,7 +43,6 @@ pnpm_step_value() {
   [ "$(pnpm_step_value bats-test.yml package_json_file)" = "package.json" ]
   for workflow in \
     html-lint-and-scan.yml \
-    json-lint.yml \
     typescript-package-format-and-pr.yml \
     typescript-package-lint-and-scan.yml \
     typescript-package-script.yml; do
