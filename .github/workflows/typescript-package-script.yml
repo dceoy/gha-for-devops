@@ -52,6 +52,10 @@ defaults:
 jobs:
   script-run:
     runs-on: ${{ inputs.runs-on }}
+    env:
+      npm_config_min_release_age: '7'
+      NPM_CONFIG_MINIMUM_RELEASE_AGE: '10080'
+      PNPM_CONFIG_MINIMUM_RELEASE_AGE: '10080'
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
