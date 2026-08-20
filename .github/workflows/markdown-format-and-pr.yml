@@ -53,6 +53,7 @@ jobs:
   format-and-pr:
     runs-on: ${{ inputs.runs-on }}
     env:
+      npm_config_min_release_age: '7'
       # renovate: datasource=npm depName=prettier
       PRETTIER_VERSION: 3.9.6
       # renovate: datasource=npm depName=@biomejs/biome
@@ -72,35 +73,20 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: ${{ inputs.node-version }}
-      - name: Install formatters
-        env:
-          USE_PRETTIER: ${{ inputs.use-prettier }}
-          USE_BIOME: ${{ inputs.use-biome }}
-        run: | # zizmor: ignore[adhoc-packages] installs pinned Markdown formatters
-          packages=()
-          if ${USE_PRETTIER}; then
-            [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
-            packages+=("prettier@${PRETTIER_VERSION}")
-          fi
-          if ${USE_BIOME}; then
-            [[ "${BIOME_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid BIOME_VERSION"; exit 1; }
-            packages+=("@biomejs/biome@${BIOME_VERSION}")
-          fi
-          npm install -g "${packages[@]}"
       - name: Format Markdown files using Prettier
         if: inputs.use-prettier
         working-directory: ${{ inputs.search-path }}
         env:
           PRETTIER_GLOB: ${{ inputs.prettier-glob }}
-        run: >
-          prettier --write "${PRETTIER_GLOB}"
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Prettier through npx
+          npx --yes "prettier@${PRETTIER_VERSION}" --write "${PRETTIER_GLOB}"
       - name: Format Markdown files using Biome
         if: inputs.use-biome
         working-directory: ${{ inputs.search-path }}
         env:
           BIOME_GLOB: ${{ inputs.biome-glob }}
-        run: >
-          biome format --write --files-ignore-unknown=true "${BIOME_GLOB}"
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Biome through npx
+          npx --yes "@biomejs/biome@${BIOME_VERSION}" format --write --files-ignore-unknown=true "${BIOME_GLOB}"
       - name: Create output parameters
         id: parameters
         env:

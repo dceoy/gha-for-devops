@@ -51,7 +51,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache pinned Markdown lint tools
+        description: Cache npm downloads for Markdown lint tools
         default: true
       cache-salt:
         required: false
@@ -73,6 +73,7 @@ jobs:
   lint:
     runs-on: ${{ inputs.runs-on }}
     env:
+      npm_config_min_release_age: '7'
       # renovate: datasource=npm depName=markdownlint-cli2
       MARKDOWNLINT_CLI2_VERSION: 0.23.2
       # renovate: datasource=npm depName=prettier
@@ -94,43 +95,12 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: ${{ inputs.node-version }}
-      - name: Cache Markdown lint tools
+      - name: Cache npm downloads
         if: inputs.enable-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
-          path: ~/.cache/gha-for-devops/markdown-lint
-          key: markdown-lint-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ inputs.use-markdownlint-cli2 }}-${{ inputs.use-prettier }}-${{ inputs.use-biome }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.PRETTIER_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
-      - name: Install Markdown lint tools
-        env:
-          USE_MARKDOWNLINT_CLI2: ${{ inputs.use-markdownlint-cli2 }}
-          USE_PRETTIER: ${{ inputs.use-prettier }}
-          USE_BIOME: ${{ inputs.use-biome }}
-        run: | # zizmor: ignore[adhoc-packages] installs pinned Markdown lint tools
-          packages=()
-          needs_install=false
-          tool_dir="${HOME}/.cache/gha-for-devops/markdown-lint"
-          installed_version() {
-            jq -r '.version // empty' "${tool_dir}/node_modules/${1}/package.json" 2> /dev/null || true
-          }
-          if ${USE_MARKDOWNLINT_CLI2}; then
-            [[ "${MARKDOWNLINT_CLI2_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid MARKDOWNLINT_CLI2_VERSION"; exit 1; }
-            packages+=("markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}")
-            [[ "$(installed_version markdownlint-cli2)" == "${MARKDOWNLINT_CLI2_VERSION}" ]] || needs_install=true
-          fi
-          if ${USE_PRETTIER}; then
-            [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
-            packages+=("prettier@${PRETTIER_VERSION}")
-            [[ "$(installed_version prettier)" == "${PRETTIER_VERSION}" ]] || needs_install=true
-          fi
-          if ${USE_BIOME}; then
-            [[ "${BIOME_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid BIOME_VERSION"; exit 1; }
-            packages+=("@biomejs/biome@${BIOME_VERSION}")
-            [[ "$(installed_version @biomejs/biome)" == "${BIOME_VERSION}" ]] || needs_install=true
-          fi
-          if ${needs_install}; then
-            npm install --prefix "${tool_dir}" "${packages[@]}"
-          fi
-          echo "${tool_dir}/node_modules/.bin" >> "${GITHUB_PATH}"
+          path: ~/.npm
+          key: markdown-lint-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.PRETTIER_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
       - name: Create Markdown lint configuration
         if: inputs.use-markdownlint-cli2
         env:
@@ -170,15 +140,15 @@ jobs:
       - name: Execute markdownlint-cli2
         if: inputs.use-markdownlint-cli2
         working-directory: ${{ inputs.search-path }}
-        run: >
-          xargs -0 -r -t markdownlint-cli2 --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdownlint-files"
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned markdownlint-cli2 through npx
+          xargs -0 -r -t npx --yes "markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}" --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdownlint-files"
       - name: Check Markdown formatting with Prettier
         if: inputs.use-prettier
         working-directory: ${{ inputs.search-path }}
-        run: >
-          xargs -0 -r -t prettier --check -- < "${RUNNER_TEMP}/markdown-files"
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Prettier through npx
+          xargs -0 -r -t npx --yes "prettier@${PRETTIER_VERSION}" --check -- < "${RUNNER_TEMP}/markdown-files"
       - name: Check Markdown formatting with Biome
         if: inputs.use-biome
         working-directory: ${{ inputs.search-path }}
-        run: >
-          xargs -0 -r -t biome format --files-ignore-unknown=true -- < "${RUNNER_TEMP}/markdown-files"
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Biome through npx
+          xargs -0 -r -t npx --yes "@biomejs/biome@${BIOME_VERSION}" format --files-ignore-unknown=true -- < "${RUNNER_TEMP}/markdown-files"

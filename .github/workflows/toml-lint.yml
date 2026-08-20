@@ -8,11 +8,6 @@ on:
         type: string
         description: Path to search for files
         default: .
-      go-version:
-        required: false
-        type: string
-        description: Go version to use
-        default: stable
       runs-on:
         required: false
         type: string

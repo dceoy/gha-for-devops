@@ -162,6 +162,7 @@ jobs:
   github-actions-lint-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
+      UV_EXCLUDE_NEWER: 7 days
       # renovate: datasource=github-releases depName=rhysd/actionlint
       ACTIONLINT_VERSION: v1.7.12
       # renovate: datasource=github-releases depName=koalaman/shellcheck
@@ -169,9 +170,6 @@ jobs:
       # renovate: datasource=pypi depName=pyflakes versioning=pep440
       PYFLAKES_VERSION: 3.4.0
     steps:
-      - name: Disable pip cache
-        if: '! inputs.enable-cache'
-        run: echo 'PIP_NO_CACHE_DIR=true' >> "${GITHUB_ENV}"
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -217,22 +215,30 @@ jobs:
             install -m 0755 "${RUNNER_TEMP}/shellcheck" "${HOME}/.local/bin/shellcheck"
           fi
       - name: Setup Python
+        if: inputs.use-pyflakes
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ inputs.python-version }}
-      - name: Cache Python linter downloads
-        if: inputs.enable-cache && inputs.use-pyflakes
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      - name: Setup uv
+        if: inputs.use-pyflakes
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d  # v10.0.0
         with:
-          path: ~/.cache/pip
-          key: gha-python-linters-${{ runner.os }}-${{ inputs.python-version }}-pyflakes-${{ env.PYFLAKES_VERSION }}-${{ inputs.cache-salt }}
-      - name: Install pyflakes
+          enable-cache: ${{ inputs.enable-cache }}
+          cache-suffix: pyflakes-${{ inputs.cache-salt }}
+      - name: Provide pyflakes wrapper
         if: inputs.use-pyflakes
         env:
           PYFLAKES_VERSION: ${{ env.PYFLAKES_VERSION }}
-        run: |
+        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned pyflakes through uvx
           [[ "${PYFLAKES_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PYFLAKES_VERSION"; exit 1; }
-          pip install "pyflakes==${PYFLAKES_VERSION}"
+          mkdir -p "${HOME}/.local/bin"
+          cat > "${HOME}/.local/bin/pyflakes" <<EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec uvx --from "pyflakes==${PYFLAKES_VERSION}" pyflakes "\$@"
+          EOF
+          chmod 0755 "${HOME}/.local/bin/pyflakes"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
       - name: Execute actionlint
         env:
           SEARCH_PATH: ${{ inputs.search-path }}

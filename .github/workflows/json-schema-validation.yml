@@ -23,11 +23,6 @@ on:
         type: string
         description: Node.js version to use
         default: latest
-      pnpm-version:
-        required: false
-        type: string
-        description: Optional pnpm version override for JSON linting
-        default: ""
       lint-before-validation:
         required: false
         type: boolean
@@ -50,13 +45,13 @@ jobs:
     uses: ./.github/workflows/json-lint.yml
     with:
       search-path: ${{ inputs.search-path }}
-      node-version: ${{ inputs.node-version }}
-      pnpm-version: ${{ inputs.pnpm-version }}
   validation:
     if: (! (failure() || cancelled()))
     needs:
       - lint
     runs-on: ${{ inputs.runs-on }}
+    env:
+      npm_config_min_release_age: '7'
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -67,15 +62,12 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: ${{ inputs.node-version }}
-      - name: Install ajv-cli
-        run: >  # zizmor: ignore[adhoc-packages] installs schema validation tool
-          npm install -g ajv-cli
       - name: Validate JSON files using ajv-cli
         env:
           SCHEMA_FILE_NAME: ${{ inputs.schema-file-name }}
           RELATIVE_PATH_FROM_SCHEMA_DIRECTORY_TO_DATA_FILES: ${{ inputs.relative-path-from-schema-directory-to-data-files }}
         working-directory: ${{ inputs.search-path }}
-        run: |
+        run: | # zizmor: ignore[adhoc-packages] runs ajv-cli through npm exec
           reject_shell_metacharacters() {
             local label="${1}" value="${2}"
             case "${value}" in
@@ -86,12 +78,16 @@ jobs:
             esac
           }
 
-          # Reject metacharacters before any double-quoted expansion of caller-controlled patterns.
           reject_shell_metacharacters "schema-file-name" "${SCHEMA_FILE_NAME}"
           reject_shell_metacharacters "relative-path-from-schema-directory-to-data-files" "${RELATIVE_PATH_FROM_SCHEMA_DIRECTORY_TO_DATA_FILES}"
 
           schema_glob="**/${SCHEMA_FILE_NAME}"
-          # Pass schema paths and the data glob as positional args; never splice them into bash -c strings.
-          # shellcheck disable=SC2016
           git ls-files -z -- "${schema_glob}" \
-            | xargs -0 -I{} bash -c 'cd "$(dirname "$1")" && ajv validate -s "$(basename "$1")" -d "$2"' _ {} "${RELATIVE_PATH_FROM_SCHEMA_DIRECTORY_TO_DATA_FILES}"
+            | while IFS= read -r -d '' schema; do
+                (
+                  cd "$(dirname "${schema}")"
+                  npm exec --yes --package=ajv-cli -- \
+                    ajv validate -s "$(basename "${schema}")" \
+                    -d "${RELATIVE_PATH_FROM_SCHEMA_DIRECTORY_TO_DATA_FILES}"
+                )
+              done
