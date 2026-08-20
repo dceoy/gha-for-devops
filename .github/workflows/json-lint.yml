@@ -32,5 +32,5 @@ jobs:
         working-directory: ${{ inputs.search-path }}
         run: |
           while IFS= read -r -d '' file; do
-            jq empty "${file}"
+            jq -e -s 'length == 1' "${file}" > /dev/null
           done < <(git ls-files -z -- '*.json')
