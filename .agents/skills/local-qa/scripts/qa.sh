@@ -40,16 +40,16 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
     uvx ruff format --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
     uvx ruff check --fix --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --select="${RUFF_LINT_SELECT}" --ignore="${RUFF_LINT_IGNORE}" --config "${RUFF_LINT_PER_FILE_IGNORES}" --config "lint.pydocstyle.convention = 'google'" --config 'lint.pylint.max-args = 10' --config 'lint.pylint.max-public-methods = 40' .
 
-    PYRIGHT_CONFIG_FILE="${REPO_ROOT}/.pyrightconfig.local-qa.$$.json"
-    trap 'rm -f "${PYRIGHT_CONFIG_FILE}"' EXIT
-    if [[ -d .venv ]]; then
-      printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"venvPath":".","venv":".venv","typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
-    else
-      printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
-    fi
-    uvx pyright --threads=0 --project "${PYRIGHT_CONFIG_FILE}"
-    rm -f "${PYRIGHT_CONFIG_FILE}"
-    trap - EXIT
+    (
+      PYRIGHT_CONFIG_FILE="${REPO_ROOT}/.pyrightconfig.local-qa.$$.json"
+      trap 'rm -f "${PYRIGHT_CONFIG_FILE}"' EXIT
+      if [[ -d .venv ]]; then
+        printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"venvPath":".","venv":".venv","typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
+      else
+        printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
+      fi
+      uvx pyright --threads=0 --project "${PYRIGHT_CONFIG_FILE}"
+    )
   fi
 fi
 
@@ -114,15 +114,11 @@ if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
   if [[ -f .markdownlint-cli2.jsonc ]]; then
     git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t npx -y markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
   else
-    trap 'rm -f .markdownlint-cli2.jsonc' EXIT
-    printf '{"config":{"MD013":false,"MD033":false,"MD041":false}}' > .markdownlint-cli2.jsonc
-    set +e
-    git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t npx -y markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
-    markdownlint_exit_code="${?}"
-    set -e
-    rm -f .markdownlint-cli2.jsonc
-    trap - EXIT
-    [[ "${markdownlint_exit_code}" -eq 0 ]] || exit "${markdownlint_exit_code}"
+    (
+      trap 'rm -f .markdownlint-cli2.jsonc' EXIT
+      printf '%s\n' '{"config":{"MD013":false,"MD033":false,"MD041":false}}' > .markdownlint-cli2.jsonc
+      git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t npx -y markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
+    )
   fi
 fi
 
