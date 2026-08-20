@@ -12,8 +12,9 @@ export NPM_CONFIG_MIN_RELEASE_AGE="${COOLDOWN_DAYS}"
 export PNPM_CONFIG_MINIMUM_RELEASE_AGE=$((COOLDOWN_DAYS * 24 * 60))
 
 PYTHON_LINE_LENGTH=88
-RUFF_LINT_EXTEND_SELECT='F,E,W,C90,I,N,D,UP,S,B,A,COM,C4,PT,Q,SIM,ARG,ERA,PD,PLC,PLE,PLW,TRY,FLY,NPY,PERF,FURB,RUF'
-RUFF_LINT_IGNORE='D100,D103,D203,D213,S101,B008,A002,A004,COM812,PLC2701,TRY003'
+RUFF_LINT_SELECT='F,E,W,C90,I,N,D,UP,S,B,C4,SIM,ARG,PD,PLC,PLE,PLR,PLW,FLY,NPY,PERF,FURB,RUF,YTT,ANN,ASYNC,BLE,FBT,A,COM,DTZ,T10,DJ,EM,EXE,FA,ISC,ICN,LOG,G,INP,PIE,T20,PYI,PT,Q,RSE,SLF,SLOT,TID,TCH,INT,PTH,TD,FIX,ERA,PGH,TRY,FAST,AIR,DOC'
+RUFF_LINT_IGNORE='COM812,FBT001,FBT002'
+RUFF_LINT_PER_FILE_IGNORES="lint.per-file-ignores = {'tests/**/*.py' = ['DOC201', 'DOC501', 'PLC2701', 'PLR0904', 'PLR2004', 'PLR6301', 'S101', 'S106', 'SLF001']}"
 
 N_PYTHON_FILES=$(git ls-files -- '*.py' | wc -l)
 if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
@@ -36,9 +37,19 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
     uvx ruff check --fix "${PACKAGE_DIRECTORY}"
     uvx pyright "${PACKAGE_DIRECTORY}"
   else
-    uvx ruff format --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
-    uvx ruff check --fix --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --extend-select="${RUFF_LINT_EXTEND_SELECT}" --ignore="${RUFF_LINT_IGNORE}" .
-    uvx pyright --threads=0 .
+    uvx ruff format --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
+    uvx ruff check --fix --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --select="${RUFF_LINT_SELECT}" --ignore="${RUFF_LINT_IGNORE}" --config "${RUFF_LINT_PER_FILE_IGNORES}" --config "lint.pydocstyle.convention = 'google'" --config 'lint.pylint.max-args = 10' --config 'lint.pylint.max-public-methods = 40' .
+
+    (
+      PYRIGHT_CONFIG_FILE="${REPO_ROOT}/.pyrightconfig.local-qa.$$.json"
+      trap 'rm -f "${PYRIGHT_CONFIG_FILE}"' EXIT
+      if [[ -d .venv ]]; then
+        printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"venvPath":".","venv":".venv","typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
+      else
+        printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
+      fi
+      uvx pyright --threads=0 --project "${PYRIGHT_CONFIG_FILE}"
+    )
   fi
 fi
 
@@ -103,13 +114,11 @@ if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
   if [[ -f .markdownlint-cli2.jsonc ]]; then
     git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t npx -y markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
   else
-    printf '{"config":{"MD013":false,"MD033":false,"MD041":false}}' > .markdownlint-cli2.jsonc
-    set +e
-    git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t npx -y markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
-    markdownlint_exit_code="${?}"
-    set -e
-    rm -f .markdownlint-cli2.jsonc
-    [[ "${markdownlint_exit_code}" -eq 0 ]] || exit "${markdownlint_exit_code}"
+    (
+      trap 'rm -f .markdownlint-cli2.jsonc' EXIT
+      printf '%s\n' '{"config":{"MD013":false,"MD033":false,"MD041":false}}' > .markdownlint-cli2.jsonc
+      git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t npx -y markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
+    )
   fi
 fi
 
