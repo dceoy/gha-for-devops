@@ -57,25 +57,68 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  claude-code-bot:
+  authorize:
     if: >
       (
         github.event_name == 'issue_comment'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
         && contains(github.event.comment.body, '@claude')
       ) || (
         github.event_name == 'pull_request_review_comment'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
         && contains(github.event.comment.body, '@claude')
       ) || (
         github.event_name == 'pull_request_review'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
         && contains(github.event.review.body, '@claude')
       ) || (
         github.event_name == 'issues'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
         && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))
       )
+    permissions:
+      contents: read
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      authorized: ${{ steps.permission.outputs.authorized }}
+    steps:
+      - name: Verify trigger author has repository write access
+        id: permission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRIGGER_AUTHOR: ${{ github.event.comment.user.login || github.event.review.user.login || github.event.issue.user.login }}
+        run: |
+          response="${RUNNER_TEMP}/trigger-author-permission.json"
+          status="$(
+            curl --silent --show-error \
+              --output "${response}" \
+              --write-out '%{http_code}' \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/collaborators/${TRIGGER_AUTHOR}/permission"
+          )"
+          case "${status}" in
+            200)
+              permission="$(jq -er '.permission' "${response}")"
+              ;;
+            404)
+              permission=none
+              ;;
+            *)
+              echo "::error::Failed to determine repository permission for ${TRIGGER_AUTHOR}: HTTP ${status}." >&2
+              exit 1
+              ;;
+          esac
+          case "${permission}" in
+            admin|write)
+              echo 'authorized=true' >> "${GITHUB_OUTPUT}"
+              ;;
+            *)
+              echo 'authorized=false' >> "${GITHUB_OUTPUT}"
+              echo "::notice::Ignoring @claude request from ${TRIGGER_AUTHOR}: repository permission is ${permission}."
+              ;;
+          esac
+  claude-code-bot:
+    needs:
+      - authorize
+    if: needs.authorize.outputs.authorized == 'true'
     runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Checkout repository
@@ -89,6 +132,17 @@ jobs:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: >
           git remote set-head origin "${DEFAULT_BRANCH}"
+      - name: Prepare pinned Claude plugin marketplace
+        env:
+          CLAUDE_PLUGINS_REF: 340e33aef211d95769d252324854497af871dafe
+        run: |
+          marketplace="${RUNNER_TEMP}/claude-plugins-official"
+          rm -rf "${marketplace}"
+          git init --quiet "${marketplace}"
+          git -C "${marketplace}" remote add origin https://github.com/anthropics/claude-plugins-official.git
+          git -C "${marketplace}" fetch --depth=1 origin "${CLAUDE_PLUGINS_REF}"
+          git -C "${marketplace}" checkout --quiet --detach "${CLAUDE_PLUGINS_REF}"
+          test "$(git -C "${marketplace}" rev-parse HEAD)" = "${CLAUDE_PLUGINS_REF}"
       - name: Configure AWS credentials
         if: inputs.aws-role-to-assume != null
         id: aws-credentials
@@ -123,4 +177,4 @@ jobs:
           # claude_args: '--allowed-tools Bash(gh pr:*)'
           claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto', inputs.claude-args) || inputs.claude-args }}
           plugins: pr-review-toolkit@claude-plugins-official
-          plugin_marketplaces: https://github.com/anthropics/claude-plugins-official.git
+          plugin_marketplaces: ${{ runner.temp }}/claude-plugins-official

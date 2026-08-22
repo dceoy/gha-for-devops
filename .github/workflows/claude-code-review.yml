@@ -68,6 +68,17 @@ jobs:
           BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: >
           git remote set-head origin "${BASE_BRANCH}"
+      - name: Prepare pinned Claude plugin marketplace
+        env:
+          CLAUDE_PLUGINS_REF: 340e33aef211d95769d252324854497af871dafe
+        run: |
+          marketplace="${RUNNER_TEMP}/claude-plugins-official"
+          rm -rf "${marketplace}"
+          git init --quiet "${marketplace}"
+          git -C "${marketplace}" remote add origin https://github.com/anthropics/claude-plugins-official.git
+          git -C "${marketplace}" fetch --depth=1 origin "${CLAUDE_PLUGINS_REF}"
+          git -C "${marketplace}" checkout --quiet --detach "${CLAUDE_PLUGINS_REF}"
+          test "$(git -C "${marketplace}" rev-parse HEAD)" = "${CLAUDE_PLUGINS_REF}"
       - name: Configure AWS credentials
         if: inputs.aws-role-to-assume != null
         id: aws-credentials
@@ -136,7 +147,7 @@ jobs:
             }
           claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto', inputs.claude-args) || inputs.claude-args }}
           plugins: pr-review-toolkit@claude-plugins-official
-          plugin_marketplaces: https://github.com/anthropics/claude-plugins-official.git
+          plugin_marketplaces: ${{ runner.temp }}/claude-plugins-official
       - name: Verify COMMENT review publication
         if: always() && steps.claude-review.outcome == 'success'
         env:
