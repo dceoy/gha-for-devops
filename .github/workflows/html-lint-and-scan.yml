@@ -76,7 +76,7 @@ on:
       additional-npm-packages:
         required: false
         type: string
-        description: Additional NPM packages to install
+        description: Additional NPM packages to install when package.json is present
         default: null
       runs-on:
         required: false
@@ -115,7 +115,10 @@ jobs:
             ' package.json > /dev/null 2>&1
           }
           {
-            if [[ -f package-lock.json ]]; then
+            if [[ ! -f package.json ]]; then
+              echo 'PACKAGE_LOCK_FILE='
+              echo 'PACKAGE_MANAGER=standalone'
+            elif [[ -f package-lock.json ]]; then
               echo 'PACKAGE_LOCK_FILE=package-lock.json'
               echo 'PACKAGE_MANAGER=npm'
             elif [[ -f pnpm-lock.yaml ]]; then
@@ -129,7 +132,7 @@ jobs:
               exit 1
             else
               echo 'PACKAGE_LOCK_FILE='
-              echo 'PACKAGE_MANAGER='
+              echo 'PACKAGE_MANAGER=npm'
             fi
           } | tee -a "${GITHUB_ENV}"
       - name: Setup pnpm
@@ -138,15 +141,15 @@ jobs:
         with:
           version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
           package_json_file: ${{ format('{0}/package.json', inputs.package-path) }}
-      - name: Setup Node.js
-        if: inputs.enable-cache && env.PACKAGE_MANAGER != ''
+      - name: Setup Node.js with cache
+        if: inputs.enable-cache && env.PACKAGE_LOCK_FILE != ''
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ env.PACKAGE_MANAGER }}
           cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE) }}
       - name: Setup Node.js without cache
-        if: '! inputs.enable-cache || env.PACKAGE_MANAGER == '''''
+        if: '! inputs.enable-cache || env.PACKAGE_LOCK_FILE == '''''
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: ${{ inputs.node-version }}
@@ -154,8 +157,8 @@ jobs:
         env:
           ADDITIONAL_NPM_PACKAGES: ${{ inputs.additional-npm-packages }}
         working-directory: ${{ inputs.package-path }}
-        run: | # zizmor: ignore[adhoc-packages] installs workflow-selected and caller-selected packages
-          case "${PACKAGE_MANAGER:-}" in
+        run: | # zizmor: ignore[adhoc-packages] installs project-scoped packages when package.json is present
+          case "${PACKAGE_MANAGER}" in
             pnpm )
               pnpm install --frozen-lockfile
               pnpm add --save-dev \
@@ -164,13 +167,11 @@ jobs:
                 ${{ inputs.use-stylelint && 'stylelint stylelint-config-standard' || '' }} \
                 ${{ inputs.lint-html-embedded-css && 'postcss-html' || '' }}
               ;;
-            * )
+            npm )
               if [[ -f package-lock.json ]]; then
                 npm ci
-              elif [[ -f package.json ]]; then
-                npm install
               else
-                :
+                npm install
               fi
               npm install --save-dev \
                 ${{ inputs.use-prettier && 'prettier' || '' }} \
@@ -178,20 +179,24 @@ jobs:
                 ${{ inputs.use-stylelint && 'stylelint stylelint-config-standard' || '' }} \
                 ${{ inputs.lint-html-embedded-css && 'postcss-html' || '' }}
               ;;
+            standalone )
+              if [[ -n "${ADDITIONAL_NPM_PACKAGES}" ]]; then
+                echo 'additional-npm-packages requires package.json.' >&2
+                exit 1
+              fi
+              ;;
           esac
-          for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
-            if [[ -n "${p}" ]]; then
-              case "${PACKAGE_MANAGER:-}" in
-                pnpm )
-                  pnpm add --save-dev "${p}"
-                  ;;
-                * )
-                  npm install --save-dev "${p}"
-                  ;;
-              esac
-            fi
-          done
-          echo "PATH=${PWD}/node_modules/.bin:${PATH}" >> "${GITHUB_ENV}"
+          if [[ "${PACKAGE_MANAGER}" != 'standalone' ]]; then
+            for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
+              if [[ -n "${p}" ]]; then
+                case "${PACKAGE_MANAGER}" in
+                  pnpm ) pnpm add --save-dev "${p}" ;;
+                  npm ) npm install --save-dev "${p}" ;;
+                esac
+              fi
+            done
+            echo "PATH=${PWD}/node_modules/.bin:${PATH}" >> "${GITHUB_ENV}"
+          fi
       - name: Run HTMLHint on HTML files
         if: inputs.use-htmlhint
         env:
@@ -199,10 +204,14 @@ jobs:
           HTML_GLOB: ${{ inputs.html-glob }}
         working-directory: ${{ inputs.package-path }}
         run: |
+          command=(htmlhint)
+          if [[ "${PACKAGE_MANAGER}" == 'standalone' ]]; then
+            command=(npx --yes htmlhint)
+          fi
           if [[ -n "${HTMLHINT_CONFIG}" ]]; then
-            htmlhint --config "${HTMLHINT_CONFIG}" "${HTML_GLOB}"
+            "${command[@]}" --config "${HTMLHINT_CONFIG}" "${HTML_GLOB}"
           else
-            htmlhint "${HTML_GLOB}"
+            "${command[@]}" "${HTML_GLOB}"
           fi
       - name: Run stylelint on CSS files
         if: inputs.use-stylelint
@@ -211,10 +220,14 @@ jobs:
           CSS_GLOB: ${{ inputs.css-glob }}
         working-directory: ${{ inputs.package-path }}
         run: |
+          command=(stylelint)
+          if [[ "${PACKAGE_MANAGER}" == 'standalone' ]]; then
+            command=(npx --yes --package=stylelint --package=stylelint-config-standard -- stylelint)
+          fi
           if [[ -n "${STYLELINT_CONFIG}" ]]; then
-            stylelint --config "${STYLELINT_CONFIG}" "${CSS_GLOB}"
+            "${command[@]}" --config "${STYLELINT_CONFIG}" "${CSS_GLOB}"
           else
-            stylelint "${CSS_GLOB}"
+            "${command[@]}" "${CSS_GLOB}"
           fi
       - name: Run stylelint on embedded CSS in HTML files
         if: inputs.use-stylelint && inputs.lint-html-embedded-css
@@ -223,15 +236,23 @@ jobs:
           HTML_GLOB: ${{ inputs.html-glob }}
         working-directory: ${{ inputs.package-path }}
         run: |
+          command=(stylelint)
+          if [[ "${PACKAGE_MANAGER}" == 'standalone' ]]; then
+            command=(npx --yes --package=stylelint --package=stylelint-config-standard --package=postcss-html -- stylelint)
+          fi
           if [[ -n "${STYLELINT_CONFIG}" ]]; then
-            stylelint --config "${STYLELINT_CONFIG}" --custom-syntax postcss-html "${HTML_GLOB}"
+            "${command[@]}" --config "${STYLELINT_CONFIG}" --custom-syntax postcss-html "${HTML_GLOB}"
           else
-            stylelint --custom-syntax postcss-html "${HTML_GLOB}"
+            "${command[@]}" --custom-syntax postcss-html "${HTML_GLOB}"
           fi
       - name: Check formatting with Prettier
         if: inputs.use-prettier
         env:
           PRETTIER_GLOB: ${{ inputs.prettier-glob }}
         working-directory: ${{ inputs.package-path }}
-        run: >
-          prettier --check "${PRETTIER_GLOB}"
+        run: |
+          if [[ "${PACKAGE_MANAGER}" == 'standalone' ]]; then
+            npx --yes prettier --check "${PRETTIER_GLOB}"
+          else
+            prettier --check "${PRETTIER_GLOB}"
+          fi
