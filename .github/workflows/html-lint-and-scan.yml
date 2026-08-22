@@ -153,11 +153,11 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: ${{ inputs.node-version }}
-      - name: Install dependencies
+      - name: Install dependencies or provide standalone wrappers
         env:
           ADDITIONAL_NPM_PACKAGES: ${{ inputs.additional-npm-packages }}
         working-directory: ${{ inputs.package-path }}
-        run: | # zizmor: ignore[adhoc-packages] installs project-scoped packages when package.json is present
+        run: | # zizmor: ignore[adhoc-packages] installs project packages or provides npm-exec wrappers
           case "${PACKAGE_MANAGER}" in
             pnpm )
               pnpm install --frozen-lockfile
@@ -184,6 +184,24 @@ jobs:
                 echo 'additional-npm-packages requires package.json.' >&2
                 exit 1
               fi
+              mkdir -p "${HOME}/.local/bin"
+              cat > "${HOME}/.local/bin/htmlhint" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec npx --yes htmlhint "$@"
+          EOF
+              cat > "${HOME}/.local/bin/stylelint" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec npx --yes --package=stylelint --package=stylelint-config-standard --package=postcss-html -- stylelint "$@"
+          EOF
+              cat > "${HOME}/.local/bin/prettier" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec npx --yes prettier "$@"
+          EOF
+              chmod 0755 "${HOME}/.local/bin/htmlhint" "${HOME}/.local/bin/stylelint" "${HOME}/.local/bin/prettier"
+              echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
               ;;
           esac
           if [[ "${PACKAGE_MANAGER}" != 'standalone' ]]; then
@@ -204,14 +222,10 @@ jobs:
           HTML_GLOB: ${{ inputs.html-glob }}
         working-directory: ${{ inputs.package-path }}
         run: |
-          command=(htmlhint)
-          if [[ "${PACKAGE_MANAGER}" == 'standalone' ]]; then
-            command=(npx --yes htmlhint)
-          fi
           if [[ -n "${HTMLHINT_CONFIG}" ]]; then
-            "${command[@]}" --config "${HTMLHINT_CONFIG}" "${HTML_GLOB}"
+            htmlhint --config "${HTMLHINT_CONFIG}" "${HTML_GLOB}"
           else
-            "${command[@]}" "${HTML_GLOB}"
+            htmlhint "${HTML_GLOB}"
           fi
       - name: Run stylelint on CSS files
         if: inputs.use-stylelint
@@ -220,14 +234,10 @@ jobs:
           CSS_GLOB: ${{ inputs.css-glob }}
         working-directory: ${{ inputs.package-path }}
         run: |
-          command=(stylelint)
-          if [[ "${PACKAGE_MANAGER}" == 'standalone' ]]; then
-            command=(npx --yes --package=stylelint --package=stylelint-config-standard -- stylelint)
-          fi
           if [[ -n "${STYLELINT_CONFIG}" ]]; then
-            "${command[@]}" --config "${STYLELINT_CONFIG}" "${CSS_GLOB}"
+            stylelint --config "${STYLELINT_CONFIG}" "${CSS_GLOB}"
           else
-            "${command[@]}" "${CSS_GLOB}"
+            stylelint "${CSS_GLOB}"
           fi
       - name: Run stylelint on embedded CSS in HTML files
         if: inputs.use-stylelint && inputs.lint-html-embedded-css
@@ -236,23 +246,15 @@ jobs:
           HTML_GLOB: ${{ inputs.html-glob }}
         working-directory: ${{ inputs.package-path }}
         run: |
-          command=(stylelint)
-          if [[ "${PACKAGE_MANAGER}" == 'standalone' ]]; then
-            command=(npx --yes --package=stylelint --package=stylelint-config-standard --package=postcss-html -- stylelint)
-          fi
           if [[ -n "${STYLELINT_CONFIG}" ]]; then
-            "${command[@]}" --config "${STYLELINT_CONFIG}" --custom-syntax postcss-html "${HTML_GLOB}"
+            stylelint --config "${STYLELINT_CONFIG}" --custom-syntax postcss-html "${HTML_GLOB}"
           else
-            "${command[@]}" --custom-syntax postcss-html "${HTML_GLOB}"
+            stylelint --custom-syntax postcss-html "${HTML_GLOB}"
           fi
       - name: Check formatting with Prettier
         if: inputs.use-prettier
         env:
           PRETTIER_GLOB: ${{ inputs.prettier-glob }}
         working-directory: ${{ inputs.package-path }}
-        run: |
-          if [[ "${PACKAGE_MANAGER}" == 'standalone' ]]; then
-            npx --yes prettier --check "${PRETTIER_GLOB}"
-          else
-            prettier --check "${PRETTIER_GLOB}"
-          fi
+        run: >
+          prettier --check "${PRETTIER_GLOB}"
