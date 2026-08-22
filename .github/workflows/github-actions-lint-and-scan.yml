@@ -182,7 +182,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.local/bin
-          key: gha-linters-verified-v1-${{ runner.os }}-${{ runner.arch }}-actionlint-${{ env.ACTIONLINT_VERSION }}-shellcheck-${{ env.SHELLCHECK_VERSION }}-${{ inputs.cache-salt }}
+          key: gha-linters-verified-v2-${{ runner.os }}-${{ runner.arch }}-actionlint-${{ env.ACTIONLINT_VERSION }}-shellcheck-${{ env.SHELLCHECK_VERSION }}-${{ inputs.cache-salt }}
       - name: Install actionlint
         env:
           ACTIONLINT_VERSION: ${{ env.ACTIONLINT_VERSION }}
@@ -207,31 +207,31 @@ jobs:
             tar -xzf "${archive}" -C "${HOME}/.local/bin" actionlint
           fi
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
-      - name: Install ShellCheck when unavailable
+      - name: Install ShellCheck
         if: inputs.use-shellcheck
         env:
+          GH_TOKEN: ${{ github.token }}
           SHELLCHECK_VERSION: ${{ env.SHELLCHECK_VERSION }}
         run: |
           [[ "${SHELLCHECK_VERSION}" =~ ^v[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid SHELLCHECK_VERSION" >&2; exit 1; }
-          if command -v shellcheck >/dev/null; then
-            exit 0
-          fi
           if [[ ! -x "${HOME}/.local/bin/shellcheck" ]]; then
             arch=x86_64
             [[ "${RUNNER_ARCH}" == "ARM64" ]] && arch=aarch64
             asset="shellcheck-${SHELLCHECK_VERSION}.linux.${arch}.tar.xz"
             archive="${RUNNER_TEMP}/${asset}"
-            checksum_file="${archive}.sha512sum"
             release_url="https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}"
+            expected_digest="$(
+              gh api "repos/koalaman/shellcheck/releases/tags/${SHELLCHECK_VERSION}" \
+                --jq ".assets[] | select(.name == \"${asset}\") | .digest"
+            )"
+            [[ "${expected_digest}" =~ ^sha256:[0-9a-fA-F]{64}$ ]] || { echo "invalid ShellCheck digest" >&2; exit 1; }
             curl --fail --location --silent --show-error "${release_url}/${asset}" -o "${archive}"
-            curl --fail --location --silent --show-error "${release_url}/${asset}.sha512sum" -o "${checksum_file}"
-            expected_checksum="$(awk 'NR == 1 { print $1 }' "${checksum_file}")"
-            [[ "${expected_checksum}" =~ ^[0-9a-fA-F]{128}$ ]] || { echo "invalid ShellCheck checksum" >&2; exit 1; }
-            printf '%s  %s\n' "${expected_checksum}" "${archive}" | sha512sum --check --strict -
+            printf '%s  %s\n' "${expected_digest#sha256:}" "${archive}" | sha256sum --check --strict -
             tar -xJf "${archive}" --strip-components=1 -C "${RUNNER_TEMP}" \
               "shellcheck-${SHELLCHECK_VERSION}/shellcheck"
             install -m 0755 "${RUNNER_TEMP}/shellcheck" "${HOME}/.local/bin/shellcheck"
           fi
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
       - name: Setup Python
         if: inputs.use-pyflakes || inputs.use-yamllint
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
