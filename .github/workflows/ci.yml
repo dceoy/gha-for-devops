@@ -129,6 +129,26 @@ jobs:
     uses: ./.github/workflows/github-major-version-tag.yml
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  dependabot-auto-merge:
+    if: >
+      github.event_name == 'pull_request'
+      && github.event.pull_request.user.login == 'dependabot[bot]'
+    needs:
+      - shell-lint
+      - markdown-lint
+      - readme-generator-test
+      - github-actions-lint-and-scan
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+      checks: read
+      statuses: read
+    uses: ./.github/workflows/dependabot-auto-merge.yml
+    with:
+      unconditional: true
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   # Write-capable maintenance jobs never run for pull_request events.
   markdown-format-and-pr:
     if: >
