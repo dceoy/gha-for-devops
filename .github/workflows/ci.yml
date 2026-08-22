@@ -140,26 +140,6 @@ jobs:
     uses: ./.github/workflows/github-major-version-tag.yml
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  dependabot-auto-merge:
-    if: >
-      github.event_name == 'pull_request'
-      && github.event.pull_request.user.login == 'dependabot[bot]'
-    needs:
-      - shell-lint
-      - markdown-lint
-      - readme-generator-test
-      - github-actions-lint-and-scan-pr
-    permissions:
-      contents: write
-      pull-requests: write
-      actions: read
-      checks: read
-      statuses: read
-    uses: ./.github/workflows/dependabot-auto-merge.yml
-    with:
-      unconditional: true
-    secrets:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   markdown-format-and-pr:
     if: >
       github.event_name == 'push'
@@ -200,7 +180,7 @@ jobs:
         env:
           PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
         run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Prettier through npx
-          [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
+          [[ "${PRETTIER_VERSION}" =~ ^v[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
           mkdir -p "${HOME}/.local/bin"
           cat > "${HOME}/.local/bin/prettier" <<EOF
           #!/usr/bin/env bash
