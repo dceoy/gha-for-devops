@@ -95,11 +95,11 @@ jobs:
       issues: write
       id-token: write
       actions: read
-    uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@e5a3599d8b64f9adda6a03a18c8b0b9d077ffebb  # v0.7.0
+    uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@main
     with:
-      model: sakura/preview/Kimi-K2.7-Code
+      model: openrouter/stealth/ox-alpha
     secrets:
-      SAKURA_AI_ENGINE_API_KEY: ${{ secrets.SAKURA_AI_ENGINE_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   opencode-bot:
     if: >
@@ -128,10 +128,9 @@ jobs:
       issues: write
       id-token: write
       actions: read
-    uses: dceoy/opencode-action/.github/workflows/opencode-bot.yml@e5a3599d8b64f9adda6a03a18c8b0b9d077ffebb  # v0.7.0
+    uses: dceoy/opencode-action/.github/workflows/opencode-bot.yml@main
     with:
       model: sakura/preview/Kimi-K2.7-Code
-      prompt: ${{ github.event_name == 'pull_request_review' && github.event.review.body || github.event_name == 'issues' && (github.event.issue.body || github.event.issue.title) || '' }}
     secrets:
       SAKURA_AI_ENGINE_API_KEY: ${{ secrets.SAKURA_AI_ENGINE_API_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
