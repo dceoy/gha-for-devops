@@ -82,6 +82,8 @@ jobs:
         uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
       - name: Run Bats tests
         run: bats --print-output-on-failure .github/scripts/tests/*.bats
+  # Untrusted pull_request jobs stay read-only. SARIF upload is retained only
+  # for trusted push/manual lint runs below.
   github-actions-lint-and-scan:
     if: >
       github.event_name == 'push'
