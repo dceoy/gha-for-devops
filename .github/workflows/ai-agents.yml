@@ -95,7 +95,7 @@ jobs:
       issues: write
       id-token: write
       actions: read
-    uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@main
+    uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@main  # zizmor: ignore[unpinned-uses]
     with:
       model: openrouter/stealth/ox-alpha
     secrets:
@@ -115,7 +115,7 @@ jobs:
       issues: write
       id-token: write
       actions: read
-    uses: dceoy/opencode-action/.github/workflows/opencode-bot.yml@main
+    uses: dceoy/opencode-action/.github/workflows/opencode-bot.yml@main  # zizmor: ignore[unpinned-uses]
     with:
       model: sakura/preview/Kimi-K2.7-Code
     secrets:
