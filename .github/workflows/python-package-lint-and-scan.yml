@@ -16,7 +16,7 @@ on:
       uv-version:
         required: false
         type: string
-        description: Version of uv to use (applicable only if uv.lock is present)
+        description: Version of uv to use
         default: latest
       enable-cache:
         required: false
@@ -88,11 +88,9 @@ jobs:
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
+      UV_EXCLUDE_NEWER: 7 days
       UV_MALWARE_CHECK: "1"
     steps:
-      - name: Disable pip cache
-        if: '! inputs.enable-cache'
-        run: echo 'PIP_NO_CACHE_DIR=true' >> "${GITHUB_ENV}"
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -109,7 +107,6 @@ jobs:
             echo "LOCK_FILE=" >> "${GITHUB_ENV}"
           fi
       - name: Set up uv
-        if: env.LOCK_FILE == 'uv.lock'
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
           version: ${{ inputs.uv-version }}
@@ -148,9 +145,7 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ inputs.python-version }}
-          cache: ${{ inputs.enable-cache && (inputs.cache-dependency-path != '' || env.LOCK_FILE == 'poetry.lock' || inputs.requirements-txt != '') && 'pip' || '' }}
-          cache-dependency-path: ${{ inputs.cache-dependency-path || (env.LOCK_FILE == 'poetry.lock' && format('{0}/poetry.lock', inputs.package-path)) || (inputs.requirements-txt != '' && format('{0}/{1}', inputs.package-path, inputs.requirements-txt)) || '' }}
-      - name: Install packages
+      - name: Install packages using uv pip
         if: env.LOCK_FILE != 'uv.lock'
         env:
           ADDITIONAL_PYTHON_PACKAGES: ${{ inputs.additional-python-packages }}
@@ -161,9 +156,8 @@ jobs:
           USE_PYRIGHT: ${{ inputs.use-pyright }}
         working-directory: ${{ inputs.package-path }}
         run: |
-          pip install -U pip
           if [[ -n "${REQUIREMENTS_TXT_PATH}" ]]; then
-            pip install -U -r "${REQUIREMENTS_TXT_PATH}"
+            uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
           fi
           packages=(ruff)
           [[ "${USE_FLAKE8}" == "true" ]] && packages+=(flake8)
@@ -171,7 +165,7 @@ jobs:
           [[ "${USE_MYPY}" == "true" ]] && packages+=(mypy)
           [[ "${USE_PYRIGHT}" == "true" ]] && packages+=(pyright)
           if [[ "${LOCK_FILE}" == "poetry.lock" ]]; then
-            pip install poetry
+            uv pip install --system poetry
             poetry lock --no-interaction
             poetry add --group=dev --no-interaction "${packages[@]}"
             for p in $(tr ' ' '\n' <<< "${ADDITIONAL_PYTHON_PACKAGES}"); do
@@ -182,10 +176,10 @@ jobs:
             poetry install --no-interaction --no-root
             echo "EXECUTOR_KIND=poetry" >> "${GITHUB_ENV}"
           else
-            pip install "${packages[@]}"
+            uv pip install --system "${packages[@]}"
             for p in $(tr ' ' '\n' <<< "${ADDITIONAL_PYTHON_PACKAGES}"); do
               if [[ -n "${p}" ]]; then
-                pip install "${p}"
+                uv pip install --system "${p}"
               fi
             done
             echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"

@@ -31,7 +31,7 @@ on:
       uv-version:
         required: false
         type: string
-        description: Version of uv to use (applicable only if uv.lock is present)
+        description: Version of uv to use
         default: latest
       enable-cache:
         required: false
@@ -100,12 +100,12 @@ jobs:
   build:
     name: Build the Python 🐍 distribution 📦
     runs-on: ${{ inputs.runs-on }}
+    env:
+      UV_EXCLUDE_NEWER: 7 days
+      UV_MALWARE_CHECK: "1"
     outputs:
       project-name: ${{ steps.read-project-name.outputs.project_name }}
     steps:
-      - name: Disable pip cache
-        if: '! inputs.enable-cache'
-        run: echo 'PIP_NO_CACHE_DIR=true' >> "${GITHUB_ENV}"
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -122,7 +122,6 @@ jobs:
             echo "LOCK_FILE=" >> "${GITHUB_ENV}"
           fi
       - name: Set up uv
-        if: env.LOCK_FILE == 'uv.lock'
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
           version: ${{ inputs.uv-version }}
@@ -134,8 +133,6 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ inputs.python-version }}
-          cache: ${{ inputs.enable-cache && (inputs.cache-dependency-path != '' || env.LOCK_FILE == 'poetry.lock' || inputs.requirements-txt != '') && 'pip' || '' }}
-          cache-dependency-path: ${{ inputs.cache-dependency-path || (env.LOCK_FILE == 'poetry.lock' && format('{0}/poetry.lock', inputs.package-path)) || (inputs.requirements-txt != '' && format('{0}/{1}', inputs.package-path, inputs.requirements-txt)) || '' }}
       - name: Read the project name
         id: read-project-name
         working-directory: ${{ inputs.package-path }}
@@ -163,16 +160,14 @@ jobs:
           if [[ "${LOCK_FILE}" == "uv.lock" ]]; then
             uv build
           else
-            pip install -U pip
             if [[ -n "${REQUIREMENTS_TXT_PATH}" ]]; then
-              pip install -U -r "${REQUIREMENTS_TXT_PATH}"
+              uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
             fi
             if [[ "${LOCK_FILE}" == "poetry.lock" ]]; then
-              pip install poetry
+              uv pip install --system poetry
               poetry build --format=wheel --no-interaction
             else
-              pip install build
-              python -m build
+              uv build
             fi
           fi
           mv dist "/tmp/${STEPS_READ_PROJECT_NAME_OUTPUTS_PROJECT_NAME}_dist"

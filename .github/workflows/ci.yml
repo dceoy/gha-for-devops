@@ -169,6 +169,7 @@ jobs:
       contents: write
     runs-on: ubuntu-slim
     env:
+      npm_config_min_release_age: '7'
       # renovate: datasource=npm depName=prettier
       PRETTIER_VERSION: 3.9.6
     steps:
@@ -186,16 +187,19 @@ jobs:
         uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518  # v4.2.5
         with:
           version: ${{ env.MISE_VERSION }}
-      - name: Install Prettier
+      - name: Provide Prettier wrapper
         env:
           PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
-        run: | # zizmor: ignore[adhoc-packages] installs pinned Prettier tool
+        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Prettier through npx
           [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
-          tool_dir="${HOME}/.cache/gha-for-devops/prettier"
-          if [[ ! -x "${tool_dir}/node_modules/.bin/prettier" ]]; then
-            npm install --prefix "${tool_dir}" "prettier@${PRETTIER_VERSION}"
-          fi
-          echo "${tool_dir}/node_modules/.bin" >> "${GITHUB_PATH}"
+          mkdir -p "${HOME}/.local/bin"
+          cat > "${HOME}/.local/bin/prettier" <<EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec npx --yes "prettier@${PRETTIER_VERSION}" "\$@"
+          EOF
+          chmod 0755 "${HOME}/.local/bin/prettier"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
       - name: Update README.md
         run: |
           ./.github/scripts/update-readme.sh

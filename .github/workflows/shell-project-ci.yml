@@ -175,13 +175,10 @@ jobs:
             | grep -F "  ${asset}" \
             | (cd "${RUNNER_TEMP}" && sha256sum --check --strict -)
           tar -xz -C "${HOME}/.local/bin" -f "${RUNNER_TEMP}/${asset}" actionlint
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: ${{ inputs.python-version }}
       - name: Setup uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
+          python-version: ${{ inputs.python-version }}
           enable-cache: ${{ inputs.enable-cache }}
           cache-suffix: shell-project-ci-${{ inputs.cache-salt }}
       - name: Provide Python QA tool wrappers

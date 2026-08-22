@@ -76,7 +76,7 @@ on:
       additional-npm-packages:
         required: false
         type: string
-        description: Additional NPM packages to install
+        description: Additional NPM packages to install when package.json is present
         default: null
       runs-on:
         required: false
@@ -115,7 +115,10 @@ jobs:
             ' package.json > /dev/null 2>&1
           }
           {
-            if [[ -f package-lock.json ]]; then
+            if [[ ! -f package.json ]]; then
+              echo 'PACKAGE_LOCK_FILE='
+              echo 'PACKAGE_MANAGER=standalone'
+            elif [[ -f package-lock.json ]]; then
               echo 'PACKAGE_LOCK_FILE=package-lock.json'
               echo 'PACKAGE_MANAGER=npm'
             elif [[ -f pnpm-lock.yaml ]]; then
@@ -129,7 +132,7 @@ jobs:
               exit 1
             else
               echo 'PACKAGE_LOCK_FILE='
-              echo 'PACKAGE_MANAGER='
+              echo 'PACKAGE_MANAGER=npm'
             fi
           } | tee -a "${GITHUB_ENV}"
       - name: Setup pnpm
@@ -138,24 +141,24 @@ jobs:
         with:
           version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
           package_json_file: ${{ format('{0}/package.json', inputs.package-path) }}
-      - name: Setup Node.js
-        if: inputs.enable-cache && env.PACKAGE_MANAGER != ''
+      - name: Setup Node.js with cache
+        if: inputs.enable-cache && env.PACKAGE_LOCK_FILE != ''
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ env.PACKAGE_MANAGER }}
           cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE) }}
       - name: Setup Node.js without cache
-        if: '! inputs.enable-cache || env.PACKAGE_MANAGER == '''''
+        if: '! inputs.enable-cache || env.PACKAGE_LOCK_FILE == '''''
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: ${{ inputs.node-version }}
-      - name: Install dependencies
+      - name: Install dependencies or provide standalone wrappers
         env:
           ADDITIONAL_NPM_PACKAGES: ${{ inputs.additional-npm-packages }}
         working-directory: ${{ inputs.package-path }}
-        run: | # zizmor: ignore[adhoc-packages] installs workflow-selected and caller-selected packages
-          case "${PACKAGE_MANAGER:-}" in
+        run: | # zizmor: ignore[adhoc-packages] installs project packages or provides npm-exec wrappers
+          case "${PACKAGE_MANAGER}" in
             pnpm )
               pnpm install --frozen-lockfile
               pnpm add --save-dev \
@@ -164,13 +167,11 @@ jobs:
                 ${{ inputs.use-stylelint && 'stylelint stylelint-config-standard' || '' }} \
                 ${{ inputs.lint-html-embedded-css && 'postcss-html' || '' }}
               ;;
-            * )
+            npm )
               if [[ -f package-lock.json ]]; then
                 npm ci
-              elif [[ -f package.json ]]; then
-                npm install
               else
-                :
+                npm install
               fi
               npm install --save-dev \
                 ${{ inputs.use-prettier && 'prettier' || '' }} \
@@ -178,20 +179,51 @@ jobs:
                 ${{ inputs.use-stylelint && 'stylelint stylelint-config-standard' || '' }} \
                 ${{ inputs.lint-html-embedded-css && 'postcss-html' || '' }}
               ;;
+            standalone )
+              if [[ -n "${ADDITIONAL_NPM_PACKAGES}" ]]; then
+                echo 'additional-npm-packages requires package.json.' >&2
+                exit 1
+              fi
+              NPM_PREFIX="${RUNNER_TEMP}/html-lint"
+              packages=()
+              [[ "${{ inputs.use-prettier }}" == 'true' ]] && packages+=(prettier)
+              [[ "${{ inputs.use-htmlhint }}" == 'true' ]] && packages+=(htmlhint)
+              [[ "${{ inputs.use-stylelint }}" == 'true' ]] && packages+=(stylelint stylelint-config-standard)
+              [[ "${{ inputs.lint-html-embedded-css }}" == 'true' ]] && packages+=(postcss-html)
+              if [[ "${#packages[@]}" -gt 0 ]]; then
+                npm install --prefix "${NPM_PREFIX}" --no-package-lock --no-save "${packages[@]}"
+              fi
+              mkdir -p "${HOME}/.local/bin"
+              cat > "${HOME}/.local/bin/htmlhint" <<EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec "${NPM_PREFIX}/node_modules/.bin/htmlhint" "\$@"
+          EOF
+              cat > "${HOME}/.local/bin/stylelint" <<EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec "${NPM_PREFIX}/node_modules/.bin/stylelint" --config-basedir "${NPM_PREFIX}/node_modules" "\$@"
+          EOF
+              cat > "${HOME}/.local/bin/prettier" <<EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec "${NPM_PREFIX}/node_modules/.bin/prettier" "\$@"
+          EOF
+              chmod 0755 "${HOME}/.local/bin/htmlhint" "${HOME}/.local/bin/stylelint" "${HOME}/.local/bin/prettier"
+              echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+              ;;
           esac
-          for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
-            if [[ -n "${p}" ]]; then
-              case "${PACKAGE_MANAGER:-}" in
-                pnpm )
-                  pnpm add --save-dev "${p}"
-                  ;;
-                * )
-                  npm install --save-dev "${p}"
-                  ;;
-              esac
-            fi
-          done
-          echo "PATH=${PWD}/node_modules/.bin:${PATH}" >> "${GITHUB_ENV}"
+          if [[ "${PACKAGE_MANAGER}" != 'standalone' ]]; then
+            for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
+              if [[ -n "${p}" ]]; then
+                case "${PACKAGE_MANAGER}" in
+                  pnpm ) pnpm add --save-dev "${p}" ;;
+                  npm ) npm install --save-dev "${p}" ;;
+                esac
+              fi
+            done
+            echo "PATH=${PWD}/node_modules/.bin:${PATH}" >> "${GITHUB_ENV}"
+          fi
       - name: Run HTMLHint on HTML files
         if: inputs.use-htmlhint
         env:
