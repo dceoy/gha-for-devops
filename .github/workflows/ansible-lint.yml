@@ -21,8 +21,18 @@ on:
       cache-salt:
         required: false
         type: string
-        description: Optional value used to bust the ansible-lint cache
+        description: Optional value used to bust tool caches
         default: null
+      use-yamllint:
+        required: false
+        type: boolean
+        description: Whether to use yamllint
+        default: true
+      yamllint-config-data:
+        required: false
+        type: string
+        description: Configuration data for yamllint
+        default: '{"extends": "relaxed", "rules": {"line-length": "disable"}}'
       runs-on:
         required: false
         type: string
@@ -35,7 +45,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  lint:
+  ansible-lint:
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days
@@ -63,3 +73,12 @@ jobs:
         run: | # zizmor: ignore[adhoc-packages] runs a pinned ansible-lint via uvx
           [[ "${ANSIBLE_LINT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid ANSIBLE_LINT_VERSION"; exit 1; }
           uvx --from "ansible-lint==${ANSIBLE_LINT_VERSION}" ansible-lint .
+  yaml-lint:
+    if: inputs.use-yamllint
+    uses: ./.github/workflows/yaml-lint.yml
+    with:
+      search-path: ${{ inputs.search-path }}
+      python-version: ${{ inputs.python-version }}
+      yamllint-config-data: ${{ inputs.yamllint-config-data }}
+      enable-cache: ${{ inputs.enable-cache }}
+      cache-salt: ${{ inputs.cache-salt }}
