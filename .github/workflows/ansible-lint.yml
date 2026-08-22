@@ -1,0 +1,65 @@
+---
+name: Lint for Ansible
+on:
+  workflow_call:
+    inputs:
+      search-path:
+        required: false
+        type: string
+        description: Path to search for Ansible content
+        default: .
+      python-version:
+        required: false
+        type: string
+        description: Python version to use
+        default: 3.x
+      enable-cache:
+        required: false
+        type: boolean
+        description: Cache uv downloads
+        default: true
+      cache-salt:
+        required: false
+        type: string
+        description: Optional value used to bust the ansible-lint cache
+        default: null
+      runs-on:
+        required: false
+        type: string
+        description: Runner to use
+        default: ubuntu-slim
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+jobs:
+  lint:
+    runs-on: ${{ inputs.runs-on }}
+    env:
+      UV_EXCLUDE_NEWER: 7 days
+      # renovate: datasource=pypi depName=ansible-lint versioning=pep440
+      ANSIBLE_LINT_VERSION: 26.6.0
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+        with:
+          enable-cache: ${{ inputs.enable-cache }}
+          cache-suffix: ansible-lint-${{ inputs.cache-salt }}
+      - name: Execute ansible-lint
+        env:
+          ANSIBLE_LINT_VERSION: ${{ env.ANSIBLE_LINT_VERSION }}
+        working-directory: ${{ inputs.search-path }}
+        run: | # zizmor: ignore[adhoc-packages] runs a pinned ansible-lint via uvx
+          [[ "${ANSIBLE_LINT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid ANSIBLE_LINT_VERSION"; exit 1; }
+          uvx --from "ansible-lint==${ANSIBLE_LINT_VERSION}" ansible-lint .
