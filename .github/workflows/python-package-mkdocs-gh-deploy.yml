@@ -16,7 +16,7 @@ on:
       uv-version:
         required: false
         type: string
-        description: Version of uv to use (applicable only if uv.lock is present)
+        description: Version of uv to use
         default: latest
       enable-cache:
         required: false
@@ -72,7 +72,7 @@ on:
       uv-version:
         required: false
         type: string
-        description: Version of uv to use (applicable only if uv.lock is present)
+        description: Version of uv to use
         default: latest
       enable-cache:
         required: false
@@ -119,12 +119,10 @@ jobs:
   build-and-deploy:
     runs-on: ${{ inputs.runs-on }}
     env:
+      UV_EXCLUDE_NEWER: 7 days
       UV_MALWARE_CHECK: "1"
       MKDOCS_SITE_DIR: ${{ inputs.package-path }}/site
     steps:
-      - name: Disable pip cache
-        if: '! inputs.enable-cache'
-        run: echo 'PIP_NO_CACHE_DIR=true' >> "${GITHUB_ENV}"
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -141,7 +139,6 @@ jobs:
             echo "LOCK_FILE=" >> "${GITHUB_ENV}"
           fi
       - name: Set up uv
-        if: env.LOCK_FILE == 'uv.lock'
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
           version: ${{ inputs.uv-version }}
@@ -159,20 +156,17 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ inputs.python-version }}
-          cache: ${{ inputs.enable-cache && (inputs.cache-dependency-path != '' || env.LOCK_FILE == 'poetry.lock') && 'pip' || '' }}
-          cache-dependency-path: ${{ inputs.cache-dependency-path || (env.LOCK_FILE == 'poetry.lock' && format('{0}/poetry.lock', inputs.package-path)) || '' }}
-      - name: Install packages
+      - name: Install packages using uv pip
         if: env.LOCK_FILE != 'uv.lock'
         working-directory: ${{ inputs.package-path }}
         run: |
-          pip install -U pip
           if [[ "${LOCK_FILE}" == "poetry.lock" ]]; then
-            pip install poetry
+            uv pip install --system poetry
             poetry lock --no-interaction
             poetry install --no-interaction --no-root
             echo "EXECUTOR_KIND=poetry" >> "${GITHUB_ENV}"
           else
-            pip install -U mkdocs
+            uv pip install --system mkdocs
             echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
           fi
       - name: Build MkDocs site
@@ -194,5 +188,5 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453  # v4.1.0
         with:
-          github_token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          github_token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           publish_dir: ${{ env.MKDOCS_SITE_DIR }}
