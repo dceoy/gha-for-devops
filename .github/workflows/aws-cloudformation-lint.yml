@@ -88,6 +88,8 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days
+      # renovate: datasource=pypi depName=yamllint versioning=pep440
+      YAMLLINT_VERSION: 1.38.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -100,6 +102,16 @@ jobs:
           python-version: ${{ inputs.python-version }}
       - name: Setup uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+      - name: Execute yamllint
+        if: inputs.use-yamllint
+        env:
+          YAMLLINT_CONFIG_DATA: ${{ inputs.yamllint-config-data }}
+          YAMLLINT_VERSION: ${{ env.YAMLLINT_VERSION }}
+        working-directory: ${{ inputs.search-path }}
+        run: | # zizmor: ignore[adhoc-packages] runs a pinned yamllint via uvx
+          [[ "${YAMLLINT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid YAMLLINT_VERSION"; exit 1; }
+          git ls-files -z -- '*.yml' '*.yaml' \
+            | xargs -0 -r -t uvx --from "yamllint==${YAMLLINT_VERSION}" yamllint --config-data="${YAMLLINT_CONFIG_DATA}"
       - name: Execute cfn-lint
         working-directory: ${{ inputs.search-path }}
         run: >  # zizmor: ignore[adhoc-packages] runs cfn-lint through uvx
@@ -119,10 +131,3 @@ jobs:
           output_file_path: ${{ inputs.checkov-output-file-path }}
           soft_fail: ${{ inputs.checkov-soft-fail }}
           api-key: ${{ secrets.BC_API_KEY }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
-  yaml-lint:
-    if: inputs.use-yamllint
-    uses: ./.github/workflows/yaml-lint.yml
-    with:
-      search-path: ${{ inputs.search-path }}
-      python-version: ${{ inputs.python-version }}
-      yamllint-config-data: ${{ inputs.yamllint-config-data }}

@@ -111,6 +111,7 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 
 | Workflow File                                                                                                    | Description                                                       |
 | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [ansible-lint.yml](.github/workflows/ansible-lint.yml)                                                           | Lint for Ansible                                                  |
 | [aws-cloudformation-lint.yml](.github/workflows/aws-cloudformation-lint.yml)                                     | Lint for AWS CloudFormation                                       |
 | [aws-codebuild-run.yml](.github/workflows/aws-codebuild-run.yml)                                                 | Build using an AWS CodeBuild project                              |
 | [aws-parameter-store-update.yml](.github/workflows/aws-parameter-store-update.yml)                               | Update AWS Parameter Store values                                 |

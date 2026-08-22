@@ -1,0 +1,87 @@
+---
+name: Lint for Ansible
+on:
+  workflow_call:
+    inputs:
+      search-path:
+        required: false
+        type: string
+        description: Path to search for Ansible content
+        default: .
+      python-version:
+        required: false
+        type: string
+        description: Python version to use
+        default: 3.x
+      enable-cache:
+        required: false
+        type: boolean
+        description: Cache uv downloads
+        default: true
+      cache-salt:
+        required: false
+        type: string
+        description: Optional value used to bust tool caches
+        default: null
+      use-yamllint:
+        required: false
+        type: boolean
+        description: Whether to use yamllint
+        default: true
+      yamllint-config-data:
+        required: false
+        type: string
+        description: Configuration data for yamllint
+        default: '{"extends": "relaxed", "rules": {"line-length": "disable"}}'
+      runs-on:
+        required: false
+        type: string
+        description: Runner to use
+        default: ubuntu-slim
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+jobs:
+  ansible-lint:
+    runs-on: ${{ inputs.runs-on }}
+    env:
+      UV_EXCLUDE_NEWER: 7 days
+      # renovate: datasource=pypi depName=ansible-lint versioning=pep440
+      ANSIBLE_LINT_VERSION: 26.6.0
+      # renovate: datasource=pypi depName=yamllint versioning=pep440
+      YAMLLINT_VERSION: 1.38.0
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Setup uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+        with:
+          enable-cache: ${{ inputs.enable-cache }}
+          cache-suffix: ansible-lint-${{ inputs.cache-salt }}
+      - name: Execute yamllint
+        if: inputs.use-yamllint
+        env:
+          YAMLLINT_CONFIG_DATA: ${{ inputs.yamllint-config-data }}
+          YAMLLINT_VERSION: ${{ env.YAMLLINT_VERSION }}
+        working-directory: ${{ inputs.search-path }}
+        run: | # zizmor: ignore[adhoc-packages] runs a pinned yamllint via uvx
+          [[ "${YAMLLINT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid YAMLLINT_VERSION"; exit 1; }
+          git ls-files -z -- '*.yml' '*.yaml' \
+            | xargs -0 -r -t uvx --from "yamllint==${YAMLLINT_VERSION}" yamllint --config-data="${YAMLLINT_CONFIG_DATA}"
+      - name: Execute ansible-lint
+        env:
+          ANSIBLE_LINT_VERSION: ${{ env.ANSIBLE_LINT_VERSION }}
+        working-directory: ${{ inputs.search-path }}
+        run: | # zizmor: ignore[adhoc-packages] runs a pinned ansible-lint via uvx
+          [[ "${ANSIBLE_LINT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid ANSIBLE_LINT_VERSION"; exit 1; }
+          uvx --from "ansible-lint==${ANSIBLE_LINT_VERSION}" ansible-lint .
