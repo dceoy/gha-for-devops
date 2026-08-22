@@ -47,10 +47,10 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 env:
-  # This workflow's review-posting identity is not guaranteed stable across runs
-  # (observed as both claude[bot] and github-actions[bot] in this PR's own review
-  # history under identical GH_TOKEN/secrets configuration); accept either.
-  GH_REVIEW_AUTHORS: claude[bot],github-actions[bot]
+  # Identity that posts the review via `gh pr review --comment` from inside the
+  # claude-code-action step (Claude's own GitHub App installation), used to keep
+  # the marker match from being satisfiable by an unrelated actor/workflow.
+  GH_REVIEW_AUTHOR: claude[bot]
 jobs:
   claude-code-review:
     if: >
@@ -115,8 +115,10 @@ jobs:
           #   4. reviews-list gh api call fails (network/rate-limit/auth)         -> exit 0
           #      (fail-closed for cases 2 and 4 is enforced by the separate
           #      "Verify COMMENT review publication" step below, not by this hook)
-          #   5. exactly one matching COMMENT review already exists              -> exit 0
-          #   6. otherwise (review missing)                                      -> exit 2, retry once
+          #   5. a matching COMMENT review already exists                        -> exit 0
+          #      (allowed to stop as soon as one exists; the downstream "Verify
+          #      COMMENT review publication" step is the strict exactly-one gate)
+          #   6. otherwise (no matching review yet)                              -> exit 2, retry once
           settings: |
             {
               "hooks": {
@@ -125,7 +127,7 @@ jobs:
                     "hooks": [
                       {
                         "type": "command",
-                        "command": "payload=\"$(cat)\"; if [ \"$(printf '%s' \"$payload\" | jq -r '.stop_hook_active // false')\" = \"true\" ]; then exit 0; fi; current_head=\"$(gh api \"repos/${GH_REPOSITORY}/pulls/${GH_PR_NUMBER}\" --jq .head.sha)\" || { printf '%s\\n' 'Unable to verify current PR head SHA; skipping stop-hook retry.' >&2; exit 0; }; if [ \"$current_head\" != \"${GH_PR_HEAD_SHA}\" ]; then printf '%s\\n' 'PR head has advanced past this run; skipping stop-hook retry.' >&2; exit 0; fi; reviews=\"$(gh api --paginate --slurp \"repos/${GH_REPOSITORY}/pulls/${GH_PR_NUMBER}/reviews\")\" || { printf '%s\\n' 'Unable to verify COMMENT review publication; skipping stop-hook retry.' >&2; exit 0; }; if printf '%s' \"$reviews\" | jq -e --arg marker \"$GH_REVIEW_MARKER\" --arg head_sha \"$GH_PR_HEAD_SHA\" --arg bot_logins \"$GH_REVIEW_AUTHORS\" 'add | map(select((.user.login as $u | ($bot_logins | split(\",\") | index($u))) != null and .state == \"COMMENTED\" and .commit_id == $head_sha and ((.body // \"\") | contains($marker)))) | length == 1' > /dev/null; then exit 0; fi; printf '%s\\n' 'Required COMMENT review is still missing. Continue autonomously: submit exactly one top-level COMMENT review for this PR head with gh pr review --comment, include the required claude-code-review marker, and do not stop until the command succeeds.' >&2; exit 2"
+                        "command": "payload=\"$(cat)\"; if [ \"$(printf '%s' \"$payload\" | jq -r '.stop_hook_active // false')\" = \"true\" ]; then exit 0; fi; current_head=\"$(gh api \"repos/${GH_REPOSITORY}/pulls/${GH_PR_NUMBER}\" --jq .head.sha)\" || { printf '%s\\n' 'Unable to verify current PR head SHA; skipping stop-hook retry.' >&2; exit 0; }; if [ \"$current_head\" != \"${GH_PR_HEAD_SHA}\" ]; then printf '%s\\n' 'PR head has advanced past this run; skipping stop-hook retry.' >&2; exit 0; fi; reviews=\"$(gh api --paginate --slurp \"repos/${GH_REPOSITORY}/pulls/${GH_PR_NUMBER}/reviews\")\" || { printf '%s\\n' 'Unable to verify COMMENT review publication; skipping stop-hook retry.' >&2; exit 0; }; if printf '%s' \"$reviews\" | jq -e --arg marker \"$GH_REVIEW_MARKER\" --arg head_sha \"$GH_PR_HEAD_SHA\" --arg bot_login \"$GH_REVIEW_AUTHOR\" 'add | map(select(.user.login == $bot_login and .state == \"COMMENTED\" and .commit_id == $head_sha and ((.body // \"\") | contains($marker)))) | length > 0' > /dev/null; then exit 0; fi; printf '%s\\n' 'Required COMMENT review is still missing. Continue autonomously: submit exactly one top-level COMMENT review for this PR head with gh pr review --comment, include the required claude-code-review marker, and do not stop until the command succeeds.' >&2; exit 2"
                       }
                     ]
                   }
@@ -148,11 +150,11 @@ jobs:
             | jq -e \
               --arg marker "${REVIEW_MARKER}" \
               --arg head_sha "${PR_HEAD_SHA}" \
-              --arg bot_logins "${GH_REVIEW_AUTHORS}" '
+              --arg bot_login "${GH_REVIEW_AUTHOR}" '
                 add
                 | map(
                     select(
-                      (.user.login as $u | ($bot_logins | split(",") | index($u))) != null
+                      .user.login == $bot_login
                       and .state == "COMMENTED"
                       and .commit_id == $head_sha
                       and ((.body // "") | contains($marker))
