@@ -180,7 +180,7 @@ jobs:
         env:
           PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
         run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Prettier through npx
-          [[ "${PRETTIER_VERSION}" =~ ^v[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
+          [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
           mkdir -p "${HOME}/.local/bin"
           cat > "${HOME}/.local/bin/prettier" <<EOF
           #!/usr/bin/env bash
