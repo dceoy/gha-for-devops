@@ -51,6 +51,8 @@ jobs:
       UV_EXCLUDE_NEWER: 7 days
       # renovate: datasource=pypi depName=ansible-lint versioning=pep440
       ANSIBLE_LINT_VERSION: 26.6.0
+      # renovate: datasource=pypi depName=yamllint versioning=pep440
+      YAMLLINT_VERSION: 1.38.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -66,6 +68,16 @@ jobs:
         with:
           enable-cache: ${{ inputs.enable-cache }}
           cache-suffix: ansible-lint-${{ inputs.cache-salt }}
+      - name: Execute yamllint
+        if: inputs.use-yamllint
+        env:
+          YAMLLINT_CONFIG_DATA: ${{ inputs.yamllint-config-data }}
+          YAMLLINT_VERSION: ${{ env.YAMLLINT_VERSION }}
+        working-directory: ${{ inputs.search-path }}
+        run: | # zizmor: ignore[adhoc-packages] runs a pinned yamllint via uvx
+          [[ "${YAMLLINT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid YAMLLINT_VERSION"; exit 1; }
+          git ls-files -z -- '*.yml' '*.yaml' \
+            | xargs -0 -r -t uvx --from "yamllint==${YAMLLINT_VERSION}" yamllint --config-data="${YAMLLINT_CONFIG_DATA}"
       - name: Execute ansible-lint
         env:
           ANSIBLE_LINT_VERSION: ${{ env.ANSIBLE_LINT_VERSION }}
@@ -73,12 +85,3 @@ jobs:
         run: | # zizmor: ignore[adhoc-packages] runs a pinned ansible-lint via uvx
           [[ "${ANSIBLE_LINT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid ANSIBLE_LINT_VERSION"; exit 1; }
           uvx --from "ansible-lint==${ANSIBLE_LINT_VERSION}" ansible-lint .
-  yaml-lint:
-    if: inputs.use-yamllint
-    uses: ./.github/workflows/yaml-lint.yml
-    with:
-      search-path: ${{ inputs.search-path }}
-      python-version: ${{ inputs.python-version }}
-      yamllint-config-data: ${{ inputs.yamllint-config-data }}
-      enable-cache: ${{ inputs.enable-cache }}
-      cache-salt: ${{ inputs.cache-salt }}
