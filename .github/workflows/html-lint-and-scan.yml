@@ -184,21 +184,30 @@ jobs:
                 echo 'additional-npm-packages requires package.json.' >&2
                 exit 1
               fi
+              NPM_PREFIX="${RUNNER_TEMP}/html-lint"
+              packages=()
+              [[ "${{ inputs.use-prettier }}" == 'true' ]] && packages+=(prettier)
+              [[ "${{ inputs.use-htmlhint }}" == 'true' ]] && packages+=(htmlhint)
+              [[ "${{ inputs.use-stylelint }}" == 'true' ]] && packages+=(stylelint stylelint-config-standard)
+              [[ "${{ inputs.lint-html-embedded-css }}" == 'true' ]] && packages+=(postcss-html)
+              if [[ "${#packages[@]}" -gt 0 ]]; then
+                npm install --prefix "${NPM_PREFIX}" --no-package-lock --no-save "${packages[@]}"
+              fi
               mkdir -p "${HOME}/.local/bin"
-              cat > "${HOME}/.local/bin/htmlhint" <<'EOF'
+              cat > "${HOME}/.local/bin/htmlhint" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec npx --yes htmlhint "$@"
+          exec "${NPM_PREFIX}/node_modules/.bin/htmlhint" "\$@"
           EOF
-              cat > "${HOME}/.local/bin/stylelint" <<'EOF'
+              cat > "${HOME}/.local/bin/stylelint" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec npx --yes --package=stylelint --package=stylelint-config-standard --package=postcss-html -- stylelint "$@"
+          exec "${NPM_PREFIX}/node_modules/.bin/stylelint" --config-basedir "${NPM_PREFIX}/node_modules" "\$@"
           EOF
-              cat > "${HOME}/.local/bin/prettier" <<'EOF'
+              cat > "${HOME}/.local/bin/prettier" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec npx --yes prettier "$@"
+          exec "${NPM_PREFIX}/node_modules/.bin/prettier" "\$@"
           EOF
               chmod 0755 "${HOME}/.local/bin/htmlhint" "${HOME}/.local/bin/stylelint" "${HOME}/.local/bin/prettier"
               echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"

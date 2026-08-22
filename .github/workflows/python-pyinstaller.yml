@@ -132,6 +132,7 @@ jobs:
           case "${EXECUTOR_KIND}" in
             uv)     uv run PyInstaller --clean --noconsole --onefile "${APP_SCRIPT_PATH}" ;;
             poetry) poetry run PyInstaller --clean --noconsole --onefile "${APP_SCRIPT_PATH}" ;;
+            # Bare pip installs may not expose PyInstaller on PATH; preserve prior `python -m` behavior.
             *)      python -m PyInstaller --clean --noconsole --onefile "${APP_SCRIPT_PATH}" ;;
           esac
       - name: Upload the artifact
