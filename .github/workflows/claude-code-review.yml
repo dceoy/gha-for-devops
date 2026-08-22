@@ -114,10 +114,7 @@ jobs:
                 ]
               }
             }
-          claude_args: >-
-            ${{ inputs.claude-args }}
-            --allowedTools "Bash(gh pr review:*),Bash(gh api:*)"
-            ${{ inputs.aws-role-to-assume == null && '--permission-mode=auto' || '' }}
+          claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto', inputs.claude-args) || inputs.claude-args }}
           plugins: pr-review-toolkit@claude-plugins-official
           plugin_marketplaces: https://github.com/anthropics/claude-plugins-official.git
       - name: Verify COMMENT review publication
