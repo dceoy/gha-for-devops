@@ -1,15 +1,6 @@
 ---
 name: Dependabot auto-merge
 on:
-  # pull_request_target is safe here because this workflow never checks out or
-  # executes code from the pull request; it operates only on GitHub metadata.
-  pull_request_target:
-    branches:
-      - main
-    types:
-      - opened
-      - synchronize
-      - reopened
   workflow_call:
     inputs:
       unconditional:
@@ -44,7 +35,7 @@ defaults:
 jobs:
   dependabot-auto-merge:
     if: github.event.pull_request.user.login == 'dependabot[bot]'
-    runs-on: ${{ inputs.runs-on || 'ubuntu-slim' }}
+    runs-on: ${{ inputs.runs-on }}
     env:
       PR_URL: ${{ github.event.pull_request.html_url }}
       GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
@@ -74,17 +65,14 @@ jobs:
           echo "safe=${safe}" | tee -a "${GITHUB_OUTPUT}"
       - name: Approve the pull request
         if: >
-          github.event_name == 'pull_request_target'
-          || inputs.unconditional
-          || steps.safe-update.outputs.safe == 'true'
+          inputs.unconditional || steps.safe-update.outputs.safe == 'true'
         id: approve-pr
         run: >
           gh pr review --approve "${PR_URL}"
       - name: Check whether the PR head branch is behind the base
         id: merge-state
         if: >
-          steps.approve-pr.outcome == 'success'
-          && (github.event_name == 'pull_request_target' || inputs.auto-merge-after-requirements)
+          steps.approve-pr.outcome == 'success' && inputs.auto-merge-after-requirements
         run: |
           merge_state="$(gh pr view "${PR_URL}" --json mergeStateStatus --jq '.mergeStateStatus')"
           case "${merge_state}" in
@@ -98,16 +86,16 @@ jobs:
           echo "status=${merge_state}" | tee -a "${GITHUB_OUTPUT}"
       - name: Request Dependabot rebase if the PR head branch is behind the base
         if: >
-          (github.event_name == 'pull_request_target' || inputs.auto-merge-after-requirements)
-          && steps.merge-state.outcome == 'success'
-          && steps.merge-state.outputs.status == 'BEHIND'
+          inputs.auto-merge-after-requirements &&
+          steps.merge-state.outcome == 'success' &&
+          steps.merge-state.outputs.status == 'BEHIND'
         run: >
           gh pr comment "${PR_URL}" --body "@dependabot rebase"
       - name: Verify required checks if configured
         if: >
-          (github.event_name == 'pull_request_target' || inputs.auto-merge-after-requirements)
-          && steps.merge-state.outcome == 'success'
-          && (steps.merge-state.outputs.status == 'CLEAN' || steps.merge-state.outputs.status == 'UNSTABLE')
+          inputs.auto-merge-after-requirements &&
+          steps.merge-state.outcome == 'success' &&
+          (steps.merge-state.outputs.status == 'CLEAN' || steps.merge-state.outputs.status == 'UNSTABLE')
         run: |
           if ! check_output="$(gh pr checks --required "${PR_URL}" 2>&1)"; then
             # Work around gh CLI behavior where --required exits non-zero
@@ -122,8 +110,8 @@ jobs:
           fi
       - name: Enable auto-merge after necessary requirements are met
         if: >
-          (github.event_name == 'pull_request_target' || inputs.auto-merge-after-requirements)
-          && steps.merge-state.outcome == 'success'
-          && (steps.merge-state.outputs.status == 'CLEAN' || steps.merge-state.outputs.status == 'UNSTABLE')
+          inputs.auto-merge-after-requirements &&
+          steps.merge-state.outcome == 'success' &&
+          (steps.merge-state.outputs.status == 'CLEAN' || steps.merge-state.outputs.status == 'UNSTABLE')
         run: >
           gh pr merge --merge --delete-branch --auto "${PR_URL}"
