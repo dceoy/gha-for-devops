@@ -85,7 +85,6 @@ jobs:
   github-actions-lint-and-scan:
     if: >
       github.event_name == 'push'
-      || github.event_name == 'pull_request'
       || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'lint')
     permissions:
       contents: read
@@ -95,6 +94,18 @@ jobs:
     with:
       search-path: .github/workflows
       zizmor-search-path: .github
+      go-version: stable
+      python-version: 3.x
+  github-actions-lint-and-scan-pr:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/github-actions-lint-and-scan.yml
+    with:
+      search-path: .github/workflows
+      zizmor-search-path: .github
+      zizmor-advanced-security: false
       go-version: stable
       python-version: 3.x
   github-codeql-analysis:
@@ -137,7 +148,7 @@ jobs:
       - shell-lint
       - markdown-lint
       - readme-generator-test
-      - github-actions-lint-and-scan
+      - github-actions-lint-and-scan-pr
     permissions:
       contents: write
       pull-requests: write
@@ -152,7 +163,6 @@ jobs:
   markdown-format-and-pr:
     if: >
       github.event_name == 'push'
-      || github.event_name == 'pull_request'
       || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'update')
     permissions:
       contents: write
@@ -163,7 +173,6 @@ jobs:
   update-readme-md:
     if: >
       github.event_name == 'push'
-      || github.event_name == 'pull_request'
       || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'update')
     permissions:
       contents: write
