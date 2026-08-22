@@ -103,22 +103,9 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   opencode-bot:
     if: >
-      (
-        (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment')
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
-        && (contains(github.event.comment.body, ' /oc') || contains(github.event.comment.body, ' /opencode'))
-      ) || (
-        github.event_name == 'pull_request_review'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
-        && (contains(github.event.review.body, '/oc') || contains(github.event.review.body, '/opencode'))
-      ) || (
-        github.event_name == 'issues'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
-        && (
-          (contains(github.event.issue.body, '/oc') || contains(github.event.issue.title, '/oc'))
-          || (contains(github.event.issue.body, '/opencode') || contains(github.event.issue.title, '/opencode'))
-        )
-      )
+      (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment')
+      && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      && (contains(github.event.comment.body, ' /oc') || contains(github.event.comment.body, ' /opencode'))
     concurrency:
       group: ${{ github.workflow }}-opencode-bot-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
       cancel-in-progress: true
