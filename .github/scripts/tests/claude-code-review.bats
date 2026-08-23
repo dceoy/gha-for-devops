@@ -276,15 +276,15 @@ run_diagnosis() {
   [ "${output}" = "${expected_conclusion}" ]
 }
 
-@test "Claude review tools enforce a read-only policy" {
+@test "Claude review restores defaults but enforces runtime read-only policy" {
   run yq -r '.on.workflow_call.inputs."claude-args".default' "${WORKFLOW}"
 
   [ "${status}" -eq 0 ]
-  [[ "${output}" != *'Bash(gh:*)'* ]]
-  [[ "${output}" != *'Bash(git:*)'* ]]
-  [[ "${output}" != *'WebFetch'* ]]
-  [[ "${output}" != *'WebSearch'* ]]
-  [[ "${output}" != *'mcp__github_inline_comment__create_inline_comment'* ]]
+  [[ "${output}" == *'Bash(gh:*)'* ]]
+  [[ "${output}" == *'Bash(git:*)'* ]]
+  [[ "${output}" == *'WebFetch'* ]]
+  [[ "${output}" == *'WebSearch'* ]]
+  [[ "${output}" == *'mcp__github_inline_comment__create_inline_comment'* ]]
 
   run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Run comprehensive PR review") | .with.claude_args' "${WORKFLOW}"
   [ "${status}" -eq 0 ]
