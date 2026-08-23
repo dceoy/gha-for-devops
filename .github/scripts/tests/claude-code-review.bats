@@ -282,11 +282,13 @@ run_diagnosis() {
   [ "${status}" -eq 0 ]
   [[ "${output}" != *'Bash(gh:*)'* ]]
   [[ "${output}" != *'Bash(git:*)'* ]]
+  [[ "${output}" != *'WebFetch'* ]]
+  [[ "${output}" != *'WebSearch'* ]]
   [[ "${output}" != *'mcp__github_inline_comment__create_inline_comment'* ]]
 
   run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Run comprehensive PR review") | .with.claude_args' "${WORKFLOW}"
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *'--disallowedTools="Bash,Edit,Write,NotebookEdit,mcp__github_inline_comment__create_inline_comment"'* ]]
+  [[ "${output}" == *'--disallowedTools="Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,mcp__github_inline_comment__create_inline_comment,Read(/{2}/.git/**)"'* ]]
   [[ "${output}" == *'--add-dir="{1}/claude-pr-review"'* ]]
 }
 
@@ -298,6 +300,8 @@ run_diagnosis() {
   [[ "${output}" == *'git diff --no-ext-diff --unified=20 "${PR_BASE_SHA}...${PR_HEAD_SHA}"'* ]]
   [[ "${output}" == *'max_diff_bytes=4194304'* ]]
   [[ "${output}" == *'diff_size='* ]]
+  [[ "${output}" == *'max_changed_files_bytes=1048576'* ]]
+  [[ "${output}" == *'head -c'* ]]
   [[ "${output}" != *'--binary'* ]]
 }
 
@@ -309,4 +313,12 @@ run_diagnosis() {
   [[ "${output}" == *'review_agent='* ]]
   [[ "${output}" == *'Use the supplied PR context instead of querying GitHub'* ]]
   [[ "${output}" == *'By default, review the supplied PR diff and changed-file list.'* ]]
+}
+
+@test "security review uses the prepared read-only context" {
+  run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Run comprehensive PR review") | .with.prompt' "${WORKFLOW}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'dedicated security pass over the prepared diff'* ]]
+  [[ "${output}" != *'security-review'* ]]
 }
