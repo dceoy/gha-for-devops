@@ -276,17 +276,17 @@ run_diagnosis() {
   [ "${output}" = "${expected_conclusion}" ]
 }
 
-@test "Claude shell tools exclude unrestricted GitHub CLI access" {
+@test "Claude review tools enforce a read-only policy" {
   run yq -r '.on.workflow_call.inputs."claude-args".default' "${WORKFLOW}"
 
   [ "${status}" -eq 0 ]
   [[ "${output}" != *'Bash(gh:*)'* ]]
   [[ "${output}" != *'Bash(git:*)'* ]]
-  [[ "${output}" == *'mcp__github_inline_comment__create_inline_comment'* ]]
+  [[ "${output}" != *'mcp__github_inline_comment__create_inline_comment'* ]]
 
   run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Run comprehensive PR review") | .with.claude_args' "${WORKFLOW}"
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *'--disallowedTools="Bash,Edit,Write,NotebookEdit"'* ]]
+  [[ "${output}" == *'--disallowedTools="Bash,Edit,Write,NotebookEdit,mcp__github_inline_comment__create_inline_comment"'* ]]
   [[ "${output}" == *'--add-dir="{1}/claude-pr-review"'* ]]
 }
 
@@ -299,4 +299,14 @@ run_diagnosis() {
   [[ "${output}" == *'max_diff_bytes=4194304'* ]]
   [[ "${output}" == *'diff_size='* ]]
   [[ "${output}" != *'--binary'* ]]
+}
+
+@test "pinned review plugin is adapted to the read-only context" {
+  run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Prepare pinned Claude plugin marketplace") | .run' "${WORKFLOW}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'review_command='* ]]
+  [[ "${output}" == *'review_agent='* ]]
+  [[ "${output}" == *'Use the supplied PR context instead of querying GitHub'* ]]
+  [[ "${output}" == *'By default, review the supplied PR diff and changed-file list.'* ]]
 }

@@ -12,7 +12,7 @@ on:
         type: string
         description: Additional arguments to pass directly to Claude Code Action
         default: >-
-          --allowedTools="Skill,Agent,Task,Read,Glob,Grep,WebFetch,WebSearch,mcp__github_inline_comment__create_inline_comment"
+          --allowedTools="Skill,Agent,Task,Read,Glob,Grep,WebFetch,WebSearch"
           --model=opusplan
           --advisor=opus
       aws-role-to-assume:
@@ -77,6 +77,28 @@ jobs:
           manifest="${marketplace}/.claude-plugin/marketplace.json"
           jq '.name = "pinned-pr-review-toolkit"' "${manifest}" > "${manifest}.tmp"
           mv "${manifest}.tmp" "${manifest}"
+          review_command="${marketplace}/plugins/pr-review-toolkit/commands/review-pr.md"
+          review_agent="${marketplace}/plugins/pr-review-toolkit/agents/code-reviewer.md"
+          # shellcheck disable=SC2016
+          sed -i \
+            -e 's/allowed-tools: \["Bash", "Glob", "Grep", "Read", "Task"\]/allowed-tools: ["Glob", "Grep", "Read", "Task"]/' \
+            -e 's/   - Check git status to identify changed files/   - Read the prepared changed-file list to identify changed files/' \
+            -e 's/   - Run `git diff --name-only` to see modified files/   - Read the supplied diff and changed-file list to see modified files/' \
+            -e 's/   - Check if PR already exists: `gh pr view`/   - Use the supplied PR context instead of querying GitHub/' \
+            -e 's/   - \*\*After passing review\*\*: code-simplifier (polish and refine)/   - Do not run code-simplifier; this workflow is analysis-only/' \
+            -e 's/Agents analyze git diff by default/Agents analyze the supplied PR diff by default/' \
+            "${review_command}"
+          # shellcheck disable=SC2016
+          sed -i \
+            -e 's/can be retrieved by running git diff/are provided in the prepared PR diff/' \
+            -e 's/By default, review unstaged changes from `git diff`\./By default, review the supplied PR diff and changed-file list./' \
+            "${review_agent}"
+          grep -q 'allowed-tools: \["Glob", "Grep", "Read", "Task"\]' "${review_command}"
+          if grep -q 'allowed-tools: \["Bash"' "${review_command}"; then exit 1; fi
+          if grep -q 'git diff' "${review_command}"; then exit 1; fi
+          if grep -q 'gh pr view' "${review_command}"; then exit 1; fi
+          grep -q 'By default, review the supplied PR diff and changed-file list\.' "${review_agent}"
+          if grep -q 'git diff' "${review_agent}"; then exit 1; fi
       - name: Prepare PR review context
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -120,19 +142,19 @@ jobs:
             Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} comprehensively.
 
             Use the Skill tool to run both review passes:
-            - `pr-review-toolkit:review-pr` with `all parallel` for comprehensive code review.
+            - `pr-review-toolkit:review-pr` with `code comments tests errors types parallel` for comprehensive read-only code review.
             - Claude Code's built-in `security-review` for security vulnerabilities.
 
-            The workflow provides the complete diff at `${{ runner.temp }}/claude-pr-review/diff.patch` and the changed-file list at `${{ runner.temp }}/claude-pr-review/changed-files.txt`. Bash and file-mutation tools are intentionally unavailable to this review, so use Read, Glob, Grep, Task, and the configured MCP tools with those files instead of shell commands or the GitHub CLI.
+            The workflow provides the complete textual diff at `${{ runner.temp }}/claude-pr-review/diff.patch` and the changed-file list at `${{ runner.temp }}/claude-pr-review/changed-files.txt`. Binary files are listed but their contents are not embedded. Bash, file-mutation tools, and inline-comment posting are intentionally unavailable to this review, so use Read, Glob, Grep, Task, and the prepared context instead of shell commands, GitHub CLI, or inline comments.
 
-            Treat all review passes as analysis-only: never modify repository files. Convert code-simplifier changes into inline `suggestion` blocks when practical.
+            Treat all review passes as analysis-only: never modify repository files or publish inline comments.
 
             Consolidate and deduplicate the results. Verify every finding against the current PR diff and relevant surrounding code. Report only actionable issues introduced by or materially affected by this PR; omit style-only, speculative, or already-fixed findings.
 
-            Prefer inline review comments for line-specific findings, using mcp__github_inline_comment__create_inline_comment whenever the changed line can be targeted. Do not use issue comments or `gh pr comment`.
+            Include file and line references for line-specific findings in the top-level summary. Do not use issue comments, inline comments, or `gh pr comment`.
 
             Return a concise top-level review summary as the final response. The workflow publishes that summary as a COMMENT review. Never approve or request changes.
-          claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto --disallowedTools="Bash,Edit,Write,NotebookEdit" --add-dir="{1}/claude-pr-review"', inputs.claude-args, runner.temp) || format('{0} --disallowedTools="Bash,Edit,Write,NotebookEdit" --add-dir="{1}/claude-pr-review"', inputs.claude-args, runner.temp) }}
+          claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto --disallowedTools="Bash,Edit,Write,NotebookEdit,mcp__github_inline_comment__create_inline_comment" --add-dir="{1}/claude-pr-review"', inputs.claude-args, runner.temp) || format('{0} --disallowedTools="Bash,Edit,Write,NotebookEdit,mcp__github_inline_comment__create_inline_comment" --add-dir="{1}/claude-pr-review"', inputs.claude-args, runner.temp) }}
           plugins: pr-review-toolkit@pinned-pr-review-toolkit
           plugin_marketplaces: ${{ runner.temp }}/pinned-pr-review-toolkit
       - name: Ensure COMMENT review publication
