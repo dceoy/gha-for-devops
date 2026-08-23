@@ -205,7 +205,7 @@ jobs:
           always()
           && (
             steps.claude-review.outcome == 'failure'
-            || steps.claude-review.outputs.conclusion == 'failure'
+            || steps.claude-review.outputs.conclusion != 'success'
           )
         env:
           CLAUDE_EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
