@@ -12,7 +12,7 @@ on:
         type: string
         description: Additional arguments to pass directly to Claude Code Action
         default: >-
-          --allowedTools="Skill,Agent,Task,Read,Glob,Grep,WebFetch,WebSearch,Bash(git:*),Bash(gh:*),mcp__github_inline_comment__create_inline_comment"
+          --allowedTools="Skill,Agent,Task,Read,Glob,Grep,WebFetch,WebSearch,Bash(git:*),mcp__github_inline_comment__create_inline_comment"
           --model=opusplan
           --advisor=opus
       aws-role-to-assume:

@@ -266,3 +266,12 @@ run_diagnosis() {
   run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Diagnose Claude Code failure") | .env.CLAUDE_REVIEW_CONCLUSION' "${WORKFLOW}"
   [ "${output}" = "${expected_conclusion}" ]
 }
+
+@test "Claude shell tools exclude unrestricted GitHub CLI access" {
+  run yq -r '.on.workflow_call.inputs."claude-args".default' "${WORKFLOW}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *'Bash(gh:*)'* ]]
+  [[ "${output}" == *'Bash(git:*)'* ]]
+  [[ "${output}" == *'mcp__github_inline_comment__create_inline_comment'* ]]
+}
