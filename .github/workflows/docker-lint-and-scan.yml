@@ -150,10 +150,6 @@ jobs:
           format: github
           output: dependency-results.sbom.json
           github-pat: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
-        env:
-          TRIVY_CHECKS_REPOSITORY: public.ecr.aws/aquasecurity/trivy-checks
-          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
-          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db
       - name: Run Trivy and generate a readable report
         id: trivy-report
         continue-on-error: true
@@ -172,9 +168,6 @@ jobs:
           skip-setup-trivy: true
         env:
           TRIVY_FORMAT: table
-          TRIVY_CHECKS_REPOSITORY: public.ecr.aws/aquasecurity/trivy-checks
-          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
-          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db
       - name: Upload complete Trivy report
         if: always() && inputs.trivy-report-artifact-name != null
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
