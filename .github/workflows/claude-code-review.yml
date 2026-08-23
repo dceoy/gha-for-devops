@@ -128,10 +128,8 @@ jobs:
           #   3. PR head has advanced past this run's head                        -> exit 0
           #   4. reviews-list gh api call fails (network/rate-limit/auth)         -> exit 0
           #      (fail-closed for cases 2 and 4 is enforced by the separate
-          #      "Verify COMMENT review publication" step below, not by this hook)
+          #      "Ensure COMMENT review publication" step below, not by this hook)
           #   5. a matching COMMENT review already exists                        -> exit 0
-          #      (allowed to stop as soon as one exists; the downstream "Verify
-          #      COMMENT review publication" step is the strict exactly-one gate)
           #   6. otherwise (no matching review yet)                              -> exit 2, retry once
           settings: |
             {
@@ -151,32 +149,79 @@ jobs:
           claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto', inputs.claude-args) || inputs.claude-args }}
           plugins: pr-review-toolkit@pinned-pr-review-toolkit
           plugin_marketplaces: ${{ runner.temp }}/pinned-pr-review-toolkit
-      - name: Verify COMMENT review publication
+      - name: Ensure COMMENT review publication
         if: always() && steps.claude-review.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          CLAUDE_EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_MARKER: <!-- claude-code-review:${{ github.run_id }}-${{ github.run_attempt }} -->
         run: |
-          if ! gh api --paginate --slurp \
+          reviews="$(gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews")"
+          matching_count="$(
+            printf '%s' "${reviews}" \
+              | jq -r \
+                --arg marker "${REVIEW_MARKER}" \
+                --arg head_sha "${PR_HEAD_SHA}" \
+                --arg bot_login "${GH_REVIEW_AUTHOR}" '
+                  add
+                  | map(
+                      select(
+                        .user.login == $bot_login
+                        and .state == "COMMENTED"
+                        and .commit_id == $head_sha
+                        and ((.body // "") | contains($marker))
+                      )
+                    )
+                  | length
+                '
+          )"
+          if (( matching_count > 1 )); then
+            echo "::error::Found multiple Claude COMMENT reviews for ${PR_HEAD_SHA} with marker ${REVIEW_MARKER}"
+            exit 1
+          elif (( matching_count == 1 )); then
+            exit 0
+          fi
+
+          if [[ -z "${CLAUDE_EXECUTION_FILE}" || ! -f "${CLAUDE_EXECUTION_FILE}" ]]; then
+            echo "::error::Claude Code execution file not found: ${CLAUDE_EXECUTION_FILE}"
+            exit 1
+          fi
+          review_body="$(
+            jq -r '
+              [
+                .[]
+                | select(.type == "result" and .subtype == "success")
+                | .result // empty
+              ]
+              | last // empty
+            ' "${CLAUDE_EXECUTION_FILE}"
+          )"
+          if [[ -z "${review_body}" ]]; then
+            review_body='Claude Code review completed successfully. No top-level summary was returned.'
+          fi
+          body_file="${RUNNER_TEMP}/claude-comment-review.md"
+          printf '%s\n\n%s\n' "${review_body}" "${REVIEW_MARKER}" > "${body_file}"
+          payload_file="${RUNNER_TEMP}/claude-comment-review.json"
+          jq -n \
+            --rawfile body "${body_file}" \
+            --arg commit_id "${PR_HEAD_SHA}" \
+            '{event: "COMMENT", commit_id: $commit_id, body: $body}' \
+            > "${payload_file}"
+          created="$(gh api --method POST \
             "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" \
+            --input "${payload_file}")"
+          if ! printf '%s' "${created}" \
             | jq -e \
               --arg marker "${REVIEW_MARKER}" \
-              --arg head_sha "${PR_HEAD_SHA}" \
-              --arg bot_login "${GH_REVIEW_AUTHOR}" '
-                add
-                | map(
-                    select(
-                      .user.login == $bot_login
-                      and .state == "COMMENTED"
-                      and .commit_id == $head_sha
-                      and ((.body // "") | contains($marker))
-                    )
-                  )
-                | length == 1
+              --arg head_sha "${PR_HEAD_SHA}" '
+                .state == "COMMENTED"
+                and .commit_id == $head_sha
+                and ((.body // "") | contains($marker))
               ' > /dev/null; then
-            echo "::error::Failed to verify exactly one COMMENT review for ${PR_HEAD_SHA} with marker ${REVIEW_MARKER}"
+            echo "::error::Failed to publish fallback COMMENT review for ${PR_HEAD_SHA}"
             exit 1
           fi
       - name: Fail on Claude Code permission denials
