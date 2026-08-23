@@ -117,7 +117,10 @@ jobs:
           plugins: pr-review-toolkit@pinned-pr-review-toolkit
           plugin_marketplaces: ${{ runner.temp }}/pinned-pr-review-toolkit
       - name: Ensure COMMENT review publication
-        if: always() && steps.claude-review.outcome == 'success'
+        if: >
+          always()
+          && steps.claude-review.outcome == 'success'
+          && steps.claude-review.outputs.conclusion == 'success'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           CLAUDE_EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
@@ -198,7 +201,12 @@ jobs:
             exit 1
           fi
       - name: Diagnose Claude Code failure
-        if: always() && steps.claude-review.outcome == 'failure'
+        if: >
+          always()
+          && (
+            steps.claude-review.outcome == 'failure'
+            || steps.claude-review.outputs.conclusion == 'failure'
+          )
         env:
           CLAUDE_EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
         run: |
