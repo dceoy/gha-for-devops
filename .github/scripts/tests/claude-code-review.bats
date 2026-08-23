@@ -123,15 +123,24 @@ run_diagnosis() {
     bash -euo pipefail "${step_script}"
 }
 
-@test "publication selects the last successful result or fallback summary" {
-  local -a case_names=(last-success no-success)
+@test "publication selects the last non-empty successful result" {
+  write_execution_file '[{"type":"result","subtype":"success","is_error":false,"result":"first"},{"type":"result","subtype":"success","is_error":false,"result":"last"}]'
+  reset_gh_state
+
+  run_publication
+
+  [ "${status}" -eq 0 ]
+  [ "$(jq -r '.event' "${GH_PAYLOAD_FILE}")" = COMMENT ]
+  [ "$(jq -r '.commit_id' "${GH_PAYLOAD_FILE}")" = "${PR_HEAD_SHA}" ]
+  [ "$(jq -r '.body' "${GH_PAYLOAD_FILE}")" = last$'\n\n'"${REVIEW_MARKER}" ]
+}
+
+@test "publication fails before POST without a non-empty successful result" {
+  local -a case_names=(no-result empty-result unsuccessful-result)
   local -a case_inputs=(
-    '[{"type":"result","subtype":"success","is_error":false,"result":"first"},{"type":"result","subtype":"success","is_error":false,"result":"last"}]'
     '[{"type":"result","subtype":"assistant","is_error":false,"result":"not a final result"}]'
-  )
-  local -a expected_bodies=(
-    last
-    'Claude Code review completed successfully. No top-level summary was returned.'
+    '[{"type":"result","subtype":"success","is_error":false,"result":""}]'
+    '[{"type":"result","subtype":"success","is_error":true,"result":"failed"}]'
   )
 
   for i in "${!case_names[@]}"; do
@@ -140,13 +149,13 @@ run_diagnosis() {
 
     run_publication
 
-    [ "${status}" -eq 0 ] || {
-      echo "case ${case_names[i]}: ${output}" >&2
+    [ "${status}" -ne 0 ] || {
+      echo "case ${case_names[i]} unexpectedly passed" >&2
       return 1
     }
-    [ "$(jq -r '.event' "${GH_PAYLOAD_FILE}")" = COMMENT ]
-    [ "$(jq -r '.commit_id' "${GH_PAYLOAD_FILE}")" = "${PR_HEAD_SHA}" ]
-    [ "$(jq -r '.body' "${GH_PAYLOAD_FILE}")" = "${expected_bodies[i]}"$'\n\n'"${REVIEW_MARKER}" ]
+    [[ "${output}" == *"no non-empty successful review summary"* ]]
+    [ ! -f "${GH_PAYLOAD_FILE}" ]
+    ! grep -q -- '--method POST' "${GH_CALLS_FILE}"
   done
 }
 
@@ -272,6 +281,10 @@ run_diagnosis() {
 
   [ "${status}" -eq 0 ]
   [[ "${output}" != *'Bash(gh:*)'* ]]
-  [[ "${output}" == *'Bash(git:*)'* ]]
+  [[ "${output}" != *'Bash(git:*)'* ]]
   [[ "${output}" == *'mcp__github_inline_comment__create_inline_comment'* ]]
+
+  run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Run comprehensive PR review") | .with.claude_args' "${WORKFLOW}"
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'--disallowedTools="Bash"'* ]]
 }
