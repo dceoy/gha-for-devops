@@ -46,11 +46,6 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
-env:
-  # Identity that posts the review via `gh pr review --comment` from inside the
-  # claude-code-action step (Claude's own GitHub App installation), used to keep
-  # the marker match from being satisfiable by an unrelated actor/workflow.
-  GH_REVIEW_AUTHOR: claude[bot]
 jobs:
   claude-code-review:
     if: >
@@ -72,13 +67,77 @@ jobs:
         env:
           CLAUDE_PLUGINS_REF: 340e33aef211d95769d252324854497af871dafe
         run: |
-          marketplace="${RUNNER_TEMP}/claude-plugins-official"
+          marketplace="${RUNNER_TEMP}/pinned-pr-review-toolkit"
           rm -rf "${marketplace}"
           git init --quiet "${marketplace}"
           git -C "${marketplace}" remote add origin https://github.com/anthropics/claude-plugins-official.git
           git -C "${marketplace}" fetch --depth=1 origin "${CLAUDE_PLUGINS_REF}"
           git -C "${marketplace}" checkout --quiet --detach "${CLAUDE_PLUGINS_REF}"
           test "$(git -C "${marketplace}" rev-parse HEAD)" = "${CLAUDE_PLUGINS_REF}"
+          manifest="${marketplace}/.claude-plugin/marketplace.json"
+          jq '.name = "pinned-pr-review-toolkit"' "${manifest}" > "${manifest}.tmp"
+          mv "${manifest}.tmp" "${manifest}"
+          review_command="${marketplace}/plugins/pr-review-toolkit/commands/review-pr.md"
+          review_agent="${marketplace}/plugins/pr-review-toolkit/agents/code-reviewer.md"
+          # shellcheck disable=SC2016
+          sed -i \
+            -e 's/allowed-tools: \["Bash", "Glob", "Grep", "Read", "Task"\]/allowed-tools: ["Glob", "Grep", "Read", "Task"]/' \
+            -e 's/   - Check git status to identify changed files/   - Read the prepared changed-file list to identify changed files/' \
+            -e 's/   - Run `git diff --name-only` to see modified files/   - Read the supplied diff and changed-file list to see modified files/' \
+            -e 's/   - Check if PR already exists: `gh pr view`/   - Use the supplied PR context instead of querying GitHub/' \
+            -e 's/   - \*\*After passing review\*\*: code-simplifier (polish and refine)/   - Do not run code-simplifier; this workflow is analysis-only/' \
+            -e 's/Agents analyze git diff by default/Agents analyze the supplied PR diff by default/' \
+            "${review_command}"
+          # shellcheck disable=SC2016
+          sed -i \
+            -e 's/can be retrieved by running git diff/are provided in the prepared PR diff/' \
+            -e 's/By default, review unstaged changes from `git diff`\./By default, review the supplied PR diff and changed-file list./' \
+            "${review_agent}"
+          grep -q 'allowed-tools: \["Glob", "Grep", "Read", "Task"\]' "${review_command}"
+          if grep -q 'allowed-tools: \["Bash"' "${review_command}"; then exit 1; fi
+          if grep -q 'git diff' "${review_command}"; then exit 1; fi
+          if grep -q 'gh pr view' "${review_command}"; then exit 1; fi
+          grep -q 'By default, review the supplied PR diff and changed-file list\.' "${review_agent}"
+          if grep -q 'git diff' "${review_agent}"; then exit 1; fi
+      - name: Prepare PR review context
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEW_CONTEXT_DIR: ${{ runner.temp }}/claude-pr-review
+        run: |
+          mkdir -p "${REVIEW_CONTEXT_DIR}"
+          max_diff_bytes=4194304
+          diff_file="${REVIEW_CONTEXT_DIR}/diff.patch"
+          set +e
+          git diff --no-ext-diff --unified=20 "${PR_BASE_SHA}...${PR_HEAD_SHA}" \
+            | head -c "$((max_diff_bytes + 1))" > "${diff_file}"
+          diff_pipeline_status=("${PIPESTATUS[@]}")
+          set -e
+          if (( diff_pipeline_status[0] != 0 && diff_pipeline_status[0] != 141 )); then
+            echo "::error::Failed to generate PR review diff"
+            exit 1
+          fi
+          diff_size="$(wc -c < "${diff_file}")"
+          if (( diff_size > max_diff_bytes )); then
+            echo "::error::PR review diff exceeds ${max_diff_bytes}-byte limit"
+            exit 1
+          fi
+          max_changed_files_bytes=1048576
+          changed_files_file="${REVIEW_CONTEXT_DIR}/changed-files.txt"
+          set +e
+          git diff --no-ext-diff --name-only "${PR_BASE_SHA}...${PR_HEAD_SHA}" \
+            | head -c "$((max_changed_files_bytes + 1))" > "${changed_files_file}"
+          changed_files_pipeline_status=("${PIPESTATUS[@]}")
+          set -e
+          if (( changed_files_pipeline_status[0] != 0 && changed_files_pipeline_status[0] != 141 )); then
+            echo "::error::Failed to generate changed-file list"
+            exit 1
+          fi
+          changed_files_size="$(wc -c < "${changed_files_file}")"
+          if (( changed_files_size > max_changed_files_bytes )); then
+            echo "::error::Changed-file list exceeds ${max_changed_files_bytes}-byte limit"
+            exit 1
+          fi
       - name: Configure AWS credentials
         if: inputs.aws-role-to-assume != null
         id: aws-credentials
@@ -98,131 +157,137 @@ jobs:
           AWS_SESSION_TOKEN: ${{ steps.aws-credentials.outputs.aws-session-token }}
           AWS_REGION: ${{ inputs.aws-region }}
           CLAUDE_CODE_DISABLE_ADVISOR_TOOL: ${{ inputs.aws-role-to-assume != null && '1' || '' }}
-          GH_REPOSITORY: ${{ github.repository }}
-          GH_PR_NUMBER: ${{ github.event.pull_request.number }}
-          GH_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          GH_REVIEW_MARKER: <!-- claude-code-review:${{ github.run_id }}-${{ github.run_attempt }} -->
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           use_bedrock: ${{ inputs.aws-role-to-assume != null }}
           prompt: |
-            Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} comprehensively and publish the review to GitHub.
+            Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} comprehensively.
 
             Use the Skill tool to run both review passes:
-            - `pr-review-toolkit:review-pr` with `all parallel` for comprehensive code review.
+            - `pr-review-toolkit:review-pr` with `code comments tests errors types parallel` for comprehensive read-only code review.
             - Claude Code's built-in `security-review` for security vulnerabilities.
 
-            Treat all review passes as analysis-only: never modify repository files. Convert code-simplifier changes into inline `suggestion` blocks when practical.
+            The workflow provides the complete textual diff at `${{ runner.temp }}/claude-pr-review/diff.patch` and the changed-file list at `${{ runner.temp }}/claude-pr-review/changed-files.txt`. Binary files are listed but their contents are not embedded. Bash, file-mutation tools, and inline-comment posting are intentionally unavailable to this review, so use Read, Glob, Grep, Task, and the prepared context instead of shell commands, GitHub CLI, or inline comments.
+
+            Treat all review passes as analysis-only: never modify repository files or publish inline comments.
 
             Consolidate and deduplicate the results. Verify every finding against the current PR diff and relevant surrounding code. Report only actionable issues introduced by or materially affected by this PR; omit style-only, speculative, or already-fixed findings.
 
-            Prefer inline review comments for line-specific findings, using mcp__github_inline_comment__create_inline_comment whenever the changed line can be targeted. Do not use issue comments or `gh pr comment`.
+            Include file and line references for line-specific findings in the top-level summary. Do not use issue comments, inline comments, or `gh pr comment`.
 
-            After posting inline comments, always submit exactly one COMMENT review with `gh pr review --comment`. Briefly summarize the actionable findings and their severity; if there are none, explicitly state that no actionable issues were found. Include the exact HTML comment `<!-- claude-code-review:${{ github.run_id }}-${{ github.run_attempt }} -->` in the top-level review body. The task is not complete until that review command succeeds. Never approve or request changes.
-          # Stop hook branch matrix (exit 0 = allow stop, exit 2 = force a retry turn):
-          #   1. stop_hook_active is true (this is already a forced retry)        -> exit 0
-          #   2. PR-head-SHA gh api call fails (network/rate-limit/auth)          -> exit 0
-          #   3. PR head has advanced past this run's head                        -> exit 0
-          #   4. reviews-list gh api call fails (network/rate-limit/auth)         -> exit 0
-          #      (fail-closed for cases 2 and 4 is enforced by the separate
-          #      "Verify COMMENT review publication" step below, not by this hook)
-          #   5. a matching COMMENT review already exists                        -> exit 0
-          #      (allowed to stop as soon as one exists; the downstream "Verify
-          #      COMMENT review publication" step is the strict exactly-one gate)
-          #   6. otherwise (no matching review yet)                              -> exit 2, retry once
-          settings: |
-            {
-              "hooks": {
-                "Stop": [
-                  {
-                    "hooks": [
-                      {
-                        "type": "command",
-                        "command": "payload=\"$(cat)\"; if [ \"$(printf '%s' \"$payload\" | jq -r '.stop_hook_active // false')\" = \"true\" ]; then exit 0; fi; current_head=\"$(gh api \"repos/${GH_REPOSITORY}/pulls/${GH_PR_NUMBER}\" --jq .head.sha)\" || { printf '%s\\n' 'Unable to verify current PR head SHA; skipping stop-hook retry.' >&2; exit 0; }; if [ \"$current_head\" != \"${GH_PR_HEAD_SHA}\" ]; then printf '%s\\n' 'PR head has advanced past this run; skipping stop-hook retry.' >&2; exit 0; fi; reviews=\"$(gh api --paginate --slurp \"repos/${GH_REPOSITORY}/pulls/${GH_PR_NUMBER}/reviews\")\" || { printf '%s\\n' 'Unable to verify COMMENT review publication; skipping stop-hook retry.' >&2; exit 0; }; if printf '%s' \"$reviews\" | jq -e --arg marker \"$GH_REVIEW_MARKER\" --arg head_sha \"$GH_PR_HEAD_SHA\" --arg bot_login \"$GH_REVIEW_AUTHOR\" 'add | map(select(.user.login == $bot_login and .state == \"COMMENTED\" and .commit_id == $head_sha and ((.body // \"\") | contains($marker)))) | length > 0' > /dev/null; then exit 0; fi; printf '%s\\n' 'Required COMMENT review is still missing. Continue autonomously: submit exactly one top-level COMMENT review for this PR head with gh pr review --comment, include the required claude-code-review marker, and do not stop until the command succeeds.' >&2; exit 2"
-                      }
-                    ]
-                  }
-                ]
-              }
-            }
-          claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto', inputs.claude-args) || inputs.claude-args }}
-          plugins: pr-review-toolkit@claude-plugins-official
-          plugin_marketplaces: ${{ runner.temp }}/claude-plugins-official
-      - name: Verify COMMENT review publication
-        if: always() && steps.claude-review.outcome == 'success'
+            Return a concise top-level review summary as the final response. The workflow publishes that summary as a COMMENT review. Never approve or request changes.
+          claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto --disallowedTools="Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,mcp__github_inline_comment__create_inline_comment,Read(/{2}/.git/**)" --add-dir="{1}/claude-pr-review"', inputs.claude-args, runner.temp, github.workspace) || format('{0} --disallowedTools="Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,mcp__github_inline_comment__create_inline_comment,Read(/{2}/.git/**)" --add-dir="{1}/claude-pr-review"', inputs.claude-args, runner.temp, github.workspace) }}
+          plugins: pr-review-toolkit@pinned-pr-review-toolkit
+          plugin_marketplaces: ${{ runner.temp }}/pinned-pr-review-toolkit
+      - name: Ensure COMMENT review publication
+        if: >
+          always()
+          && steps.claude-review.outcome == 'success'
+          && steps.claude-review.outputs.conclusion == 'success'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          CLAUDE_EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_MARKER: <!-- claude-code-review:${{ github.run_id }}-${{ github.run_attempt }} -->
         run: |
-          if ! gh api --paginate --slurp \
-            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" \
-            | jq -e \
-              --arg marker "${REVIEW_MARKER}" \
-              --arg head_sha "${PR_HEAD_SHA}" \
-              --arg bot_login "${GH_REVIEW_AUTHOR}" '
-                add
-                | map(
-                    select(
-                      .user.login == $bot_login
-                      and .state == "COMMENTED"
-                      and .commit_id == $head_sha
-                      and ((.body // "") | contains($marker))
-                    )
-                  )
-                | length == 1
-              ' > /dev/null; then
-            echo "::error::Failed to verify exactly one COMMENT review for ${PR_HEAD_SHA} with marker ${REVIEW_MARKER}"
-            exit 1
+          current_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .head.sha)"
+          if [[ "${current_head}" != "${PR_HEAD_SHA}" ]]; then
+            echo "PR head advanced to ${current_head}; skipping review publication for ${PR_HEAD_SHA}."
+            exit 0
           fi
-      - name: Fail on Claude Code permission denials
-        id: permission_denials
-        if: always() && steps.claude-review.outcome == 'success'
-        env:
-          CLAUDE_EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
-        run: |
+
           if [[ -z "${CLAUDE_EXECUTION_FILE}" || ! -f "${CLAUDE_EXECUTION_FILE}" ]]; then
             echo "::error::Claude Code execution file not found: ${CLAUDE_EXECUTION_FILE}"
             exit 1
-          else
-            permission_denials="$(
-              jq -c '
-                [
-                  .[]
-                  | select(.type == "result")
-                  | .permission_denials[]?
-                ]
-                | unique
-              ' "${CLAUDE_EXECUTION_FILE}"
-            )"
-            if jq -e 'length > 0' <<< "${permission_denials}" > /dev/null; then
-              echo "::group::Claude Code permission denials"
-              jq -r '
-                .[]
-                | if type == "object" then
-                    "tool: " + (.tool_name // .tool // .name // .tool_use.name // "unknown")
-                    + "\ndetails: " + tojson
-                  else
-                    "tool: " + tostring
-                  end
-              ' <<< "${permission_denials}"
-              echo "::endgroup::"
-              while IFS= read -r tool; do
-                tool="${tool//'%'/'%25'}"
-                tool="${tool//$'\r'/'%0D'}"
-                tool="${tool//$'\n'/'%0A'}"
-                echo "::error title=Claude Code permission denied::${tool}"
-              done < <(
-                jq -r '
-                  .[]
-                  | if type == "object" then
-                      .tool_name // .tool // .name // .tool_use.name // "unknown"
-                    else
-                      tostring
-                    end
-                ' <<< "${permission_denials}"
-              )
-              exit 1
-            fi
           fi
+
+          permission_denials="$(
+            jq -c '
+              [
+                .[]
+                | select(.type == "result")
+                | .permission_denials[]?
+              ]
+              | unique
+            ' "${CLAUDE_EXECUTION_FILE}"
+          )"
+          if jq -e 'length > 0' <<< "${permission_denials}" > /dev/null; then
+            echo "::group::Claude Code permission denials"
+            jq -r '
+              .[]
+              | if type == "object" then
+                  "tool: " + (.tool_name // .tool // .name // .tool_use.name // "unknown")
+                  + "\ndetails: " + tojson
+                else
+                  "tool: " + tostring
+                end
+            ' <<< "${permission_denials}"
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          review_body="$(
+            jq -r '
+              [
+                .[]
+                | select(.type == "result" and .subtype == "success" and (.is_error | not))
+                | .result
+                | select(type == "string" and length > 0)
+              ]
+              | last // empty
+            ' "${CLAUDE_EXECUTION_FILE}"
+          )"
+          if [[ -z "${review_body}" ]]; then
+            echo "::error::Claude Code returned no non-empty successful review summary"
+            exit 1
+          fi
+
+          body_file="${RUNNER_TEMP}/claude-comment-review.md"
+          printf '%s\n\n%s\n' "${review_body}" "${REVIEW_MARKER}" > "${body_file}"
+          payload_file="${RUNNER_TEMP}/claude-comment-review.json"
+          jq -n \
+            --rawfile body "${body_file}" \
+            --arg commit_id "${PR_HEAD_SHA}" \
+            '{event: "COMMENT", commit_id: $commit_id, body: $body}' \
+            > "${payload_file}"
+          created="$(gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" \
+            --input "${payload_file}")"
+          if ! printf '%s' "${created}" \
+            | jq -e \
+              --arg marker "${REVIEW_MARKER}" \
+              --arg head_sha "${PR_HEAD_SHA}" '
+                .state == "COMMENTED"
+                and .commit_id == $head_sha
+                and ((.body // "") | contains($marker))
+              ' > /dev/null; then
+            echo "::error::Failed to publish COMMENT review for ${PR_HEAD_SHA}"
+            exit 1
+          fi
+      - name: Diagnose Claude Code failure
+        if: always()
+        env:
+          CLAUDE_EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
+          CLAUDE_REVIEW_CONCLUSION: ${{ steps.claude-review.outputs.conclusion }}
+          CLAUDE_REVIEW_OUTCOME: ${{ steps.claude-review.outcome }}
+        run: |
+          if [[ "${CLAUDE_REVIEW_OUTCOME}" == "success" && "${CLAUDE_REVIEW_CONCLUSION}" == "success" ]]; then
+            exit 0
+          fi
+
+          if [[ -n "${CLAUDE_EXECUTION_FILE}" && -f "${CLAUDE_EXECUTION_FILE}" ]]; then
+            jq -c '
+              [ .[] | select(.type == "result") ]
+              | last
+              | {
+                  subtype,
+                  is_error,
+                  api_error_status,
+                  terminal_reason,
+                  stop_reason,
+                  errors
+                }
+            ' "${CLAUDE_EXECUTION_FILE}"
+          fi
+          exit 1
