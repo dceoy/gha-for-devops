@@ -83,6 +83,7 @@ jobs:
   opencode-review:
     if: >
       github.event_name == 'pull_request'
+      && github.event.action != 'synchronize'
       && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
       && (! github.event.pull_request.draft)
       && (! startsWith(github.head_ref, 'dependabot/'))
