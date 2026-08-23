@@ -286,5 +286,17 @@ run_diagnosis() {
 
   run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Run comprehensive PR review") | .with.claude_args' "${WORKFLOW}"
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *'--disallowedTools="Bash"'* ]]
+  [[ "${output}" == *'--disallowedTools="Bash,Edit,Write,NotebookEdit"'* ]]
+  [[ "${output}" == *'--add-dir="{1}/claude-pr-review"'* ]]
+}
+
+@test "Claude review context uses a bounded merge-base diff" {
+  run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Prepare PR review context") | .run' "${WORKFLOW}"
+
+  [ "${status}" -eq 0 ]
+  # shellcheck disable=SC2016
+  [[ "${output}" == *'git diff --no-ext-diff --unified=20 "${PR_BASE_SHA}...${PR_HEAD_SHA}"'* ]]
+  [[ "${output}" == *'max_diff_bytes=4194304'* ]]
+  [[ "${output}" == *'diff_size='* ]]
+  [[ "${output}" != *'--binary'* ]]
 }
