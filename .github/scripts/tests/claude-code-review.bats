@@ -315,10 +315,10 @@ run_diagnosis() {
   [[ "${output}" == *'By default, review the supplied PR diff and changed-file list.'* ]]
 }
 
-@test "security review uses the prepared read-only context" {
+@test "Claude review invokes the built-in security review" {
   run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Run comprehensive PR review") | .with.prompt' "${WORKFLOW}"
 
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *'dedicated security pass over the prepared diff'* ]]
-  [[ "${output}" != *'security-review'* ]]
+  [[ "${output}" == *"Claude Code's built-in \`security-review\`"* ]]
+  [[ "${output}" != *'dedicated security pass over the prepared diff'* ]]
 }
