@@ -165,7 +165,7 @@ jobs:
 
             Use the Skill tool to run both review passes:
             - `pr-review-toolkit:review-pr` with `code comments tests errors types parallel` for comprehensive read-only code review.
-            - A dedicated security pass over the prepared diff and changed-file list using Read, Glob, Grep, and Task only.
+            - Claude Code's built-in `security-review` for security vulnerabilities.
 
             The workflow provides the complete textual diff at `${{ runner.temp }}/claude-pr-review/diff.patch` and the changed-file list at `${{ runner.temp }}/claude-pr-review/changed-files.txt`. Binary files are listed but their contents are not embedded. Bash, file-mutation tools, and inline-comment posting are intentionally unavailable to this review, so use Read, Glob, Grep, Task, and the prepared context instead of shell commands, GitHub CLI, or inline comments.
 
