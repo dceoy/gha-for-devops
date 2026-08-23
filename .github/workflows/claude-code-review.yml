@@ -201,15 +201,16 @@ jobs:
             exit 1
           fi
       - name: Diagnose Claude Code failure
-        if: >
-          always()
-          && (
-            steps.claude-review.outcome == 'failure'
-            || steps.claude-review.outputs.conclusion != 'success'
-          )
+        if: always()
         env:
           CLAUDE_EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
+          CLAUDE_REVIEW_CONCLUSION: ${{ steps.claude-review.outputs.conclusion }}
+          CLAUDE_REVIEW_OUTCOME: ${{ steps.claude-review.outcome }}
         run: |
+          if [[ "${CLAUDE_REVIEW_OUTCOME}" == "success" && "${CLAUDE_REVIEW_CONCLUSION}" == "success" ]]; then
+            exit 0
+          fi
+
           if [[ -n "${CLAUDE_EXECUTION_FILE}" && -f "${CLAUDE_EXECUTION_FILE}" ]]; then
             jq -c '
               [ .[] | select(.type == "result") ]
