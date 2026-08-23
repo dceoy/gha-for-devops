@@ -161,31 +161,6 @@ jobs:
             exit 1
           fi
 
-          reviews="$(gh api --paginate --slurp \
-            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews")"
-          matching_count="$(
-            printf '%s' "${reviews}" \
-              | jq -r \
-                --arg marker "${REVIEW_MARKER}" \
-                --arg head_sha "${PR_HEAD_SHA}" '
-                  add
-                  | map(
-                      select(
-                        .state == "COMMENTED"
-                        and .commit_id == $head_sha
-                        and ((.body // "") | contains($marker))
-                      )
-                    )
-                  | length
-                '
-          )"
-          if (( matching_count > 1 )); then
-            echo "::error::Found multiple COMMENT reviews for ${PR_HEAD_SHA} with marker ${REVIEW_MARKER}"
-            exit 1
-          elif (( matching_count == 1 )); then
-            exit 0
-          fi
-
           review_body="$(
             jq -r '
               [
