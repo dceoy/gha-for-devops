@@ -73,6 +73,7 @@ run_diagnosis() {
   [[ "${output}" == *'mcp__github_inline_comment__create_inline_comment'* ]]
   [[ "${output}" == *'gh pr review '* ]]
   [[ "${output}" == *'--comment'* ]]
+  [[ "${output}" == *'Do not finish without publishing the review.'* ]]
 
   run yq -r '[.jobs."claude-code-review".steps[] | select(.name == "Ensure COMMENT review publication")] | length' "${WORKFLOW}"
   [ "${output}" -eq 0 ]
