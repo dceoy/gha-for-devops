@@ -64,6 +64,7 @@ run_diagnosis() {
   [[ "${output}" == *'contents: read'* ]]
   [[ "${output}" == *'pull_requests: write'* ]]
   [[ "${output}" == *'issues: read'* ]]
+  [[ "${output}" == *'actions: read'* ]]
 }
 
 @test "Claude Code action publishes the PR review directly" {
