@@ -185,7 +185,7 @@ jobs:
           && steps.claude-review.outcome == 'success'
           && steps.claude-review.outputs.conclusion == 'success'
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.claude-review.outputs.github_token }}
           CLAUDE_EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
