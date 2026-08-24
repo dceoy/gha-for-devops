@@ -100,7 +100,7 @@ jobs:
             issues: read
             actions: read
           prompt: |
-            Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} comprehensively.
+            Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} comprehensively. Use `gh pr diff ${{ github.event.pull_request.number }}` as the authoritative PR diff instead of working-tree `git diff`.
 
             Run both review passes:
             - `pr-review-toolkit:review-pr` with `code comments tests errors types parallel`.
