@@ -80,6 +80,8 @@ jobs:
           cache: false
       - name: Setup Bats and Bats libraries
         uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
+        with:
+          github-token: ${{ github.token }}
       - name: Run Bats tests
         run: bats --print-output-on-failure .github/scripts/tests/*.bats
   github-actions-lint-and-scan:
