@@ -1,10 +1,6 @@
 ---
 name: Pull request review using Claude Code
 on:
-  # pull_request:
-  #   types:
-  #     - opened
-  #     - ready_for_review
   workflow_call:
     inputs:
       claude-args:
@@ -12,7 +8,7 @@ on:
         type: string
         description: Additional arguments to pass directly to Claude Code Action
         default: >-
-          --allowedTools="Skill,Agent,Task,Read,Glob,Grep,WebFetch,WebSearch,Bash(git:*),Bash(gh:*),mcp__github_inline_comment__create_inline_comment"
+          --allowedTools="Skill,Agent,Task,Read,Glob,Grep"
           --model=opusplan
           --advisor=opus
       aws-role-to-assume:
@@ -36,16 +32,13 @@ on:
         description: OAuth token for Claude Code
       GH_TOKEN:
         required: false
-        description: GitHub token for accessing the repository
+        description: Optional GitHub token for checkout
 permissions:
   contents: read
-  pull-requests: write
   id-token: write
-  actions: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
-    working-directory: .
 jobs:
   claude-code-review:
     if: >
@@ -58,11 +51,6 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           persist-credentials: false
-      - name: Set repository remote HEAD
-        env:
-          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
-        run: >
-          git remote set-head origin "${BASE_BRANCH}"
       - name: Prepare pinned Claude plugin marketplace
         env:
           CLAUDE_PLUGINS_REF: 340e33aef211d95769d252324854497af871dafe
@@ -81,24 +69,18 @@ jobs:
           review_agent="${marketplace}/plugins/pr-review-toolkit/agents/code-reviewer.md"
           # shellcheck disable=SC2016
           sed -i \
-            -e 's/allowed-tools: \["Bash", "Glob", "Grep", "Read", "Task"\]/allowed-tools: ["Glob", "Grep", "Read", "Task"]/' \
-            -e 's/   - Check git status to identify changed files/   - Read the prepared changed-file list to identify changed files/' \
-            -e 's/   - Run `git diff --name-only` to see modified files/   - Read the supplied diff and changed-file list to see modified files/' \
+            -e 's/   - Check git status to identify changed files/   - Read the supplied PR diff to identify changed files/' \
+            -e 's/   - Run `git diff --name-only` to see modified files/   - Read the supplied PR diff to identify modified files/' \
             -e 's/   - Check if PR already exists: `gh pr view`/   - Use the supplied PR context instead of querying GitHub/' \
             -e 's/   - \*\*After passing review\*\*: code-simplifier (polish and refine)/   - Do not run code-simplifier; this workflow is analysis-only/' \
             -e 's/Agents analyze git diff by default/Agents analyze the supplied PR diff by default/' \
             "${review_command}"
           # shellcheck disable=SC2016
           sed -i \
-            -e 's/can be retrieved by running git diff/are provided in the prepared PR diff/' \
-            -e 's/By default, review unstaged changes from `git diff`\./By default, review the supplied PR diff and changed-file list./' \
+            -e 's/can be retrieved by running git diff/are provided in the supplied PR diff/' \
+            -e 's/By default, review unstaged changes from `git diff`\./By default, review the supplied PR diff./' \
             "${review_agent}"
-          grep -q 'allowed-tools: \["Glob", "Grep", "Read", "Task"\]' "${review_command}"
-          if grep -q 'allowed-tools: \["Bash"' "${review_command}"; then exit 1; fi
-          if grep -q 'git diff' "${review_command}"; then exit 1; fi
-          if grep -q 'gh pr view' "${review_command}"; then exit 1; fi
-          grep -q 'By default, review the supplied PR diff and changed-file list\.' "${review_agent}"
-          if grep -q 'git diff' "${review_agent}"; then exit 1; fi
+          if grep -Eq 'git diff|gh pr view' "${review_command}" "${review_agent}"; then exit 1; fi
       - name: Prepare PR review context
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -111,31 +93,14 @@ jobs:
           set +e
           git diff --no-ext-diff --unified=20 "${PR_BASE_SHA}...${PR_HEAD_SHA}" \
             | head -c "$((max_diff_bytes + 1))" > "${diff_file}"
-          diff_pipeline_status=("${PIPESTATUS[@]}")
+          diff_status="${PIPESTATUS[0]}"
           set -e
-          if (( diff_pipeline_status[0] != 0 && diff_pipeline_status[0] != 141 )); then
+          if (( diff_status != 0 && diff_status != 141 )); then
             echo "::error::Failed to generate PR review diff"
             exit 1
           fi
-          diff_size="$(wc -c < "${diff_file}")"
-          if (( diff_size > max_diff_bytes )); then
+          if (( $(wc -c < "${diff_file}") > max_diff_bytes )); then
             echo "::error::PR review diff exceeds ${max_diff_bytes}-byte limit"
-            exit 1
-          fi
-          max_changed_files_bytes=1048576
-          changed_files_file="${REVIEW_CONTEXT_DIR}/changed-files.txt"
-          set +e
-          git diff --no-ext-diff --name-only "${PR_BASE_SHA}...${PR_HEAD_SHA}" \
-            | head -c "$((max_changed_files_bytes + 1))" > "${changed_files_file}"
-          changed_files_pipeline_status=("${PIPESTATUS[@]}")
-          set -e
-          if (( changed_files_pipeline_status[0] != 0 && changed_files_pipeline_status[0] != 141 )); then
-            echo "::error::Failed to generate changed-file list"
-            exit 1
-          fi
-          changed_files_size="$(wc -c < "${changed_files_file}")"
-          if (( changed_files_size > max_changed_files_bytes )); then
-            echo "::error::Changed-file list exceeds ${max_changed_files_bytes}-byte limit"
             exit 1
           fi
       - name: Configure AWS credentials
@@ -161,22 +126,16 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           use_bedrock: ${{ inputs.aws-role-to-assume != null }}
           prompt: |
-            Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} comprehensively.
+            Review ${{ github.repository }} pull request #${{ github.event.pull_request.number }} using the prepared diff at `${{ runner.temp }}/claude-pr-review/diff.patch`.
 
-            Use the Skill tool to run both review passes:
-            - `pr-review-toolkit:review-pr` with `code comments tests errors types parallel` for comprehensive read-only code review.
-            - Claude Code's built-in `security-review` for security vulnerabilities.
+            Run both review passes:
+            - `pr-review-toolkit:review-pr` with `code comments tests errors types parallel`.
+            - Claude Code's built-in `security-review`.
 
-            The workflow provides the complete textual diff at `${{ runner.temp }}/claude-pr-review/diff.patch` and the changed-file list at `${{ runner.temp }}/claude-pr-review/changed-files.txt`. Binary files are listed but their contents are not embedded. Bash, file-mutation tools, and inline-comment posting are intentionally unavailable to this review, so use Read, Glob, Grep, Task, and the prepared context instead of shell commands, GitHub CLI, or inline comments.
+            Treat the prepared diff as the PR scope. Verify findings against relevant surrounding code and report only actionable issues introduced by or materially affected by this PR; omit style-only, speculative, or already-fixed findings.
 
-            Treat all review passes as analysis-only: never modify repository files or publish inline comments.
-
-            Consolidate and deduplicate the results. Verify every finding against the current PR diff and relevant surrounding code. Report only actionable issues introduced by or materially affected by this PR; omit style-only, speculative, or already-fixed findings.
-
-            Include file and line references for line-specific findings in the top-level summary. Do not use issue comments, inline comments, or `gh pr comment`.
-
-            Return a concise top-level review summary as the final response. The workflow publishes that summary as a COMMENT review. Never approve or request changes.
-          claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto --disallowedTools="Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,mcp__github_inline_comment__create_inline_comment,Read(/{2}/.git/**)" --add-dir="{1}/claude-pr-review"', inputs.claude-args, runner.temp, github.workspace) || format('{0} --disallowedTools="Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,mcp__github_inline_comment__create_inline_comment,Read(/{2}/.git/**)" --add-dir="{1}/claude-pr-review"', inputs.claude-args, runner.temp, github.workspace) }}
+            Return one concise top-level summary with file and line references where applicable. Do not modify files or publish comments; the workflow publishes the final response as a COMMENT review. Never approve or request changes.
+          claude_args: ${{ format('{0} {1} --disallowedTools="Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,mcp__github_inline_comment__create_inline_comment,Read({3}/.git/**)" --add-dir="{2}/claude-pr-review"', inputs.claude-args, inputs.aws-role-to-assume == null && '--permission-mode=auto' || '', runner.temp, github.workspace) }}
           plugins: pr-review-toolkit@pinned-pr-review-toolkit
           plugin_marketplaces: ${{ runner.temp }}/pinned-pr-review-toolkit
       - name: Ensure COMMENT review publication
