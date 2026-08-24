@@ -75,7 +75,7 @@ run_diagnosis() {
   [[ "${output}" == *'gh pr review '* ]]
   [[ "${output}" == *'--comment'* ]]
   [[ "${output}" == *'Publishing the review is a required part of this task'* ]]
-  [[ "${output}" == *'gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews'* ]]
+  [[ "${output}" == *"gh api repos/\${{ github.repository }}/pulls/\${{ github.event.pull_request.number }}/reviews"* ]]
   [[ "${output}" == *'Do not return a final response until publication is verified'* ]]
 
   run yq -r '[.jobs."claude-code-review".steps[] | select(.name == "Ensure COMMENT review publication")] | length' "${WORKFLOW}"

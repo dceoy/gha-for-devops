@@ -351,7 +351,7 @@ jobs:
           overwrite: true
   postbuild-scan:
     if: >
-      inputs.scan-after-build
+      inputs.scan-after-build && (! (failure() || cancelled()))
     needs:
       - build-and-push
     uses: ./.github/workflows/docker-image-scan.yml
