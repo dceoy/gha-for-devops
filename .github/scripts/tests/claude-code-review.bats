@@ -46,7 +46,7 @@ run_diagnosis() {
   [[ "${output}" != *'--disallowedTools'* ]]
 }
 
-@test "workflow keeps repository contents read-only while allowing PR reviews" {
+@test "workflow and Claude App keep contents read-only while allowing PR reviews" {
   run yq -r '.permissions.contents' "${WORKFLOW}"
   [ "${output}" = read ]
 
@@ -58,6 +58,12 @@ run_diagnosis() {
 
   run yq -r '.defaults.run."working-directory"' "${WORKFLOW}"
   [ "${output}" = . ]
+
+  run yq -r '.jobs."claude-code-review".steps[] | select(.name == "Run comprehensive PR review") | .with.additional_permissions' "${WORKFLOW}"
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'contents: read'* ]]
+  [[ "${output}" == *'pull_requests: write'* ]]
+  [[ "${output}" == *'issues: read'* ]]
 }
 
 @test "Claude Code action publishes the PR review directly" {
