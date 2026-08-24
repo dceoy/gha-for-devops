@@ -108,7 +108,9 @@ jobs:
 
             Consolidate and deduplicate the results. Verify every finding against the current PR diff and relevant surrounding code. Report only actionable issues introduced by or materially affected by this PR; omit style-only, speculative, or already-fixed findings. Do not run code-simplifier or modify repository files.
 
-            Publish line-specific findings as inline PR review comments using `mcp__github_inline_comment__create_inline_comment`. Then publish exactly one concise top-level COMMENT review with the overall result using `gh pr review ${{ github.event.pull_request.number }} --comment`. If there are no findings, still publish a concise no-findings COMMENT review. Never approve, request changes, or use issue comments. Do not finish without publishing the review.
+            Publishing the review is a required part of this task, not an optional follow-up. After completing all analysis, publish line-specific findings as inline PR review comments using `mcp__github_inline_comment__create_inline_comment`, then publish exactly one concise top-level COMMENT review with the overall result using `gh pr review ${{ github.event.pull_request.number }} --comment`. If there are no findings, still publish a concise no-findings COMMENT review. Never approve, request changes, or use issue comments.
+
+            Before returning your final response, verify the top-level review was actually created with `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews` and confirm the newest review has state `COMMENTED` and the expected review body. If the review is missing, publish it and verify again. Do not return a final response until publication is verified; if publication or verification fails, report the command failure rather than claiming the review succeeded.
           claude_args: ${{ inputs.aws-role-to-assume == null && format('{0} --permission-mode=auto', inputs.claude-args) || inputs.claude-args }}
           plugins: pr-review-toolkit@pinned-pr-review-toolkit
           plugin_marketplaces: ${{ runner.temp }}/pinned-pr-review-toolkit
