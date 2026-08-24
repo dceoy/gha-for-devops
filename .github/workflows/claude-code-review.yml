@@ -1,6 +1,10 @@
 ---
 name: Pull request review using Claude Code
 on:
+  # pull_request:
+  #   types:
+  #     - opened
+  #     - ready_for_review
   workflow_call:
     inputs:
       claude-args:
@@ -37,6 +41,7 @@ permissions:
   contents: read
   pull-requests: write
   id-token: write
+  actions: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
