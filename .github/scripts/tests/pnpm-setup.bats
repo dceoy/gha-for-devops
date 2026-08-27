@@ -65,16 +65,22 @@ has_pnpm_version_source_in_fixture() {
   [ "${count}" -gt 0 ]
 }
 
-@test "Bats workflow pins uv and pnpm versions in environment" {
+@test "Bats workflow pins Renovate-managed uv and pnpm versions" {
   local workflow="${WORKFLOWS}/bats-test.yml"
 
   run yq -r '.env.UV_VERSION' "${workflow}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "0.12.6" ]
+  [[ "${output}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 
   run yq -r '.env.PNPM_VERSION' "${workflow}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "11.24.0" ]
+  [[ "${output}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+
+  run grep -F '# renovate: datasource=github-releases depName=astral-sh/uv' "${workflow}"
+  [ "${status}" -eq 0 ]
+
+  run grep -F '# renovate: datasource=npm depName=pnpm' "${workflow}"
+  [ "${status}" -eq 0 ]
 
   run yq -r '.jobs.*.steps[] | select(.uses | test("^astral-sh/setup-uv@")) | .with.version' "${workflow}"
   [ "${status}" -eq 0 ]
