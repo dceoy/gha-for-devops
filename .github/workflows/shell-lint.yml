@@ -16,15 +16,20 @@ on:
           *.sh
           *.bash
           *.bats
+      enable-shfmt:
+        required: false
+        type: boolean
+        description: Check formatting with shfmt
+        default: false
       enable-cache:
         required: false
         type: boolean
-        description: Cache the pinned ShellCheck download when it is not preinstalled
+        description: Cache pinned ShellCheck and shfmt downloads when they are not preinstalled
         default: true
       cache-salt:
         required: false
         type: string
-        description: Optional value used to bust the ShellCheck cache
+        description: Optional value used to bust the linter caches
         default: null
       runs-on:
         required: false
@@ -43,6 +48,8 @@ jobs:
     env:
       # renovate: datasource=github-releases depName=koalaman/shellcheck
       SHELLCHECK_VERSION: v0.11.0
+      # renovate: datasource=github-releases depName=mvdan/sh
+      SHFMT_VERSION: v3.13.1
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -55,6 +62,12 @@ jobs:
         with:
           path: ~/.local/bin/shellcheck
           key: shellcheck-${{ runner.os }}-${{ runner.arch }}-${{ env.SHELLCHECK_VERSION }}-${{ inputs.cache-salt }}
+      - name: Cache shfmt
+        if: inputs.enable-shfmt && inputs.enable-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/bin/shfmt
+          key: shfmt-${{ runner.os }}-${{ runner.arch }}-${{ env.SHFMT_VERSION }}-${{ inputs.cache-salt }}
       - name: Install ShellCheck when unavailable
         env:
           SHELLCHECK_VERSION: ${{ env.SHELLCHECK_VERSION }}
@@ -73,9 +86,34 @@ jobs:
             install -m 0755 "${RUNNER_TEMP}/shellcheck" "${HOME}/.local/bin/shellcheck"
           fi
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
-      - name: Execute shellcheck
+      - name: Install shfmt when enabled and unavailable
+        if: inputs.enable-shfmt
+        env:
+          SHFMT_VERSION: ${{ env.SHFMT_VERSION }}
+        run: |
+          [[ "${SHFMT_VERSION}" =~ ^v[0-9]+(\.[0-9]+)*$ ]] || { echo "invalid SHFMT_VERSION"; exit 1; }
+          if command -v shfmt >/dev/null; then
+            exit 0
+          fi
+          mkdir -p "${HOME}/.local/bin"
+          if [[ ! -x "${HOME}/.local/bin/shfmt" ]]; then
+            arch=amd64
+            [[ "${RUNNER_ARCH}" == "ARM64" ]] && arch=arm64
+            asset="shfmt_${SHFMT_VERSION}_linux_${arch}"
+            curl --fail --location --silent --show-error \
+              --output "${RUNNER_TEMP}/${asset}" \
+              "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/${asset}"
+            curl --fail --location --silent --show-error \
+              "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/sha256sums.txt" \
+              | grep -F "  ${asset}" \
+              | (cd "${RUNNER_TEMP}" && sha256sum --check --strict -)
+            install -m 0755 "${RUNNER_TEMP}/${asset}" "${HOME}/.local/bin/shfmt"
+          fi
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+      - name: Execute shell linters
         working-directory: ${{ inputs.search-path }}
         env:
+          ENABLE_SHFMT: ${{ inputs.enable-shfmt }}
           FILE_NAMES: ${{ inputs.file-names }}
         run: |
           files=()
@@ -84,3 +122,6 @@ jobs:
           done <<< "${FILE_NAMES}"
           [[ ${#files[@]} -eq 0 ]] && { echo "::error::file-names input produced no entries"; exit 1; }
           git ls-files -z -- "${files[@]}" | xargs -0 -r -t shellcheck --external-sources
+          if [[ "${ENABLE_SHFMT}" == "true" ]]; then
+            git ls-files -z -- "${files[@]}" | xargs -0 -r -t shfmt --apply-ignore -d
+          fi
