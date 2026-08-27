@@ -16,31 +16,16 @@ on:
           *.sh
           *.bash
           *.bats
-      enable-shfmt:
+      use-shfmt:
         required: false
         type: boolean
         description: Check formatting with shfmt
         default: false
-      shfmt-indent:
+      shfmt-options:
         required: false
-        type: number
-        description: Indent width passed to shfmt
-        default: 2
-      shfmt-binary-next-line:
-        required: false
-        type: boolean
-        description: Allow binary operators to start a line
-        default: true
-      shfmt-case-indent:
-        required: false
-        type: boolean
-        description: Indent case patterns
-        default: true
-      shfmt-space-redirects:
-        required: false
-        type: boolean
-        description: Add a space after redirect operators
-        default: true
+        type: string
+        description: Additional space-separated formatting options for shfmt
+        default: --indent=2 --binary-next-line --case-indent --space-redirects
       enable-cache:
         required: false
         type: boolean
@@ -83,7 +68,7 @@ jobs:
           path: ~/.local/bin/shellcheck
           key: shellcheck-${{ runner.os }}-${{ runner.arch }}-${{ env.SHELLCHECK_VERSION }}-${{ inputs.cache-salt }}
       - name: Cache shfmt
-        if: inputs.enable-shfmt && inputs.enable-cache
+        if: inputs.use-shfmt && inputs.enable-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.local/bin/shfmt
@@ -107,7 +92,7 @@ jobs:
           fi
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
       - name: Install shfmt when enabled and unavailable
-        if: inputs.enable-shfmt
+        if: inputs.use-shfmt
         env:
           SHFMT_VERSION: ${{ env.SHFMT_VERSION }}
         run: |
@@ -133,12 +118,9 @@ jobs:
       - name: Execute shell linters
         working-directory: ${{ inputs.search-path }}
         env:
-          ENABLE_SHFMT: ${{ inputs.enable-shfmt }}
           FILE_NAMES: ${{ inputs.file-names }}
-          SHFMT_BINARY_NEXT_LINE: ${{ inputs.shfmt-binary-next-line }}
-          SHFMT_CASE_INDENT: ${{ inputs.shfmt-case-indent }}
-          SHFMT_INDENT: ${{ inputs.shfmt-indent }}
-          SHFMT_SPACE_REDIRECTS: ${{ inputs.shfmt-space-redirects }}
+          SHFMT_OPTIONS: ${{ inputs.shfmt-options }}
+          USE_SHFMT: ${{ inputs.use-shfmt }}
         run: |
           files=()
           while IFS= read -r f; do
@@ -146,12 +128,9 @@ jobs:
           done <<< "${FILE_NAMES}"
           [[ ${#files[@]} -eq 0 ]] && { echo "::error::file-names input produced no entries"; exit 1; }
           git ls-files -z -- "${files[@]}" | xargs -0 -r -t shellcheck --external-sources
-          if [[ "${ENABLE_SHFMT}" == "true" ]]; then
-            [[ "${SHFMT_INDENT}" =~ ^[0-9]+$ ]] || { echo "::error::shfmt-indent must be a non-negative integer"; exit 1; }
-            shfmt_args=(--apply-ignore "--indent=${SHFMT_INDENT}")
-            [[ "${SHFMT_BINARY_NEXT_LINE}" == "true" ]] && shfmt_args+=(--binary-next-line)
-            [[ "${SHFMT_CASE_INDENT}" == "true" ]] && shfmt_args+=(--case-indent)
-            [[ "${SHFMT_SPACE_REDIRECTS}" == "true" ]] && shfmt_args+=(--space-redirects)
-            shfmt_args+=(-d)
-            git ls-files -z -- "${files[@]}" | xargs -0 -r -t shfmt "${shfmt_args[@]}"
+          if [[ "${USE_SHFMT}" == "true" ]]; then
+            shfmt_args=()
+            [[ -n "${SHFMT_OPTIONS}" ]] && read -r -a shfmt_args <<< "${SHFMT_OPTIONS}"
+            git ls-files -z -- "${files[@]}" \
+              | xargs -0 -r -t shfmt --apply-ignore "${shfmt_args[@]}" -d
           fi
