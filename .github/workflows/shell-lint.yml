@@ -123,5 +123,5 @@ jobs:
           [[ ${#files[@]} -eq 0 ]] && { echo "::error::file-names input produced no entries"; exit 1; }
           git ls-files -z -- "${files[@]}" | xargs -0 -r -t shellcheck --external-sources
           if [[ "${ENABLE_SHFMT}" == "true" ]]; then
-            git ls-files -z -- "${files[@]}" | xargs -0 -r -t shfmt --apply-ignore -d
+            git ls-files -z -- "${files[@]}" | xargs -0 -r -t shfmt --apply-ignore --indent=2 --binary-next-line --case-indent --space-redirects -d
           fi
