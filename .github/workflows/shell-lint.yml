@@ -24,10 +24,7 @@ on:
       shfmt-options:
         required: false
         type: string
-        description: >-
-          Space-separated shfmt parser and printer options. Utility and output
-          mode flags are not allowed because this workflow always runs shfmt as
-          a formatting check.
+        description: Space-separated options passed to shfmt
         default: --indent=2 --binary-next-line --case-indent --space-redirects
       enable-cache:
         required: false
@@ -138,47 +135,7 @@ jobs:
           git ls-files -z -- "${files[@]}" | xargs -0 -r -t shellcheck --external-sources
           if [[ "${USE_SHFMT}" == "true" ]]; then
             shfmt_args=()
-            if [[ -n "${SHFMT_OPTIONS}" ]]; then
-              read -r -a shfmt_args <<< "${SHFMT_OPTIONS}"
-              expect_value=""
-              for shfmt_arg in "${shfmt_args[@]}"; do
-                if [[ -n "${expect_value}" ]]; then
-                  case "${expect_value}" in
-                    indent)
-                      [[ "${shfmt_arg}" =~ ^[0-9]+$ ]] || { echo "::error::shfmt-options indent value must be a non-negative integer"; exit 1; }
-                      ;;
-                    language-dialect)
-                      [[ "${shfmt_arg}" =~ ^(auto|bash|posix|mksh|bats|zsh)$ ]] || { echo "::error::shfmt-options language dialect must be auto, bash, posix, mksh, bats, or zsh"; exit 1; }
-                      ;;
-                  esac
-                  expect_value=""
-                  continue
-                fi
-                case "${shfmt_arg}" in
-                  --indent | -i)
-                    expect_value=indent
-                    ;;
-                  --indent=* | -i=*)
-                    indent="${shfmt_arg#*=}"
-                    [[ "${indent}" =~ ^[0-9]+$ ]] || { echo "::error::shfmt-options indent value must be a non-negative integer"; exit 1; }
-                    ;;
-                  --language-dialect | -ln)
-                    expect_value=language-dialect
-                    ;;
-                  --language-dialect=* | -ln=*)
-                    dialect="${shfmt_arg#*=}"
-                    [[ "${dialect}" =~ ^(auto|bash|posix|mksh|bats|zsh)$ ]] || { echo "::error::shfmt-options language dialect must be auto, bash, posix, mksh, bats, or zsh"; exit 1; }
-                    ;;
-                  --posix | -p | --simplify | -s | --binary-next-line | -bn | --case-indent | -ci | --space-redirects | -sr | --keep-padding | -kp | --func-next-line | -fn | --minify | -mn)
-                    ;;
-                  *)
-                    echo "::error::shfmt-options contains an unsupported option '${shfmt_arg}'; only shfmt parser and printer options are allowed"
-                    exit 1
-                    ;;
-                esac
-              done
-              [[ -z "${expect_value}" ]] || { echo "::error::shfmt-options option requires a value: ${expect_value}"; exit 1; }
-            fi
+            [[ -n "${SHFMT_OPTIONS}" ]] && read -r -a shfmt_args <<< "${SHFMT_OPTIONS}"
             git ls-files -z -- "${files[@]}" \
               | xargs -0 -r -t shfmt --apply-ignore "${shfmt_args[@]}" -d
           fi
