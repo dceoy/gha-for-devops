@@ -42,8 +42,7 @@ defaults:
     working-directory: .
 env:
   UV_EXCLUDE_NEWER: 7 days
-  npm_config_min_release_age: '7'
-  NPM_CONFIG_MINIMUM_RELEASE_AGE: '10080'
+  NPM_CONFIG_MIN_RELEASE_AGE: '1'
   PNPM_CONFIG_MINIMUM_RELEASE_AGE: '10080'
 jobs:
   test:
