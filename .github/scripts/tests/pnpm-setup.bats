@@ -45,6 +45,7 @@ has_pnpm_version_source_in_fixture() {
 @test "explicit pnpm version remains an action override" {
   local count=0
   while IFS= read -r workflow; do
+    [[ "${workflow}" == */bats-test.yml ]] && continue
     run pnpm_setup_value "${workflow}" version
     [ "${status}" -eq 0 ]
     [ "${output}" = "\${{ inputs.pnpm-version || env.PNPM_VERSION }}" ]
@@ -56,11 +57,32 @@ has_pnpm_version_source_in_fixture() {
 @test "pnpm setup preserves latest fallback without package metadata" {
   local count=0
   while IFS= read -r workflow; do
+    [[ "${workflow}" == */bats-test.yml ]] && continue
     run grep -F "echo 'PNPM_VERSION=latest'" "${workflow}"
     [ "${status}" -eq 0 ]
     count=$((count + 1))
   done < <(grep -rl --include='*.yml' 'pnpm/action-setup@' "${WORKFLOWS}")
   [ "${count}" -gt 0 ]
+}
+
+@test "Bats workflow pins uv and pnpm versions in environment" {
+  local workflow="${WORKFLOWS}/bats-test.yml"
+
+  run yq -r '.env.UV_VERSION' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "0.12.6" ]
+
+  run yq -r '.env.PNPM_VERSION' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "11.24.0" ]
+
+  run yq -r '.jobs.*.steps[] | select(.uses | test("^astral-sh/setup-uv@")) | .with.version' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "\${{ env.UV_VERSION }}" ]
+
+  run pnpm_setup_value "${workflow}" version
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "\${{ env.PNPM_VERSION }}" ]
 }
 
 @test "root pnpm project resolves the root package.json" {
