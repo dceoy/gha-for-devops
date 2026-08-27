@@ -24,7 +24,9 @@ on:
       shfmt-options:
         required: false
         type: string
-        description: Additional space-separated formatting options for shfmt
+        description: >-
+          Space-separated shfmt formatting options. Limited to --indent,
+          --binary-next-line, --case-indent, and --space-redirects.
         default: --indent=2 --binary-next-line --case-indent --space-redirects
       enable-cache:
         required: false
@@ -94,6 +96,7 @@ jobs:
       - name: Install shfmt when enabled and unavailable
         if: inputs.use-shfmt
         env:
+          GH_TOKEN: ${{ github.token }}
           SHFMT_VERSION: ${{ env.SHFMT_VERSION }}
         run: |
           [[ "${SHFMT_VERSION}" =~ ^v[0-9]+(\.[0-9]+)*$ ]] || { echo "invalid SHFMT_VERSION"; exit 1; }
@@ -105,14 +108,18 @@ jobs:
             arch=amd64
             [[ "${RUNNER_ARCH}" == "ARM64" ]] && arch=arm64
             asset="shfmt_${SHFMT_VERSION}_linux_${arch}"
+            archive="${RUNNER_TEMP}/${asset}"
+            expected_digest="$(
+              gh api "repos/mvdan/sh/releases/tags/${SHFMT_VERSION}" \
+                --jq ".assets[] | select(.name == \"${asset}\") | .digest"
+            )"
+            [[ "${expected_digest}" =~ ^sha256:[0-9a-fA-F]{64}$ ]] || { echo "invalid shfmt digest" >&2; exit 1; }
             curl --fail --location --silent --show-error \
-              --output "${RUNNER_TEMP}/${asset}" \
-              "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/${asset}"
-            curl --fail --location --silent --show-error \
-              "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/sha256sums.txt" \
-              | grep -F "  ${asset}" \
-              | (cd "${RUNNER_TEMP}" && sha256sum --check --strict -)
-            install -m 0755 "${RUNNER_TEMP}/${asset}" "${HOME}/.local/bin/shfmt"
+              "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/${asset}" \
+              -o "${archive}"
+            printf '%s  %s\n' "${expected_digest#sha256:}" "${archive}" \
+              | sha256sum --check --strict -
+            install -m 0755 "${archive}" "${HOME}/.local/bin/shfmt"
           fi
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
       - name: Execute shell linters
@@ -130,7 +137,33 @@ jobs:
           git ls-files -z -- "${files[@]}" | xargs -0 -r -t shellcheck --external-sources
           if [[ "${USE_SHFMT}" == "true" ]]; then
             shfmt_args=()
-            [[ -n "${SHFMT_OPTIONS}" ]] && read -r -a shfmt_args <<< "${SHFMT_OPTIONS}"
+            if [[ -n "${SHFMT_OPTIONS}" ]]; then
+              read -r -a shfmt_args <<< "${SHFMT_OPTIONS}"
+              expect_indent_value=false
+              for shfmt_arg in "${shfmt_args[@]}"; do
+                if [[ "${expect_indent_value}" == "true" ]]; then
+                  [[ "${shfmt_arg}" =~ ^[0-9]+$ ]] || { echo "::error::shfmt-options --indent value must be a non-negative integer"; exit 1; }
+                  expect_indent_value=false
+                  continue
+                fi
+                case "${shfmt_arg}" in
+                  --indent)
+                    expect_indent_value=true
+                    ;;
+                  --indent=*)
+                    indent="${shfmt_arg#--indent=}"
+                    [[ "${indent}" =~ ^[0-9]+$ ]] || { echo "::error::shfmt-options --indent value must be a non-negative integer"; exit 1; }
+                    ;;
+                  --binary-next-line | --case-indent | --space-redirects)
+                    ;;
+                  *)
+                    echo "::error::shfmt-options contains an unsupported option '${shfmt_arg}'; only --indent, --binary-next-line, --case-indent, and --space-redirects are allowed"
+                    exit 1
+                    ;;
+                esac
+              done
+              [[ "${expect_indent_value}" == "false" ]] || { echo "::error::shfmt-options --indent requires a value"; exit 1; }
+            fi
             git ls-files -z -- "${files[@]}" \
               | xargs -0 -r -t shfmt --apply-ignore "${shfmt_args[@]}" -d
           fi
