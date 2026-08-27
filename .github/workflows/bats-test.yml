@@ -41,7 +41,9 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 env:
+  # renovate: datasource=github-releases depName=astral-sh/uv
   UV_VERSION: 0.12.6
+  # renovate: datasource=npm depName=pnpm
   PNPM_VERSION: 11.24.0
 jobs:
   test:
