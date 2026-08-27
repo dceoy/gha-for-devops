@@ -45,6 +45,7 @@ has_pnpm_version_source_in_fixture() {
 @test "explicit pnpm version remains an action override" {
   local count=0
   while IFS= read -r workflow; do
+    [[ "${workflow}" == */bats-test.yml ]] && continue
     run pnpm_setup_value "${workflow}" version
     [ "${status}" -eq 0 ]
     [ "${output}" = "\${{ inputs.pnpm-version || env.PNPM_VERSION }}" ]
@@ -56,11 +57,39 @@ has_pnpm_version_source_in_fixture() {
 @test "pnpm setup preserves latest fallback without package metadata" {
   local count=0
   while IFS= read -r workflow; do
+    [[ "${workflow}" == */bats-test.yml ]] && continue
     run grep -F "echo 'PNPM_VERSION=latest'" "${workflow}"
     [ "${status}" -eq 0 ]
     count=$((count + 1))
   done < <(grep -rl --include='*.yml' 'pnpm/action-setup@' "${WORKFLOWS}")
   [ "${count}" -gt 0 ]
+}
+
+@test "Bats workflow uses latest uv and pnpm with minimum release age" {
+  local workflow="${WORKFLOWS}/bats-test.yml"
+
+  run yq -r '.env.UV_EXCLUDE_NEWER' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "7 days" ]
+
+  run grep -F 'npm_config_min_release_age:' "${workflow}"
+  [ "${status}" -ne 0 ]
+
+  run yq -r '.env.NPM_CONFIG_MIN_RELEASE_AGE' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "1" ]
+
+  run yq -r '.env.PNPM_CONFIG_MINIMUM_RELEASE_AGE' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "10080" ]
+
+  run yq -r '.jobs.*.steps[] | select(.uses | test("^astral-sh/setup-uv@")) | .with.version' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "latest" ]
+
+  run pnpm_setup_value "${workflow}" version
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "latest" ]
 }
 
 @test "root pnpm project resolves the root package.json" {

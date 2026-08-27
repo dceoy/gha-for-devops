@@ -19,16 +19,6 @@ on:
         type: string
         description: Shell command to run after checkout, before installing Bats, to provision runtime dependencies the tests require
         default: ""
-      uv-version:
-        required: false
-        type: string
-        description: Version of uv to use
-        default: latest
-      pnpm-version:
-        required: false
-        type: string
-        description: Optional pnpm version override
-        default: ""
       enable-cache:
         required: false
         type: boolean
@@ -50,6 +40,10 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
+env:
+  UV_EXCLUDE_NEWER: 7 days
+  NPM_CONFIG_MIN_RELEASE_AGE: '1'
+  PNPM_CONFIG_MINIMUM_RELEASE_AGE: '10080'
 jobs:
   test:
     runs-on: ${{ inputs.runs-on }}
@@ -71,27 +65,13 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
-          version: ${{ inputs.uv-version }}
+          version: latest
           enable-cache: ${{ inputs.enable-cache }}
           cache-suffix: ${{ inputs.cache-salt }}
-      - name: Resolve pnpm version
-        env:
-          PNPM_VERSION: ${{ inputs.pnpm-version }}
-        run: |
-          has_pnpm_version_source() {
-            jq -e '
-              def is_pnpm_manager: (type == "object") and (.name == "pnpm") and ((.version // "") != "");
-              ((.packageManager // "") as $pm | if ($pm | type) == "string" then ($pm | test("^pnpm@.+")) else false end)
-              or ((.devEngines.packageManager // null) | if type == "object" then is_pnpm_manager else false end)
-            ' package.json > /dev/null 2>&1
-          }
-          if [[ -z "${PNPM_VERSION}" ]] && ! has_pnpm_version_source; then
-            echo 'PNPM_VERSION=latest' >> "${GITHUB_ENV}"
-          fi
       - name: Setup pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86  # v6.0.10
         with:
-          version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
+          version: latest
           package_json_file: package.json
       - name: Get pnpm details
         id: setup-pnpm
