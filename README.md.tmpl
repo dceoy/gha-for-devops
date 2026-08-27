@@ -91,18 +91,19 @@ jobs:
       - run: go run ./cmd/example validate ./config.yml
 ```
 
-### Shell project CI
+### Shell lint
 
-Replace a small shell project's local tool installation and version pinning with one reusable workflow that installs ShellCheck, shfmt, actionlint, Bats, zizmor, yamllint, and Checkov, then runs your QA command:
+Use `shell-lint.yml` for ShellCheck and optionally enable `shfmt` formatting checks:
 
 ```yaml
 jobs:
-  ci:
+  shell-lint:
     permissions:
       contents: read
-    uses: dceoy/gha-for-devops/.github/workflows/shell-project-ci.yml@main
+    uses: dceoy/gha-for-devops/.github/workflows/shell-lint.yml@main
     with:
-      command: .agents/skills/local-qa/scripts/qa.sh
+      use-shfmt: true
+      shfmt-options: --indent=2 --binary-next-line --case-indent --space-redirects
 ```
 
 ## Reusable Workflows
