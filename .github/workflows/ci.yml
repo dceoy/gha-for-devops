@@ -45,7 +45,7 @@ jobs:
       contents: read
     uses: ./.github/workflows/shell-lint.yml
     with:
-      enable-shfmt: true
+      use-shfmt: true
   markdown-lint:
     if: >
       github.event_name == 'push'
