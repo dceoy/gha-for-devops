@@ -65,30 +65,24 @@ has_pnpm_version_source_in_fixture() {
   [ "${count}" -gt 0 ]
 }
 
-@test "Bats workflow pins Renovate-managed uv and pnpm versions" {
+@test "Bats workflow uses latest uv and pnpm with minimum release age" {
   local workflow="${WORKFLOWS}/bats-test.yml"
 
-  run yq -r '.env.UV_VERSION' "${workflow}"
+  run yq -r '.env.UV_EXCLUDE_NEWER' "${workflow}"
   [ "${status}" -eq 0 ]
-  [[ "${output}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+  [ "${output}" = "7 days" ]
 
-  run yq -r '.env.PNPM_VERSION' "${workflow}"
+  run yq -r '.env.PNPM_CONFIG_MINIMUM_RELEASE_AGE' "${workflow}"
   [ "${status}" -eq 0 ]
-  [[ "${output}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-
-  run grep -F '# renovate: datasource=github-releases depName=astral-sh/uv' "${workflow}"
-  [ "${status}" -eq 0 ]
-
-  run grep -F '# renovate: datasource=npm depName=pnpm' "${workflow}"
-  [ "${status}" -eq 0 ]
+  [ "${output}" = "10080" ]
 
   run yq -r '.jobs.*.steps[] | select(.uses | test("^astral-sh/setup-uv@")) | .with.version' "${workflow}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "\${{ env.UV_VERSION }}" ]
+  [ "${output}" = "latest" ]
 
   run pnpm_setup_value "${workflow}" version
   [ "${status}" -eq 0 ]
-  [ "${output}" = "\${{ env.PNPM_VERSION }}" ]
+  [ "${output}" = "latest" ]
 }
 
 @test "root pnpm project resolves the root package.json" {
