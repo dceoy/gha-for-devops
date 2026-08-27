@@ -72,6 +72,14 @@ has_pnpm_version_source_in_fixture() {
   [ "${status}" -eq 0 ]
   [ "${output}" = "7 days" ]
 
+  run yq -r '.env.npm_config_min_release_age' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "7" ]
+
+  run yq -r '.env.NPM_CONFIG_MINIMUM_RELEASE_AGE' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "10080" ]
+
   run yq -r '.env.PNPM_CONFIG_MINIMUM_RELEASE_AGE' "${workflow}"
   [ "${status}" -eq 0 ]
   [ "${output}" = "10080" ]
