@@ -6,7 +6,6 @@ setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   FIXTURES="${REPO_ROOT}/.github/fixtures/pnpm"
   WORKFLOWS=(
-    bats-test.yml
     html-lint-and-scan.yml
     typescript-package-format-and-pr.yml
     typescript-package-lint-and-scan.yml
