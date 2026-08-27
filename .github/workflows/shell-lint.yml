@@ -21,6 +21,26 @@ on:
         type: boolean
         description: Check formatting with shfmt
         default: false
+      shfmt-indent:
+        required: false
+        type: number
+        description: Indent width passed to shfmt
+        default: 2
+      shfmt-binary-next-line:
+        required: false
+        type: boolean
+        description: Allow binary operators to start a line
+        default: true
+      shfmt-case-indent:
+        required: false
+        type: boolean
+        description: Indent case patterns
+        default: true
+      shfmt-space-redirects:
+        required: false
+        type: boolean
+        description: Add a space after redirect operators
+        default: true
       enable-cache:
         required: false
         type: boolean
@@ -115,6 +135,10 @@ jobs:
         env:
           ENABLE_SHFMT: ${{ inputs.enable-shfmt }}
           FILE_NAMES: ${{ inputs.file-names }}
+          SHFMT_BINARY_NEXT_LINE: ${{ inputs.shfmt-binary-next-line }}
+          SHFMT_CASE_INDENT: ${{ inputs.shfmt-case-indent }}
+          SHFMT_INDENT: ${{ inputs.shfmt-indent }}
+          SHFMT_SPACE_REDIRECTS: ${{ inputs.shfmt-space-redirects }}
         run: |
           files=()
           while IFS= read -r f; do
@@ -123,5 +147,11 @@ jobs:
           [[ ${#files[@]} -eq 0 ]] && { echo "::error::file-names input produced no entries"; exit 1; }
           git ls-files -z -- "${files[@]}" | xargs -0 -r -t shellcheck --external-sources
           if [[ "${ENABLE_SHFMT}" == "true" ]]; then
-            git ls-files -z -- "${files[@]}" | xargs -0 -r -t shfmt --apply-ignore --indent=2 --binary-next-line --case-indent --space-redirects -d
+            [[ "${SHFMT_INDENT}" =~ ^[0-9]+$ ]] || { echo "::error::shfmt-indent must be a non-negative integer"; exit 1; }
+            shfmt_args=(--apply-ignore "--indent=${SHFMT_INDENT}")
+            [[ "${SHFMT_BINARY_NEXT_LINE}" == "true" ]] && shfmt_args+=(--binary-next-line)
+            [[ "${SHFMT_CASE_INDENT}" == "true" ]] && shfmt_args+=(--case-indent)
+            [[ "${SHFMT_SPACE_REDIRECTS}" == "true" ]] && shfmt_args+=(--space-redirects)
+            shfmt_args+=(-d)
+            git ls-files -z -- "${files[@]}" | xargs -0 -r -t shfmt "${shfmt_args[@]}"
           fi
