@@ -16,6 +16,11 @@ on:
   #     - assigned
   workflow_call:
     inputs:
+      prompt:
+        required: false
+        type: string
+        description: Custom prompt to run instead of using the triggering event
+        default: ''
       claude-args:
         required: false
         type: string
@@ -24,6 +29,7 @@ on:
           --allowedTools="Skill,Agent,Task,Read,Glob,Grep,WebFetch,WebSearch,Bash(git:*),Bash(gh:*),mcp__github_inline_comment__create_inline_comment"
           --model=opusplan
           --advisor=opus
+          --effort=high
       aws-role-to-assume:
         required: false
         type: string
@@ -46,6 +52,35 @@ on:
       GH_TOKEN:
         required: false
         description: GitHub token for accessing the repository
+  workflow_dispatch:  # checkov:skip=CKV_GHA_7: Parameterized manual dispatch is an intentional trusted-operator interface.
+    inputs:
+      prompt:
+        required: true
+        type: string
+        description: Prompt to run with Claude Code
+      claude-args:
+        required: false
+        type: string
+        description: Additional arguments to pass directly to Claude Code Action
+        default: >-
+          --allowedTools="Skill,Agent,Task,Read,Glob,Grep,WebFetch,WebSearch,Bash(git:*),Bash(gh:*),mcp__github_inline_comment__create_inline_comment"
+          --model=opusplan
+          --advisor=opus
+          --effort=high
+      aws-role-to-assume:
+        required: false
+        type: string
+        description: IAM role ARN to assume via GitHub OIDC for Amazon Bedrock access
+      aws-region:
+        required: false
+        type: string
+        description: AWS region for Bedrock and OIDC credential configuration
+        default: us-east-1
+      runs-on:
+        required: false
+        type: string
+        description: Runner to use
+        default: ubuntu-latest
 permissions:
   contents: write
   pull-requests: write
@@ -71,14 +106,21 @@ jobs:
       ) || (
         github.event_name == 'issues'
         && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))
+      ) || (
+        github.event_name != 'issue_comment'
+        && github.event_name != 'pull_request_review_comment'
+        && github.event_name != 'pull_request_review'
+        && github.event_name != 'issues'
+        && inputs.prompt != ''
       )
     permissions:
       contents: read
     runs-on: ${{ inputs.runs-on }}
     outputs:
-      authorized: ${{ steps.permission.outputs.authorized }}
+      authorized: ${{ inputs.prompt != '' || steps.permission.outputs.authorized == 'true' }}
     steps:
       - name: Verify trigger author has repository write access
+        if: inputs.prompt == ''
         id: permission
         env:
           GH_TOKEN: ${{ github.token }}
@@ -169,7 +211,7 @@ jobs:
             actions: read
 
           # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
+          prompt: ${{ inputs.prompt }}
 
           # Optional: Add claude_args to customize behavior and configuration
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
