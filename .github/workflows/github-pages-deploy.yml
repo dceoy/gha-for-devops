@@ -68,19 +68,19 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deploy1
         continue-on-error: ${{ inputs.deployment-attempts > 1 }}
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128  # v5.0.0
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1
         with:
           artifact_name: ${{ inputs.artifact-name }}
       - name: Retry GitHub Pages deployment
         id: deploy2
         if: inputs.deployment-attempts >= 2 && steps.deploy1.outcome == 'failure'
         continue-on-error: ${{ inputs.deployment-attempts > 2 }}
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128  # v5.0.0
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1
         with:
           artifact_name: ${{ inputs.artifact-name }}
       - name: Retry GitHub Pages deployment once more
         id: deploy3
         if: inputs.deployment-attempts == 3 && steps.deploy2.outcome == 'failure'
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128  # v5.0.0
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1
         with:
           artifact_name: ${{ inputs.artifact-name }}
