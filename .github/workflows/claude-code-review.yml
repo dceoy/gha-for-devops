@@ -85,7 +85,7 @@ jobs:
           output-env-credentials: false
       - name: Run comprehensive PR review
         id: claude-review
-        uses: anthropics/claude-code-action@833fb0f8c9f6686b33d963a8bae0a94f4936ab2a  # v1.0.211
+        uses: anthropics/claude-code-action@fa2b2666b747000bf42767d1f332065b375e3c8f  # v1.0.214
         env:
           AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
