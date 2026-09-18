@@ -63,7 +63,7 @@ jobs:
           use-public-rspm: true
       - name: Install lintr, styler, and packages declared in DESCRIPTION
         if: inputs.format-package
-        uses: r-lib/actions/setup-r-dependencies@d3c5be51b12e724e68f33216ca3c148b66d5f0b6  # v2.12.1
+        uses: r-lib/actions/setup-r-dependencies@465b7d8e732ca3921382b1674c59bada9cbf3399  # v2.13.0
         with:
           extra-packages: any::lintr, any::styler, local::.
       - name: Install lintr and styler
