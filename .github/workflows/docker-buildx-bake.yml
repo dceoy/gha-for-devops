@@ -252,7 +252,7 @@ jobs:
       - name: Build images
         if: (! inputs.pull-images-if-exist) || steps.docker-pull-before-build.outcome != 'success'
         id: docker-bake
-        uses: docker/bake-action@d3418bd7d0e9324001bca92fa8ba175ea7e6dc9b  # v7.3.0
+        uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f  # v7.4.0
         with:
           source: ${{ (! inputs.bake-files) && inputs.bake-source || null }}
           files: ${{ inputs.bake-files }}
