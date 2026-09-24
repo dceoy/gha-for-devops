@@ -117,7 +117,7 @@ jobs:
       actions: read
     uses: dceoy/opencode-action/.github/workflows/opencode-bot.yml@main  # zizmor: ignore[unpinned-uses]
     with:
-      model: sakura/preview/Kimi-K2.7-Code
+      model: openrouter/stealth/space-bunny-alpha
     secrets:
-      SAKURA_AI_ENGINE_API_KEY: ${{ secrets.SAKURA_AI_ENGINE_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
