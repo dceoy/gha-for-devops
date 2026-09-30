@@ -23,7 +23,7 @@ run_packaging() {
     GITHUB_WORKSPACE="${workspace}" \
     RUNNER_TEMP="${runner_temp}" \
     SKILLS_DIRECTORY="${skills_directory}" \
-    bash -euo pipefail "${STEP_SCRIPT}"
+    bash -c 'cd "$1" && exec bash -euo pipefail "$2"' _ "${workspace}" "${STEP_SCRIPT}"
 }
 
 @test "packages each skill as a standalone zip with a safe top-level path" {
