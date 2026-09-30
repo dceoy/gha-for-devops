@@ -13,6 +13,16 @@ on:
         type: string
         description: Go version to use
         default: stable
+      actionlint-compatibility-mode:
+        required: false
+        type: boolean
+        description: Ignore narrowly scoped actionlint false positives for newer GitHub Actions syntax
+        default: true
+      actionlint-extra-ignore-regex:
+        required: false
+        type: string
+        description: Newline-delimited actionlint error-message regexes to ignore
+        default: null
       python-version:
         required: false
         type: string
@@ -271,6 +281,8 @@ jobs:
             | xargs -0 -r -t uvx --from "yamllint==${YAMLLINT_VERSION}" yamllint --config-data="${YAMLLINT_CONFIG_DATA}"
       - name: Execute actionlint
         env:
+          ACTIONLINT_COMPATIBILITY_MODE: ${{ inputs.actionlint-compatibility-mode }}
+          ACTIONLINT_EXTRA_IGNORE_REGEX: ${{ inputs.actionlint-extra-ignore-regex }}
           SEARCH_PATH: ${{ inputs.search-path }}
         run: |
           files=()
@@ -281,7 +293,23 @@ jobs:
             echo "No GitHub Actions workflow YAML files found under ${SEARCH_PATH}; skipping actionlint."
             exit 0
           fi
-          actionlint "${files[@]}"
+
+          actionlint_args=()
+          if [[ "${ACTIONLINT_COMPATIBILITY_MODE}" == "true" ]]; then
+            # GitHub Actions self-repository syntax ($/) was added after actionlint v1.7.12.
+            # Keep these ignores narrowly scoped to diagnostics tracked by rhysd/actionlint#711.
+            actionlint_args+=(
+              -ignore 'specifying action "\$/.+" in invalid format because ref is missing'
+              -ignore 'reusable workflow call "\$/.+" at "uses" is not following the format'
+            )
+          fi
+
+          while IFS= read -r pattern; do
+            [[ -z "${pattern}" ]] && continue
+            actionlint_args+=(-ignore "${pattern}")
+          done <<< "${ACTIONLINT_EXTRA_IGNORE_REGEX}"
+
+          actionlint "${actionlint_args[@]}" "${files[@]}"
       - name: Run zizmor
         if: inputs.use-zizmor
         uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482  # v0.6.4
