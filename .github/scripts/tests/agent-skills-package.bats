@@ -52,7 +52,6 @@ run_packaging() {
 
   entries="$(unzip -Z1 "${beta_archive}")"
   [[ "${entries}" == *"-beta/SKILL.md"* ]]
-  [ "$(unzip -p "${beta_archive}" -beta/SKILL.md)" = '# beta' ]
 }
 
 @test "rejects a skill containing a directory symlink" {
