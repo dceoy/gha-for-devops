@@ -182,10 +182,11 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.local/bin
-          key: gha-linters-verified-v2-${{ runner.os }}-${{ runner.arch }}-actionlint-${{ env.ACTIONLINT_VERSION }}-shellcheck-${{ env.SHELLCHECK_VERSION }}-${{ inputs.cache-salt }}
+          key: gha-linters-verified-v3-${{ runner.os }}-${{ runner.arch }}-actionlint-${{ env.ACTIONLINT_VERSION }}-shellcheck-${{ env.SHELLCHECK_VERSION }}-${{ inputs.cache-salt }}
       - name: Install actionlint
         env:
           ACTIONLINT_VERSION: ${{ env.ACTIONLINT_VERSION }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           # shellcheck disable=SC2153
           [[ "${ACTIONLINT_VERSION}" =~ ^v[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid ACTIONLINT_VERSION" >&2; exit 1; }
@@ -199,6 +200,7 @@ jobs:
             checksums="${RUNNER_TEMP}/actionlint_${actionlint_version}_checksums.txt"
             release_url="https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}"
             curl --fail --location --silent --show-error "${release_url}/${asset}" -o "${archive}"
+            gh attestation verify "${archive}" -R rhysd/actionlint
             curl --fail --location --silent --show-error \
               "${release_url}/actionlint_${actionlint_version}_checksums.txt" -o "${checksums}"
             expected_checksum="$(awk -v asset="${asset}" '$2 == asset { print $1 }' "${checksums}")"
