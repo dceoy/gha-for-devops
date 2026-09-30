@@ -1,0 +1,140 @@
+---
+name: Package agent skills
+on:
+  workflow_call:
+    inputs:
+      skills-directory:
+        required: false
+        type: string
+        description: Directory containing one subdirectory per skill
+        default: skills
+      artifact-name:
+        required: false
+        type: string
+        description: Name of the uploaded artifact containing the skill ZIP archives
+        default: agent-skills
+      artifact-retention-days:
+        required: false
+        type: number
+        description: Number of days to retain the artifact
+        default: 1
+      artifact-overwrite:
+        required: false
+        type: boolean
+        description: Overwrite an existing artifact with the same name
+        default: true
+      runs-on:
+        required: false
+        type: string
+        description: Runner to use
+        default: ubuntu-latest
+    outputs:
+      artifact-id:
+        description: ID of the uploaded artifact
+        value: ${{ jobs.package.outputs.artifact-id }}
+      artifact-url:
+        description: URL of the uploaded artifact
+        value: ${{ jobs.package.outputs.artifact-url }}
+      artifact-digest:
+        description: SHA-256 digest of the uploaded artifact
+        value: ${{ jobs.package.outputs.artifact-digest }}
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+jobs:
+  package:
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      artifact-url: ${{ steps.upload.outputs.artifact-url }}
+      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Package skills
+        env:
+          SKILLS_DIRECTORY: ${{ inputs.skills-directory }}
+        run: |
+          workspace_abs="$(realpath -e -- "${GITHUB_WORKSPACE}")"
+          skills_abs="$(realpath -e -- "${SKILLS_DIRECTORY}")" || {
+            echo "::error::skills-directory does not exist: ${SKILLS_DIRECTORY}"
+            exit 1
+          }
+
+          case "${skills_abs}" in
+            "${workspace_abs}" | "${workspace_abs}"/*) ;;
+            *)
+              echo "::error::skills-directory must resolve inside GITHUB_WORKSPACE"
+              exit 1
+              ;;
+          esac
+
+          if [[ ! -d "${skills_abs}" ]]; then
+            echo "::error::skills-directory is not a directory: ${SKILLS_DIRECTORY}"
+            exit 1
+          fi
+
+          dist_dir="${RUNNER_TEMP}/agent-skill-packages"
+          rm -rf -- "${dist_dir}"
+          mkdir -p -- "${dist_dir}"
+
+          shopt -s nullglob
+          skill_files=("${skills_abs}"/*/SKILL.md)
+          if (("${#skill_files[@]}" == 0)); then
+            echo "::error::no skills found at ${SKILLS_DIRECTORY}/*/SKILL.md"
+            exit 1
+          fi
+
+          for skill_file in "${skill_files[@]}"; do
+            skill_dir="$(dirname -- "${skill_file}")"
+            skill_name="$(basename -- "${skill_dir}")"
+            archive="${dist_dir}/${skill_name}.zip"
+
+            (
+              cd "${skills_abs}"
+              zip -q -r -X -- "${archive}" "${skill_name}"
+            )
+
+            mapfile -t entries < <(unzip -Z1 "${archive}")
+            if (("${#entries[@]}" == 0)); then
+              echo "::error::empty archive generated for skill: ${skill_name}"
+              exit 1
+            fi
+
+            has_skill_file=false
+            for entry in "${entries[@]}"; do
+              case "${entry}" in
+                "${skill_name}/"*) ;;
+                *)
+                  echo "::error::archive ${archive} contains entry outside ${skill_name}/: ${entry}"
+                  exit 1
+                  ;;
+              esac
+              if [[ "${entry}" == "${skill_name}/SKILL.md" ]]; then
+                has_skill_file=true
+              fi
+            done
+
+            if [[ "${has_skill_file}" != true ]]; then
+              echo "::error::archive ${archive} does not contain ${skill_name}/SKILL.md"
+              exit 1
+            fi
+          done
+
+          printf 'Packaged %d skill(s) into %s\n' "${#skill_files[@]}" "${dist_dir}"
+      - name: Upload packaged skills
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ runner.temp }}/agent-skill-packages/*.zip
+          if-no-files-found: error
+          retention-days: ${{ inputs.artifact-retention-days }}
+          overwrite: ${{ inputs.artifact-overwrite }}
+          compression-level: 0
