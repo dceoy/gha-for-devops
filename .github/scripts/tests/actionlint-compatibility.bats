@@ -17,7 +17,7 @@ setup() {
   git init -q
   mkdir -p .github/workflows
 
-  cat > .github/workflows/self-reference.yml <<'EOF'
+  cat > .github/workflows/self-reference.yml << 'EOF'
 name: Self reference
 on:
   push:
