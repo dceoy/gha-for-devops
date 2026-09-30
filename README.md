@@ -91,6 +91,12 @@ jobs:
       - run: go run ./cmd/example validate ./config.yml
 ```
 
+### GitHub Actions lint compatibility
+
+`github-actions-lint-and-scan.yml` keeps actionlint enabled while suppressing only the known actionlint v1.7.12 false positives for GitHub.com's `$/` self-repository syntax. `actionlint-compatibility-mode` defaults to `true`, but the built-in ignores are applied only when `GITHUB_SERVER_URL` is `https://github.com`; GitHub Enterprise Server retains raw actionlint diagnostics.
+
+The `$/` syntax requires Actions Runner 2.336.0 or newer. Compatibility mode only suppresses actionlint false positives and does not add runner support. Set `actionlint-compatibility-mode: false` for strict/raw actionlint behavior or when validating workflows intended for runners that do not support `$/`. Use `actionlint-extra-ignore-regex` only for similarly narrow, temporary compatibility rules.
+
 ### Shell lint
 
 Use `shell-lint.yml` for ShellCheck and optionally enable `shfmt` formatting checks:
