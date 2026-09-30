@@ -46,6 +46,8 @@ defaults:
     working-directory: .
 jobs:
   package:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
@@ -138,3 +140,29 @@ jobs:
           retention-days: ${{ inputs.artifact-retention-days }}
           overwrite: ${{ inputs.artifact-overwrite }}
           compression-level: 0
+  attach-to-release:
+    if: github.event_name == 'release'
+    needs:
+      - package
+    permissions:
+      contents: write
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - name: Download packaged skills
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ runner.temp }}/agent-skill-release-assets
+      - name: Attach packaged skills to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          shopt -s nullglob
+          assets=("${RUNNER_TEMP}/agent-skill-release-assets"/*.zip)
+          if (("${#assets[@]}" == 0)); then
+            echo "::error::no packaged skill ZIPs found for release attachment"
+            exit 1
+          fi
+          gh release upload "${RELEASE_TAG}" "${assets[@]}" --repo "${REPOSITORY}" --clobber
