@@ -182,7 +182,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.local/bin
-          key: gha-linters-verified-v2-${{ runner.os }}-${{ runner.arch }}-actionlint-${{ env.ACTIONLINT_VERSION }}-shellcheck-${{ env.SHELLCHECK_VERSION }}-${{ inputs.cache-salt }}
+          key: gha-linters-verified-v3-${{ runner.os }}-${{ runner.arch }}-actionlint-${{ env.ACTIONLINT_VERSION }}-shellcheck-${{ env.SHELLCHECK_VERSION }}-${{ inputs.cache-salt }}
       - name: Install actionlint
         env:
           ACTIONLINT_VERSION: ${{ env.ACTIONLINT_VERSION }}
