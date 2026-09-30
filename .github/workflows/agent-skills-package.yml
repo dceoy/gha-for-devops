@@ -106,7 +106,7 @@ jobs:
 
             (
               cd "${skills_abs}"
-              zip -q -r -X "${archive}" "${skill_name}"
+              zip -q -r -X "${archive}" -- "${skill_name}"
             )
 
             mapfile -t entries < <(unzip -Z1 "${archive}")
