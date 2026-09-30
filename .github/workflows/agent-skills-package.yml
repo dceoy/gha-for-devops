@@ -98,6 +98,12 @@ jobs:
             skill_name="$(basename -- "${skill_dir}")"
             archive="${dist_dir}/${skill_name}.zip"
 
+            symlink="$(find "${skill_dir}" -type l -print -quit)"
+            if [[ -n "${symlink}" ]]; then
+              echo "::error::skill contains a symbolic link, which is not portable: ${symlink}"
+              exit 1
+            fi
+
             (
               cd "${skills_abs}"
               zip -q -r -X "${archive}" "${skill_name}"
