@@ -19,6 +19,7 @@ run_packaging() {
   local runner_temp="$2"
   local skills_directory="$3"
 
+  # shellcheck disable=SC2016
   run env \
     GITHUB_WORKSPACE="${workspace}" \
     RUNNER_TEMP="${runner_temp}" \
