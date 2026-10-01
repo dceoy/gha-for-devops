@@ -116,9 +116,12 @@ jobs:
               target_dirs="${TERRAFORM_WORKING_DIRECTORIES}"
             fi
             while IFS=$' \n\t' read -r d; do
-              [[ -z "${d}" ]] || git ls-files -- "${d%/}/**/${TERRAFORM_LOCK_FILE}" >> "${updated_files_txt}"
+              [[ -z "${d}" ]] && continue
+              d="${d%/}"
+              git ls-files -- "${d}/${TERRAFORM_LOCK_FILE}" "${d}/**/${TERRAFORM_LOCK_FILE}" >> "${updated_files_txt}"
             done <<< "${target_dirs}"
-            xargs dirname < "${updated_files_txt}" | while read -r d; do
+            sort -u -o "${updated_files_txt}" "${updated_files_txt}"
+            xargs -r dirname < "${updated_files_txt}" | while read -r d; do
               if [[ -n "${TERRAGRUNT_WORKING_DIRECTORIES}" ]] && [[ -f "${d}/terragrunt.hcl" ]]; then
                 (
                   cd "${d}"
