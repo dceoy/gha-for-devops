@@ -99,15 +99,9 @@ jobs:
                   }]
                   | reverse'
           )"
-          records_delimiter="pr_branch_records_json_$(uuidgen)"
-          branches_delimiter="pr_branches_json_$(uuidgen)"
           {
-            echo "pr_branch_records_json<<${records_delimiter}"
-            jq -cr . <<< "${records_json}"
-            echo "${records_delimiter}"
-            echo "pr_branches_json<<${branches_delimiter}"
-            jq -cr '[.[].branch]' <<< "${records_json}"
-            echo "${branches_delimiter}"
+            echo "pr_branch_records_json=$(jq -cr . <<< "${records_json}")"
+            echo "pr_branches_json=$(jq -cr '[.[].branch]' <<< "${records_json}")"
           } | tee -a "${GITHUB_OUTPUT}"
   branch-merge:
     if: >
