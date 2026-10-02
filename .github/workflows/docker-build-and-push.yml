@@ -356,7 +356,7 @@ jobs:
       - build-and-push
     uses: ./.github/workflows/docker-image-scan.yml
     with:
-      image-refs-json: ${{ format('["{0}"]', needs.build-and-push.outputs.image-ref) }}
+      image-refs-json: ${{ needs.build-and-push.outputs.image-ref && format('[{0}]', toJSON(needs.build-and-push.outputs.image-ref)) || '[]' }}
       image-artifact-name: ${{ inputs.image-artifact-name }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
       trivy-severity: ${{ inputs.trivy-severity }}
