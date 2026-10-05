@@ -301,9 +301,13 @@ jobs:
             actionlint_args+=(
               -ignore 'specifying action "\$/.+" in invalid format because ref is missing'
               -ignore 'reusable workflow call "\$/.+" at "uses" is not following the format'
-              # GitHub's job.workflow_* fields are not in actionlint v1.7.12's schema (rhysd/actionlint#705).
-              -ignore 'property "workflow_repository" is not defined in object type'
-              -ignore 'property "workflow_sha" is not defined in object type'
+            )
+
+            # Match only actionlint's known job-context shape so same-named runner errors stay visible.
+            job_context_type='\{check_run_id: number; container: \{id: string; network: string\}; services: .*; status: string\}'
+            actionlint_args+=(
+              -ignore "^property \"workflow_repository\" is not defined in object type ${job_context_type}$"
+              -ignore "^property \"workflow_sha\" is not defined in object type ${job_context_type}$"
             )
           elif [[ "${ACTIONLINT_COMPATIBILITY_MODE}" == "true" ]]; then
             echo "actionlint compatibility ignores are disabled outside GitHub.com (${GITHUB_SERVER_URL:-unknown})."
