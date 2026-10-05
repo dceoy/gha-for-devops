@@ -47,7 +47,24 @@ jobs:
           printf '%s\n' "${WORKFLOW_SHA}"
 EOF
 
-  git add .github/workflows/self-reference.yml .github/workflows/job-context.yml
+  cat > .github/workflows/invalid-runner-context.yml << 'EOF'
+name: Invalid runner metadata
+on:
+  workflow_call:
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use invalid runner metadata
+        env:
+          RUNNER_WORKFLOW_REPOSITORY: ${{ runner.workflow_repository }}
+          RUNNER_WORKFLOW_SHA: ${{ runner.workflow_sha }}
+        run: |
+          printf '%s\\n' "${RUNNER_WORKFLOW_REPOSITORY}"
+          printf '%s\\n' "${RUNNER_WORKFLOW_SHA}"
+EOF
+
+  git add .github/workflows/self-reference.yml .github/workflows/job-context.yml .github/workflows/invalid-runner-context.yml
 }
 
 teardown() {
@@ -84,12 +101,20 @@ run_actionlint_step() {
   [[ "${output}" == *'reusable workflow call "$/.github/workflows/reusable.yml" at "uses" is not following the format'* ]]
   [[ "${output}" == *'property "workflow_repository" is not defined in object type'* ]]
   [[ "${output}" == *'property "workflow_sha" is not defined in object type'* ]]
+  [[ "${output}" == *'${{ job.workflow_repository }}'* ]]
+  [[ "${output}" == *'${{ job.workflow_sha }}'* ]]
+  [[ "${output}" == *'${{ runner.workflow_repository }}'* ]]
+  [[ "${output}" == *'${{ runner.workflow_sha }}'* ]]
 }
 
-@test "compatibility mode suppresses the known false positives on GitHub.com" {
+@test "compatibility mode suppresses only the known false positives on GitHub.com" {
   run_actionlint_step true https://github.com
 
-  [ "${status}" -eq 0 ]
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'${{ runner.workflow_repository }}'* ]]
+  [[ "${output}" == *'${{ runner.workflow_sha }}'* ]]
+  [[ "${output}" != *'${{ job.workflow_repository }}'* ]]
+  [[ "${output}" != *'${{ job.workflow_sha }}'* ]]
 }
 
 @test "compatibility mode leaves raw diagnostics on GitHub Enterprise Server" {
@@ -101,4 +126,8 @@ run_actionlint_step() {
   [[ "${output}" == *'reusable workflow call "$/.github/workflows/reusable.yml" at "uses" is not following the format'* ]]
   [[ "${output}" == *'property "workflow_repository" is not defined in object type'* ]]
   [[ "${output}" == *'property "workflow_sha" is not defined in object type'* ]]
+  [[ "${output}" == *'${{ job.workflow_repository }}'* ]]
+  [[ "${output}" == *'${{ job.workflow_sha }}'* ]]
+  [[ "${output}" == *'${{ runner.workflow_repository }}'* ]]
+  [[ "${output}" == *'${{ runner.workflow_sha }}'* ]]
 }
