@@ -16,7 +16,7 @@ on:
       actionlint-compatibility-mode:
         required: false
         type: boolean
-        description: Ignore narrowly scoped actionlint false positives for newer GitHub Actions syntax
+        description: Ignore narrowly scoped actionlint false positives for newer GitHub.com syntax
         default: true
       actionlint-extra-ignore-regex:
         required: false
@@ -295,13 +295,24 @@ jobs:
           fi
 
           actionlint_args=()
-          if [[ "${ACTIONLINT_COMPATIBILITY_MODE}" == "true" ]]; then
+          if [[ "${ACTIONLINT_COMPATIBILITY_MODE}" == "true" && "${GITHUB_SERVER_URL:-}" == "https://github.com" ]]; then
             # GitHub Actions self-repository syntax ($/) was added after actionlint v1.7.12.
             # Keep these ignores narrowly scoped to diagnostics tracked by rhysd/actionlint#711.
             actionlint_args+=(
               -ignore 'specifying action "\$/.+" in invalid format because ref is missing'
               -ignore 'reusable workflow call "\$/.+" at "uses" is not following the format'
             )
+
+            # Match only actionlint's known job-context shape so same-named runner errors stay visible.
+            job_context_type='\{check_run_id: number; container: \{id: string; network: string\}; services: .*; status: string\}'
+            actionlint_args+=(
+              -ignore "^property \"workflow_file_path\" is not defined in object type ${job_context_type}$"
+              -ignore "^property \"workflow_ref\" is not defined in object type ${job_context_type}$"
+              -ignore "^property \"workflow_repository\" is not defined in object type ${job_context_type}$"
+              -ignore "^property \"workflow_sha\" is not defined in object type ${job_context_type}$"
+            )
+          elif [[ "${ACTIONLINT_COMPATIBILITY_MODE}" == "true" ]]; then
+            echo "actionlint compatibility ignores are disabled outside GitHub.com (${GITHUB_SERVER_URL:-unknown})."
           fi
 
           while IFS= read -r pattern; do
