@@ -47,8 +47,8 @@ jobs:
           WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
           WORKFLOW_SHA: ${{ job.workflow_sha }}
         run: |
-          printf '%s\n' "${WORKFLOW_REPOSITORY}"
-          printf '%s\n' "${WORKFLOW_SHA}"
+          printf '%s\\n' "${WORKFLOW_REPOSITORY}"
+          printf '%s\\n' "${WORKFLOW_SHA}"
 EOF
 
   cat > .github/workflows/invalid-runner-context.yml << 'EOF'
@@ -64,8 +64,8 @@ jobs:
           RUNNER_WORKFLOW_REPOSITORY: ${{ runner.workflow_repository }}
           RUNNER_WORKFLOW_SHA: ${{ runner.workflow_sha }}
         run: |
-          printf '%s\n' "${RUNNER_WORKFLOW_REPOSITORY}"
-          printf '%s\n' "${RUNNER_WORKFLOW_SHA}"
+          printf '%s\\n' "${RUNNER_WORKFLOW_REPOSITORY}"
+          printf '%s\\n' "${RUNNER_WORKFLOW_SHA}"
 EOF
 
   git add .github/workflows/self-reference.yml .github/workflows/job-context.yml .github/workflows/invalid-runner-context.yml
@@ -119,6 +119,8 @@ run_actionlint_step() {
   [[ "${output}" == *"${RUNNER_WORKFLOW_SHA}"* ]]
   [[ "${output}" != *"${JOB_WORKFLOW_REPOSITORY}"* ]]
   [[ "${output}" != *"${JOB_WORKFLOW_SHA}"* ]]
+  [[ "${output}" != *'specifying action "$/.github/actions/example"'* ]]
+  [[ "${output}" != *'reusable workflow call "$/.github/workflows/reusable.yml"'* ]]
 }
 
 @test "compatibility mode leaves raw diagnostics on GitHub Enterprise Server" {
