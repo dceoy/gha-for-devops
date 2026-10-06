@@ -13,8 +13,12 @@ setup() {
   MISE_ACTIONLINT_VERSION="$(yq -r '.tools.actionlint' "${REPO_ROOT}/mise.toml")"
   JOB_WORKFLOW_REPOSITORY='$'"{{ job.workflow_repository }}"
   JOB_WORKFLOW_SHA='$'"{{ job.workflow_sha }}"
+  JOB_WORKFLOW_REF='$'"{{ job.workflow_ref }}"
+  JOB_WORKFLOW_FILE_PATH='$'"{{ job.workflow_file_path }}"
   RUNNER_WORKFLOW_REPOSITORY='$'"{{ runner.workflow_repository }}"
   RUNNER_WORKFLOW_SHA='$'"{{ runner.workflow_sha }}"
+  RUNNER_WORKFLOW_REF='$'"{{ runner.workflow_ref }}"
+  RUNNER_WORKFLOW_FILE_PATH='$'"{{ runner.workflow_file_path }}"
   TEST_REPO="$(mktemp -d)"
 
   cd "${TEST_REPO}" || exit
@@ -46,6 +50,8 @@ jobs:
         env:
           WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
           WORKFLOW_SHA: ${{ job.workflow_sha }}
+          WORKFLOW_REF: ${{ job.workflow_ref }}
+          WORKFLOW_FILE_PATH: ${{ job.workflow_file_path }}
         run: |
           printf '%s\n' "${WORKFLOW_REPOSITORY}"
           printf '%s\n' "${WORKFLOW_SHA}"
@@ -63,6 +69,8 @@ jobs:
         env:
           RUNNER_WORKFLOW_REPOSITORY: ${{ runner.workflow_repository }}
           RUNNER_WORKFLOW_SHA: ${{ runner.workflow_sha }}
+          RUNNER_WORKFLOW_REF: ${{ runner.workflow_ref }}
+          RUNNER_WORKFLOW_FILE_PATH: ${{ runner.workflow_file_path }}
         run: |
           printf '%s\n' "${RUNNER_WORKFLOW_REPOSITORY}"
           printf '%s\n' "${RUNNER_WORKFLOW_SHA}"
@@ -105,10 +113,16 @@ run_actionlint_step() {
   [[ "${output}" == *'reusable workflow call "$/.github/workflows/reusable.yml" at "uses" is not following the format'* ]]
   [[ "${output}" == *'property "workflow_repository" is not defined in object type'* ]]
   [[ "${output}" == *'property "workflow_sha" is not defined in object type'* ]]
+  [[ "${output}" == *'property "workflow_ref" is not defined in object type'* ]]
+  [[ "${output}" == *'property "workflow_file_path" is not defined in object type'* ]]
   [[ "${output}" == *"${JOB_WORKFLOW_REPOSITORY}"* ]]
   [[ "${output}" == *"${JOB_WORKFLOW_SHA}"* ]]
+  [[ "${output}" == *"${JOB_WORKFLOW_REF}"* ]]
+  [[ "${output}" == *"${JOB_WORKFLOW_FILE_PATH}"* ]]
   [[ "${output}" == *"${RUNNER_WORKFLOW_REPOSITORY}"* ]]
   [[ "${output}" == *"${RUNNER_WORKFLOW_SHA}"* ]]
+  [[ "${output}" == *"${RUNNER_WORKFLOW_REF}"* ]]
+  [[ "${output}" == *"${RUNNER_WORKFLOW_FILE_PATH}"* ]]
 }
 
 @test "compatibility mode suppresses only the known false positives on GitHub.com" {
@@ -117,8 +131,12 @@ run_actionlint_step() {
   [ "${status}" -eq 1 ]
   [[ "${output}" == *"${RUNNER_WORKFLOW_REPOSITORY}"* ]]
   [[ "${output}" == *"${RUNNER_WORKFLOW_SHA}"* ]]
+  [[ "${output}" == *"${RUNNER_WORKFLOW_REF}"* ]]
+  [[ "${output}" == *"${RUNNER_WORKFLOW_FILE_PATH}"* ]]
   [[ "${output}" != *"${JOB_WORKFLOW_REPOSITORY}"* ]]
   [[ "${output}" != *"${JOB_WORKFLOW_SHA}"* ]]
+  [[ "${output}" != *"${JOB_WORKFLOW_REF}"* ]]
+  [[ "${output}" != *"${JOB_WORKFLOW_FILE_PATH}"* ]]
   [[ "${output}" != *'specifying action "$/.github/actions/example"'* ]]
   [[ "${output}" != *'reusable workflow call "$/.github/workflows/reusable.yml"'* ]]
 }
@@ -132,8 +150,14 @@ run_actionlint_step() {
   [[ "${output}" == *'reusable workflow call "$/.github/workflows/reusable.yml" at "uses" is not following the format'* ]]
   [[ "${output}" == *'property "workflow_repository" is not defined in object type'* ]]
   [[ "${output}" == *'property "workflow_sha" is not defined in object type'* ]]
+  [[ "${output}" == *'property "workflow_ref" is not defined in object type'* ]]
+  [[ "${output}" == *'property "workflow_file_path" is not defined in object type'* ]]
   [[ "${output}" == *"${JOB_WORKFLOW_REPOSITORY}"* ]]
   [[ "${output}" == *"${JOB_WORKFLOW_SHA}"* ]]
+  [[ "${output}" == *"${JOB_WORKFLOW_REF}"* ]]
+  [[ "${output}" == *"${JOB_WORKFLOW_FILE_PATH}"* ]]
   [[ "${output}" == *"${RUNNER_WORKFLOW_REPOSITORY}"* ]]
   [[ "${output}" == *"${RUNNER_WORKFLOW_SHA}"* ]]
+  [[ "${output}" == *"${RUNNER_WORKFLOW_REF}"* ]]
+  [[ "${output}" == *"${RUNNER_WORKFLOW_FILE_PATH}"* ]]
 }

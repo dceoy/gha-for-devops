@@ -306,6 +306,8 @@ jobs:
             # Match only actionlint's known job-context shape so same-named runner errors stay visible.
             job_context_type='\{check_run_id: number; container: \{id: string; network: string\}; services: .*; status: string\}'
             actionlint_args+=(
+              -ignore "^property \"workflow_file_path\" is not defined in object type ${job_context_type}$"
+              -ignore "^property \"workflow_ref\" is not defined in object type ${job_context_type}$"
               -ignore "^property \"workflow_repository\" is not defined in object type ${job_context_type}$"
               -ignore "^property \"workflow_sha\" is not defined in object type ${job_context_type}$"
             )
