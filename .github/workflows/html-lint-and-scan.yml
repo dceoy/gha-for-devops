@@ -142,9 +142,9 @@ jobs:
           version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
           package_json_file: ${{ format('{0}/package.json', inputs.package-path) }}
           standalone: true
-          cache: ${{ inputs.enable-cache }}
-          cache_dependency_path: ${{ inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE) }}
-      - name: Setup Node.js with pnpm
+          cache: false
+      - name: Resolve pnpm runtime version and paths
+        id: pnpm-cache
         if: env.PACKAGE_MANAGER == 'pnpm'
         env:
           NODE_VERSION: ${{ inputs.node-version }}
@@ -152,6 +152,7 @@ jobs:
         run: |
           pnpm_version="$(pnpm --version)"
           pnpm_major="${pnpm_version%%.*}"
+          store_path="$(pnpm store path --silent)"
           node_version="${NODE_VERSION}"
           case "${node_version}" in
             latest|current|node|stable|\*) node_version=latest ;;
@@ -176,10 +177,62 @@ jobs:
               ;;
           esac
           if [[ -n "${node_version}" ]]; then
-            if (( pnpm_major >= 11 )); then
-              pnpm runtime set node "${node_version}" --global
+            node_version="${node_version#v}"
+            if [[ ! "${node_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+              if ! node_version="$(pnpm env list --remote "${node_version}" | tail -n 1)"; then
+                echo "Unable to resolve Node.js version selector: ${NODE_VERSION}" >&2
+                exit 1
+              fi
+            fi
+            if [[ ! "${node_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+              echo "Unable to resolve Node.js version selector: ${NODE_VERSION}" >&2
+              exit 1
+            fi
+          fi
+          node_path=''
+          if (( pnpm_major < 11 )) && [[ -n "${node_version}" ]]; then
+            if [[ -z "${PNPM_HOME:-}" ]]; then
+              echo 'PNPM_HOME was not set by pnpm/action-setup.' >&2
+              exit 1
+            fi
+            pnpm_home="$(cd "${PNPM_HOME}" && pwd -P)"
+            node_path="${pnpm_home}/nodejs/${node_version}"
+          fi
+          {
+            echo "pnpm-version=${pnpm_version}"
+            echo "pnpm-major=${pnpm_major}"
+            echo "store-path=${store_path}"
+            echo "node-version=${node_version}"
+            echo "node-path=${node_path}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Cache pnpm store
+        if: inputs.enable-cache && env.PACKAGE_MANAGER == 'pnpm'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
+          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-${{ steps.pnpm-cache.outputs.node-version || 'none' }}-${{ hashFiles(inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE)) }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-${{ steps.pnpm-cache.outputs.node-version || 'none' }}-
+            pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-
+      - name: Cache pnpm-managed Node.js
+        if: inputs.enable-cache && env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-cache.outputs.node-path != ''
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ steps.pnpm-cache.outputs.node-path }}
+          key: pnpm-runtime-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-${{ steps.pnpm-cache.outputs.node-version }}
+      - name: Setup Node.js with pnpm
+        if: env.PACKAGE_MANAGER == 'pnpm'
+        env:
+          NODE_VERSION: ${{ steps.pnpm-cache.outputs.node-version }}
+          PNPM_MAJOR: ${{ steps.pnpm-cache.outputs.pnpm-major }}
+          PNPM_STORE_PATH: ${{ steps.pnpm-cache.outputs.store-path }}
+        working-directory: ${{ inputs.package-path }}
+        run: |
+          if [[ -n "${NODE_VERSION}" ]]; then
+            if (( PNPM_MAJOR >= 11 )); then
+              pnpm_config_store_dir="${PNPM_STORE_PATH}" pnpm runtime set node "${NODE_VERSION}" --global
             else
-              pnpm env use --global "${node_version}"
+              pnpm env use --global "${NODE_VERSION}"
             fi
           fi
           export PNPM_CONFIG_GLOBAL_SHIMS='{"node":false}'
