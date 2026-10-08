@@ -73,6 +73,7 @@ jobs:
         with:
           version: latest
           package_json_file: package.json
+          standalone: true
       - name: Get pnpm details
         id: setup-pnpm
         run: |
@@ -87,6 +88,20 @@ jobs:
           restore-keys: |
             pnpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-pnpm.outputs.pnpm-version }}-
             pnpm-${{ runner.os }}-${{ runner.arch }}-
+      - name: Setup Node.js with pnpm
+        env:
+          NODE_VERSION: latest
+        run: |
+          pnpm_version="$(pnpm --version)"
+          pnpm_major="${pnpm_version%%.*}"
+          if (( pnpm_major >= 11 )); then
+            pnpm runtime set node "${NODE_VERSION}" --global
+          else
+            pnpm env use --global "${NODE_VERSION}"
+          fi
+          export PNPM_CONFIG_GLOBAL_SHIMS='{"node":false}'
+          echo 'PNPM_CONFIG_GLOBAL_SHIMS={"node":false}' >> "${GITHUB_ENV}"
+          node --version
       - name: Setup Bats and Bats libraries
         uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
         with:

@@ -95,24 +95,13 @@ jobs:
               echo 'PACKAGE_MANAGER='
             fi
           } | tee -a "${GITHUB_ENV}"
-      - name: Setup Node.js with cache
-        if: inputs.enable-cache && env.PACKAGE_MANAGER == 'npm'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
-        with:
-          node-version: ${{ inputs.node-version }}
-          cache: npm
-          cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE) }}
-      - name: Setup Node.js without cache
-        if: env.PACKAGE_MANAGER != 'npm' || ! inputs.enable-cache
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
-        with:
-          node-version: ${{ inputs.node-version }}
       - name: Setup pnpm
         if: env.PACKAGE_MANAGER == 'pnpm'
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
         with:
           version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
           package_json_file: ${{ format('{0}/package.json', inputs.package-path) }}
+          standalone: true
       - name: Get pnpm store path
         id: pnpm-cache
         if: inputs.enable-cache && env.PACKAGE_MANAGER == 'pnpm'
@@ -127,6 +116,59 @@ jobs:
           restore-keys: |
             pnpm-${{ runner.os }}-${{ inputs.node-version }}-
             pnpm-${{ runner.os }}-
+      - name: Setup Node.js with pnpm
+        if: env.PACKAGE_MANAGER == 'pnpm'
+        env:
+          NODE_VERSION: ${{ inputs.node-version }}
+        working-directory: ${{ inputs.package-path }}
+        run: |
+          pnpm_version="$(pnpm --version)"
+          pnpm_major="${pnpm_version%%.*}"
+          node_version="${NODE_VERSION}"
+          case "${node_version}" in
+            latest|current|node|stable|\*) node_version=latest ;;
+            lts/*)
+              node_version="${node_version#lts/}"
+              case "${node_version}" in
+                '*') node_version=lts ;;
+                -*)
+                  offset="${node_version#-}"
+                  if [[ ! "${offset}" =~ ^[0-9]+$ ]]; then
+                    echo "Invalid Node.js LTS offset: ${NODE_VERSION}" >&2
+                    exit 1
+                  fi
+                  node_version="$(curl -fsSL https://nodejs.org/dist/index.json | jq -r --argjson offset "${offset}" '[.[] | select(.lts) | .version | capture("^v(?<major>[0-9]+)\\.").major | tonumber] | unique | sort | reverse | .[$offset] // empty')"
+                  if [[ -z "${node_version}" ]]; then
+                    echo "Unable to resolve Node.js LTS selector: ${NODE_VERSION}" >&2
+                    exit 1
+                  fi
+                  ;;
+                *) ;;
+              esac
+              ;;
+          esac
+          if [[ -n "${node_version}" ]]; then
+            if (( pnpm_major >= 11 )); then
+              pnpm runtime set node "${node_version}" --global
+            else
+              pnpm env use --global "${node_version}"
+            fi
+          fi
+          export PNPM_CONFIG_GLOBAL_SHIMS='{"node":false}'
+          echo 'PNPM_CONFIG_GLOBAL_SHIMS={"node":false}' >> "${GITHUB_ENV}"
+          node --version
+      - name: Setup Node.js with cache
+        if: inputs.enable-cache && env.PACKAGE_MANAGER == 'npm'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE) }}
+      - name: Setup Node.js without cache
+        if: env.PACKAGE_MANAGER != 'pnpm' && (env.PACKAGE_MANAGER != 'npm' || ! inputs.enable-cache)
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
       - name: Install dependencies
         working-directory: ${{ inputs.package-path }}
         run: | # zizmor: ignore[adhoc-packages] installs caller-selected package manager dependencies
