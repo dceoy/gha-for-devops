@@ -61,8 +61,8 @@ if [[ "${N_BASH_FILES}" -gt 0 ]]; then
     | xargs -0 -t shellcheck
 fi
 
-N_TYPESCRIPT_FILES=$(git ls-files -- '*.ts' '*.tsx' | wc -l)
-N_JAVASCRIPT_FILES=$(git ls-files -- '*.js' '*.jsx' | wc -l)
+N_TYPESCRIPT_FILES=$(git ls-files -- '*.ts' '*.tsx' '*.mts' '*.cts' | wc -l)
+N_JAVASCRIPT_FILES=$(git ls-files -- '*.js' '*.jsx' '*.mjs' '*.cjs' | wc -l)
 N_HTML_FILES=$(git ls-files -- '*.html' '*.htm' | wc -l)
 N_MARKDOWN_FILES=$(git ls-files -- '*.md' '*.mdx' | wc -l)
 if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; then
@@ -81,7 +81,7 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
     npx -y @biomejs/biome check --write "${PACKAGE_DIRECTORY}"
   fi
   if command -v prettier > /dev/null 2>&1 && ! command -v biome > /dev/null 2>&1; then
-    npx -y prettier --write "${PACKAGE_DIRECTORY}/**/*.{js,jsx,ts,tsx,json,css,scss,md,mdx,html,htm}"
+    npx -y prettier --write "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss,md,mdx,html,htm}"
   fi
   if command -v oxlint > /dev/null 2>&1; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
@@ -91,7 +91,7 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
     fi
   fi
   if command -v eslint > /dev/null 2>&1; then
-    npx -y eslint --fix --ext .js,.jsx,.ts,.tsx --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
+    npx -y eslint --fix --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
   fi
 
   if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]]; then
