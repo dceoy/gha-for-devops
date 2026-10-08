@@ -37,7 +37,7 @@ on:
         required: false
         type: string
         description: Glob pattern for Biome to check and write
-        default: '**/*.{js,jsx,ts,tsx,json,css,scss}'
+        default: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss}'
       use-oxlint:
         required: false
         type: boolean
@@ -52,7 +52,7 @@ on:
         required: false
         type: string
         description: Glob pattern for Prettier to format
-        default: '**/*.{js,jsx,ts,tsx,css,scss,html,md}'
+        default: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,css,scss,html,md}'
       use-eslint:
         required: false
         type: boolean
@@ -250,7 +250,7 @@ jobs:
         if: inputs.use-eslint && inputs.lint-before-pr
         working-directory: ${{ inputs.package-path }}
         run: >
-          eslint --ext .js,.jsx,.ts,.tsx --fix --no-error-on-unmatched-pattern .
+          eslint --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --fix --no-error-on-unmatched-pattern .
       - name: Create output parameters
         id: parameters
         env:
