@@ -17,7 +17,7 @@ pnpm_step_value() {
   local workflow="$1"
   local key="$2"
 
-  yq -r ".jobs.*.steps[] | select(.uses | test(\"^pnpm/action-setup@\")) | .with.\"${key}\"" \
+  yq -r ".jobs.*.steps[] | select(.uses | test(\"^pnpm/setup@\")) | .with.\"${key}\"" \
     "${REPO_ROOT}/.github/workflows/${workflow}"
 }
 
@@ -39,12 +39,12 @@ pnpm_step_value() {
   [[ "${root_package_manager}" =~ ^pnpm@[0-9]+\.[0-9]+\.[0-9]+$ ]]
   [ "${nested_package_manager}" = "${root_package_manager}" ]
 
-  [ "$(pnpm_step_value bats-test.yml package_json_file)" = "package.json" ]
+  [ "$(pnpm_step_value bats-test.yml working-directory)" = "." ]
   for workflow in \
     html-lint-and-scan.yml \
     typescript-package-format-and-pr.yml \
     typescript-package-lint-and-scan.yml \
     typescript-package-script.yml; do
-    [ "$(pnpm_step_value "${workflow}" package_json_file)" = "\${{ format('{0}/package.json', inputs.package-path) }}" ]
+    [ "$(pnpm_step_value "${workflow}" working-directory)" = "\${{ inputs.package-path }}" ]
   done
 }

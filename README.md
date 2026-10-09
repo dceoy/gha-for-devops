@@ -30,7 +30,7 @@ The TypeScript and HTML workflows select Node.js from the project's `package.jso
 
 Manifest declarations take precedence over the workflow input. On pnpm 11+, [`pnpm/setup@v3`](https://github.com/pnpm/setup) installs Node.js and manages the pnpm store cache; the workflows retain their explicit `pnpm install --frozen-lockfile` steps to avoid duplicate installations and preserve additional dependency setup. Version selection and resolution are delegated to pnpm wherever possible. The action is pinned to a commit SHA.
 
-pnpm 10 and earlier use `pnpm/action-setup` with `actions/setup-node` (including its pnpm cache). pnpm 11 on Intel macOS also uses this legacy path because it has no standalone darwin-x64 binary; pnpm 12+ is supported by the new action. npm-only workflows continue to use `actions/setup-node`. The Bats workflow uses the new action with its `latest` fallback; its optional `cache-salt` disables that run's built-in pnpm cache, thereby avoiding reuse of earlier entries.
+pnpm 10 and earlier use `pnpm/action-setup` with `actions/setup-node` (including its pnpm cache). pnpm 11 on Intel macOS also uses this legacy path because it has no standalone darwin-x64 binary; pnpm 12+ is supported by the new action. npm-only workflows continue to use `actions/setup-node`. The Bats workflow prefers `devEngines.runtime`, then `engines.node`, with `latest` as its fallback. A nonempty `cache-salt` selects a separate pnpm store cache that can be reused by subsequent runs with the same salt.
 
 Example project manifest:
 

@@ -68,14 +68,51 @@ jobs:
           version: latest
           enable-cache: ${{ inputs.enable-cache }}
           cache-suffix: ${{ inputs.cache-salt }}
+      - name: Select Node.js version
+        id: pnpm-config
+        env:
+          NODE_VERSION: latest
+        run: |
+          node_version=''
+          if [[ -f package.json ]]; then
+            node_version="$(jq -r '
+              . as $manifest
+              | (.devEngines.runtime // [])
+              | if type == "array" then . else [.] end
+              | map(select(.name == "node"))
+              | if length > 1 then error("Multiple Node.js runtime declarations")
+                elif length == 1 then
+                  .[0].version | if type == "string" and length > 0 then .
+                    else error("Node.js runtime.version must be a nonempty string") end
+                else $manifest.engines.node // "" end
+              | if type == "string" then . else error("engines.node must be a string") end
+            ' package.json)"
+          fi
+          echo "node-version=${node_version:-${NODE_VERSION}}" >> "${GITHUB_OUTPUT}"
       - name: Setup pnpm with Node.js
         uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024  # v3
         with:
           version: latest
-          runtime: node@latest
+          runtime: node@${{ steps.pnpm-config.outputs.node-version }}
+          working-directory: .
           install: false
           cache: ${{ inputs.enable-cache && inputs.cache-salt == '' && hashFiles('**/pnpm-lock.yaml') != '' }}
           cache-dependency-path: '**/pnpm-lock.yaml'
+      - name: Locate salted pnpm store
+        id: pnpm-store
+        if: inputs.enable-cache && inputs.cache-salt != ''
+        run: |
+          echo "path=$(pnpm store path --silent)" >> "${GITHUB_OUTPUT}"
+          echo "version=$(pnpm --version)" >> "${GITHUB_OUTPUT}"
+          echo "node-version=$(node --version)" >> "${GITHUB_OUTPUT}"
+      - name: Cache salted pnpm store
+        if: inputs.enable-cache && inputs.cache-salt != ''
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-store.outputs.version }}-${{ steps.pnpm-store.outputs.node-version }}-${{ inputs.cache-salt }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-store.outputs.version }}-${{ steps.pnpm-store.outputs.node-version }}-${{ inputs.cache-salt }}-
       - name: Setup Bats and Bats libraries
         uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
         with:
