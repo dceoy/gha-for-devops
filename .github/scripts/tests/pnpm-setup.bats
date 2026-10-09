@@ -188,3 +188,41 @@ CASES
   done < <(grep -rl --include='*.yml' 'pnpm/setup@' "${WORKFLOWS}")
   [ "${count}" -eq 5 ]
 }
+
+@test "pnpm 11 Intel macOS validates the actual Node.js runtime before caching" {
+  local workflow script node_version expected count=0
+  while IFS= read -r workflow; do
+    script="$(yq -r '.jobs.*.steps[] | select(.name == "Validate pnpm 11 Node.js runtime on Intel macOS") | .run' "${workflow}")"
+    [ -n "${script}" ]
+    run yq -r '.jobs.*.steps[] | select(.name == "Validate pnpm 11 Node.js runtime on Intel macOS") | .if' "${workflow}"
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "steps.legacy-pnpm.outputs.major == '11'" ]
+    run yq -r '.jobs.*.steps[] | select(.name == "Record pnpm version on Intel macOS") | .if' "${workflow}"
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true' && runner.os == 'macOS' && runner.arch == 'X64'" ]
+    run yq -r '.jobs.*.steps[] | select(.name == "Setup Node.js for legacy pnpm") | .with.cache' "${workflow}"
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "\${{ inputs.enable-cache && steps.legacy-pnpm.outputs.major != '11' && 'pnpm' || '' }}" ]
+    run yq -r '.jobs.*.steps[] | select(.name == "Cache pnpm 11 store on Intel macOS") | .if' "${workflow}"
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "inputs.enable-cache && steps.legacy-pnpm.outputs.major == '11'" ]
+    while IFS='|' read -r node_version expected; do
+      # shellcheck disable=SC2016
+      run env TEST_NODE_VERSION="${node_version}" bash -euo pipefail -c 'node() { printf "v%s\\n" "${TEST_NODE_VERSION}"; }; eval "$1"' -- "${script}"
+      if [[ "${expected}" == pass ]]; then
+        [ "${status}" -eq 0 ]
+      else
+        [ "${status}" -ne 0 ]
+        [[ "${output}" == *"pnpm 11 on Intel macOS requires Node.js >=22.13.0"* ]]
+      fi
+    done << 'CASES'
+20.19.0|fail
+22.12.9|fail
+22.13.0|pass
+22.14.0|pass
+24.0.0|pass
+CASES
+    count=$((count + 1))
+  done < <(grep -rl --include='*.yml' 'Setup legacy pnpm' "${WORKFLOWS}")
+  [ "${count}" -eq 4 ]
+}

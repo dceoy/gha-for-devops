@@ -177,13 +177,48 @@ jobs:
           version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
           package_json_file: ${{ format('{0}/package.json', inputs.package-path) }}
           standalone: ${{ runner.os != 'macOS' || runner.arch != 'X64' }}
+      - name: Record pnpm version on Intel macOS
+        id: legacy-pnpm
+        if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true' && runner.os == 'macOS' && runner.arch == 'X64'
+        run: |
+          pnpm_version="$(pnpm --version)"
+          echo "version=${pnpm_version}" >> "${GITHUB_OUTPUT}"
+          echo "major=${pnpm_version%%.*}" >> "${GITHUB_OUTPUT}"
       - name: Setup Node.js for legacy pnpm
         if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: ${{ steps.pnpm-config.outputs.node-version }}
-          cache: ${{ inputs.enable-cache && 'pnpm' || '' }}
+          cache: ${{ inputs.enable-cache && steps.legacy-pnpm.outputs.major != '11' && 'pnpm' || '' }}
           cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/pnpm-lock.yaml', inputs.package-path) }}
+      - name: Validate pnpm 11 Node.js runtime on Intel macOS
+        if: steps.legacy-pnpm.outputs.major == '11'
+        run: |
+          node_version="$(node --version)"
+          if [[ ! "${node_version}" =~ ^v([0-9]+)\.([0-9]+)\.[0-9]+$ ]]; then
+            echo "::error::Unable to identify the selected Node.js version: ${node_version}" >&2
+            exit 1
+          fi
+          node_major="${BASH_REMATCH[1]}"
+          node_minor="${BASH_REMATCH[2]}"
+          if (( 10#${node_major} < 22 || (10#${node_major} == 22 && 10#${node_minor} < 13) )); then
+            echo "::error::pnpm 11 on Intel macOS requires Node.js >=22.13.0; selected ${node_version}. Select a compatible Node.js runtime or use pnpm 10." >&2
+            exit 1
+          fi
+      - name: Locate pnpm 11 store on Intel macOS
+        id: pnpm11-store
+        if: inputs.enable-cache && steps.legacy-pnpm.outputs.major == '11'
+        run: |
+          echo "path=$(pnpm store path --silent)" >> "${GITHUB_OUTPUT}"
+          echo "node-version=$(node --version)" >> "${GITHUB_OUTPUT}"
+      - name: Cache pnpm 11 store on Intel macOS
+        if: inputs.enable-cache && steps.legacy-pnpm.outputs.major == '11'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ steps.pnpm11-store.outputs.path }}
+          key: pnpm11-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.legacy-pnpm.outputs.version }}-${{ steps.pnpm11-store.outputs.node-version }}-${{ hashFiles(inputs.cache-dependency-path || format('{0}/pnpm-lock.yaml', inputs.package-path)) }}
+          restore-keys: |
+            pnpm11-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.legacy-pnpm.outputs.version }}-${{ steps.pnpm11-store.outputs.node-version }}-
       - name: Setup Node.js
         if: env.PACKAGE_MANAGER != 'pnpm'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
