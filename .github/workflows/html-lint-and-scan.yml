@@ -243,8 +243,9 @@ jobs:
           export PNPM_CONFIG_GLOBAL_SHIMS='{"node":false}'
           echo 'PNPM_CONFIG_GLOBAL_SHIMS={"node":false}' >> "${GITHUB_ENV}"
           node --version
+      # pnpm-managed runtimes may omit bundled Corepack (10) or npm/npx (11+).
       - name: Preserve Node.js bundled tools
-        if: env.PACKAGE_MANAGER == 'pnpm' && (steps.pnpm-cache.outputs.pnpm-major >= 11 || (runner.os == 'macOS' && runner.arch == 'X64'))
+        if: env.PACKAGE_MANAGER == 'pnpm'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: ${{ steps.pnpm-cache.outputs.node-version }}
