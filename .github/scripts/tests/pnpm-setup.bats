@@ -174,7 +174,7 @@ CASES
   while IFS= read -r workflow; do
     run pnpm_setup_value "${workflow}" runtime
     [ "${status}" -eq 0 ]
-    [ "${output}" = 'node@${{ steps.pnpm-config.outputs.node-version }}' ]
+    [ "${output}" = "node@\${{ steps.pnpm-config.outputs.node-version }}" ]
     run yq -r '.jobs.*.steps[] | select(.uses | test("^actions/setup-node@")) | .if // ""' "${workflow}"
     [ "${status}" -eq 0 ]
     if [[ "${workflow}" == */bats-test.yml ]]; then
