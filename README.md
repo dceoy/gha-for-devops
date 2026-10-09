@@ -39,7 +39,7 @@ A manifest declaration takes precedence even when `node-version` is explicitly s
 }
 ```
 
-Node.js is installed with `pnpm runtime set` on pnpm 11+ or `pnpm env use` on pnpm 10. Store caches include the resolved Node.js version; pnpm 10 also caches the runtime directory. Intel macOS uses `setup-node` for the selected version because standalone pnpm is unavailable on that platform. npm workflows continue to use `node-version` directly. The Bats workflow follows the same manifest selection, with `latest` as its fallback.
+Node.js is installed with `pnpm runtime set` on pnpm 11+ or `pnpm env use` on pnpm 10. Store caches include the resolved Node.js version; pnpm 10 also caches the runtime directory. The exact official Node.js distribution also supplies compatible bundled npm/npx and Corepack (where included), rather than installing the latest tool releases. This requires a second distribution/cache, but pnpm-managed Node.js is restored to the front of PATH. Intel macOS uses `setup-node` for the selected version because standalone pnpm is unavailable on that platform. npm workflows continue to use `node-version` directly. The Bats workflow follows the same manifest selection, with `latest` as its fallback.
 
 ### GitHub Pages
 

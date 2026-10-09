@@ -238,6 +238,13 @@ jobs:
         with:
           path: ${{ steps.pnpm-cache.outputs.node-path }}
           key: pnpm-runtime-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-${{ steps.pnpm-cache.outputs.node-version }}
+      # Use tools bundled with this exact Node.js version, not current npm/Corepack.
+      # This also provides the runtime on Intel macOS, which cannot use standalone pnpm.
+      - name: Preserve compatible Node.js bundled tools
+        if: env.PACKAGE_MANAGER == 'pnpm'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ steps.pnpm-cache.outputs.node-version }}
       - name: Setup Node.js with pnpm
         if: env.PACKAGE_MANAGER == 'pnpm'
         env:
@@ -245,7 +252,7 @@ jobs:
           PNPM_MAJOR: ${{ steps.pnpm-cache.outputs.pnpm-major }}
           PNPM_STORE_PATH: ${{ steps.pnpm-cache.outputs.store-path }}
         working-directory: ${{ inputs.package-path }}
-        run: | # zizmor: ignore[adhoc-packages] restores tools omitted by pnpm-managed Node.js
+        run: |
           if [[ -n "${NODE_VERSION}" && "${RUNNER_OS}-${RUNNER_ARCH}" != macOS-X64 ]]; then
             if (( PNPM_MAJOR >= 11 )); then
               pnpm_config_store_dir="${PNPM_STORE_PATH}" pnpm runtime set node "${NODE_VERSION}" --global
@@ -255,17 +262,12 @@ jobs:
           fi
           export PNPM_CONFIG_GLOBAL_SHIMS='{"node":false}'
           echo 'PNPM_CONFIG_GLOBAL_SHIMS={"node":false}' >> "${GITHUB_ENV}"
+          if [[ "${RUNNER_OS}-${RUNNER_ARCH}" != macOS-X64 ]]; then
+            pnpm_bin="$(pnpm bin --global)"
+            export PATH="${pnpm_bin}:${PATH}"
+            echo "${pnpm_bin}" >> "${GITHUB_PATH}"
+          fi
           node --version
-          # pnpm 10 omits Corepack; pnpm 11+ also omits npm/npx.
-          tools=(corepack)
-          if (( PNPM_MAJOR >= 11 )); then tools+=(npm); fi
-          pnpm add --global "${tools[@]}"
-      # Intel macOS has no standalone pnpm binary capable of bootstrapping Node.js.
-      - name: Setup project Node.js on Intel macOS
-        if: env.PACKAGE_MANAGER == 'pnpm' && runner.os == 'macOS' && runner.arch == 'X64'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
-        with:
-          node-version: ${{ steps.pnpm-cache.outputs.node-version }}
       - name: Setup Node.js
         if: env.PACKAGE_MANAGER != 'pnpm'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
