@@ -207,6 +207,16 @@ jobs:
               exit 1
             fi
           fi
+          # Intel macOS uses the Node-backed pnpm CLI; validate before setup-node replaces its interpreter.
+          if (( pnpm_major == 11 )) && [[ "${RUNNER_OS}-${RUNNER_ARCH}" == macOS-X64 && -n "${node_version}" ]]; then
+            node_major="${node_version%%.*}"
+            node_minor="${node_version#*.}"
+            node_minor="${node_minor%%.*}"
+            if (( 10#${node_major} < 22 || (10#${node_major} == 22 && 10#${node_minor} < 13) )); then
+              echo "::error::pnpm 11 on Intel macOS requires Node.js >=22.13.0; selected ${node_version}. Use pnpm 10 or select a compatible project runtime." >&2
+              exit 1
+            fi
+          fi
           node_path=''
           if (( pnpm_major < 11 )) && [[ -n "${node_version}" ]] && [[ "${RUNNER_OS}-${RUNNER_ARCH}" != macOS-X64 ]]; then
             if [[ -z "${PNPM_HOME:-}" ]]; then
