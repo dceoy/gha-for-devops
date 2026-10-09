@@ -102,9 +102,11 @@ jobs:
         id: pnpm-store
         if: inputs.enable-cache && inputs.cache-salt != ''
         run: |
-          echo "path=$(pnpm store path --silent)" >> "${GITHUB_OUTPUT}"
-          echo "version=$(pnpm --version)" >> "${GITHUB_OUTPUT}"
-          echo "node-version=$(node --version)" >> "${GITHUB_OUTPUT}"
+          {
+            echo "path=$(pnpm store path --silent)"
+            echo "version=$(pnpm --version)"
+            echo "node-version=$(node --version)"
+          } >> "${GITHUB_OUTPUT}"
       - name: Cache salted pnpm store
         if: inputs.enable-cache && inputs.cache-salt != ''
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0

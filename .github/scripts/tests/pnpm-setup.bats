@@ -140,7 +140,7 @@ has_pnpm_version_source_in_fixture() {
     run bash -euo pipefail -c 'cd "$1"; export NODE_VERSION=latest GITHUB_OUTPUT="$1/output"; eval "$2"' -- "${BATS_TEST_TMPDIR}/runtime" "${script}"
     [ "${status}" -eq 0 ]
     [ "$(cat "${BATS_TEST_TMPDIR}/runtime/output")" = "node-version=${expected}" ]
-  done <<'CASES'
+  done << 'CASES'
 {}|latest
 {"engines":{"node":"^22"}}|^22
 {"devEngines":{"runtime":{"name":"node","version":"24.4.0"}},"engines":{"node":"22"}}|24.4.0
