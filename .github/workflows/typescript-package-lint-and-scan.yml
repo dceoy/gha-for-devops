@@ -136,148 +136,130 @@ jobs:
               echo 'PACKAGE_MANAGER='
             fi
           } | tee -a "${GITHUB_ENV}"
-      - name: Bootstrap Node.js on Intel macOS
-        if: env.PACKAGE_MANAGER == 'pnpm' && (runner.os == 'macOS' && runner.arch == 'X64')
+      - name: Select pnpm setup and Node.js version
+        id: pnpm-config
+        if: env.PACKAGE_MANAGER == 'pnpm'
+        env:
+          PNPM_VERSION: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
+          NODE_VERSION: ${{ inputs.node-version }}
+        working-directory: ${{ inputs.package-path }}
+        run: |
+          selected="${PNPM_VERSION}"
+          if [[ -z "${selected}" ]]; then
+            selected="$(jq -r '
+              if .devEngines.packageManager.name == "pnpm" then .devEngines.packageManager.version // ""
+              else .packageManager // "" end
+            ' package.json)"
+          fi
+          selected="${selected#pnpm@}"
+          major=''
+          if [[ "${selected}" =~ ([0-9]+) ]]; then
+            major="${BASH_REMATCH[1]}"
+          fi
+          legacy=false
+          if [[ -n "${major}" ]] && (( 10#${major} < 11 )); then
+            legacy=true
+          elif [[ "${major}" == 11 && "${RUNNER_OS}-${RUNNER_ARCH}" == macOS-X64 ]]; then
+            legacy=true
+          fi
+          node_version="$(jq -r '
+            . as $manifest
+            | (.devEngines.runtime // [])
+            | if type == "array" then . else [.] end
+            | map(select(.name == "node"))
+            | if length > 1 then error("Multiple Node.js runtime declarations")
+              elif length == 1 then
+                .[0].version | if type == "string" and length > 0 then .
+                  else error("Node.js runtime.version must be a nonempty string") end
+              else $manifest.engines.node // "" end
+            | if type == "string" then . else error("engines.node must be a string") end
+          ' package.json)"
+          node_version="${node_version:-${NODE_VERSION}}"
+          case "${node_version}" in
+            node|stable|current|\*) node_version=latest ;;
+            lts/\*) node_version=lts ;;
+            lts/-*)
+              offset="${node_version#lts/-}"
+              if [[ ! "${offset}" =~ ^[0-9]+$ ]]; then
+                echo "Invalid Node.js LTS offset: ${node_version}" >&2
+                exit 1
+              fi
+              node_version="$(curl -fsSL https://nodejs.org/dist/index.json | jq -r --argjson offset "$((10#${offset}))" '[.[] | select(.lts) | .version | capture("^v(?<major>[0-9]+)\\.").major | tonumber] | unique | sort | reverse | .[$offset] // empty')"
+              if [[ -z "${node_version}" ]]; then
+                echo "Unable to resolve Node.js LTS selector: ${NODE_VERSION}" >&2
+                exit 1
+              fi
+              ;;
+            lts/*) node_version="${node_version#lts/}" ;;
+          esac
+          {
+            echo "legacy=${legacy}"
+            echo "node-version=${node_version}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Bootstrap Node.js for legacy pnpm on Intel macOS
+        if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true' && runner.os == 'macOS' && runner.arch == 'X64'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: latest
-      - name: Setup pnpm
-        if: env.PACKAGE_MANAGER == 'pnpm'
+      - name: Setup pnpm and Node.js
+        if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy != 'true'
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024  # v3
+        with:
+          version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
+          runtime: node@${{ steps.pnpm-config.outputs.node-version }}
+          working-directory: ${{ inputs.package-path }}
+          install: false
+          cache: ${{ inputs.enable-cache }}
+          cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/pnpm-lock.yaml', inputs.package-path) }}
+      - name: Setup legacy pnpm
+        if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true'
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
         with:
           version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
           package_json_file: ${{ format('{0}/package.json', inputs.package-path) }}
           standalone: ${{ runner.os != 'macOS' || runner.arch != 'X64' }}
-      - name: Resolve pnpm runtime version and paths
-        id: pnpm-cache
-        if: env.PACKAGE_MANAGER == 'pnpm'
-        env:
-          NODE_VERSION: ${{ inputs.node-version }}
-        working-directory: ${{ inputs.package-path }}
+      - name: Record pnpm version on Intel macOS
+        id: legacy-pnpm
+        if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true' && runner.os == 'macOS' && runner.arch == 'X64'
         run: |
           pnpm_version="$(pnpm --version)"
-          pnpm_major="${pnpm_version%%.*}"
-          store_path="$(pnpm store path --silent)"
-          node_version="${NODE_VERSION}"
-          # The project manifest takes precedence over the workflow fallback.
-          if [[ -f package.json ]]; then
-            manifest_version="$(jq -r '
-              . as $manifest
-              | (.devEngines.runtime // [])
-              | if type == "array" then . else [.] end
-              | map(select(.name == "node"))
-              | if length > 1 then error("Multiple Node.js runtime declarations")
-                elif length == 1 then
-                  .[0].version | if type == "string" and length > 0 then .
-                    else error("Node.js runtime.version must be a nonempty string") end
-                else $manifest.engines.node // "" end
-              | if type == "string" then . else error("engines.node must be a string") end
-            ' package.json)"
-            node_version="${manifest_version:-${NODE_VERSION}}"
-          fi
-          case "${node_version}" in
-            latest|current|node|stable|\*) node_version=latest ;;
-            lts/*)
-              node_version="${node_version#lts/}"
-              case "${node_version}" in
-                '*') node_version=lts ;;
-                -*)
-                  offset="${node_version#-}"
-                  if [[ ! "${offset}" =~ ^[0-9]+$ ]]; then
-                    echo "Invalid Node.js LTS offset: ${NODE_VERSION}" >&2
-                    exit 1
-                  fi
-                  node_version="$(curl -fsSL https://nodejs.org/dist/index.json | jq -r --argjson offset "${offset}" '[.[] | select(.lts) | .version | capture("^v(?<major>[0-9]+)\\.").major | tonumber] | unique | sort | reverse | .[$offset] // empty')"
-                  if [[ -z "${node_version}" ]]; then
-                    echo "Unable to resolve Node.js LTS selector: ${NODE_VERSION}" >&2
-                    exit 1
-                  fi
-                  ;;
-                *) ;;
-              esac
-              ;;
-          esac
-          if [[ -n "${node_version}" ]]; then
-            node_version="${node_version#v}"
-            if [[ ! "${node_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
-              node_version="$(pnpm env list --remote "${node_version}" | tail -n 1)"
-            fi
-            if [[ ! "${node_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
-              echo "Unable to resolve Node.js version selector: ${NODE_VERSION}" >&2
-              exit 1
-            fi
-          fi
-          # Intel macOS uses the Node-backed pnpm CLI; validate before setup-node replaces its interpreter.
-          if (( pnpm_major == 11 )) && [[ "${RUNNER_OS}-${RUNNER_ARCH}" == macOS-X64 && -n "${node_version}" ]]; then
-            node_major="${node_version%%.*}"
-            node_minor="${node_version#*.}"
-            node_minor="${node_minor%%.*}"
-            if (( 10#${node_major} < 22 || (10#${node_major} == 22 && 10#${node_minor} < 13) )); then
-              echo "::error::pnpm 11 on Intel macOS requires Node.js >=22.13.0; selected ${node_version}. Use pnpm 10 or select a compatible project runtime." >&2
-              exit 1
-            fi
-          fi
-          node_path=''
-          if (( pnpm_major < 11 )) && [[ -n "${node_version}" ]] && [[ "${RUNNER_OS}-${RUNNER_ARCH}" != macOS-X64 ]]; then
-            if [[ -z "${PNPM_HOME:-}" ]]; then
-              echo 'PNPM_HOME was not set by pnpm/action-setup.' >&2
-              exit 1
-            fi
-            pnpm_home="$(cd "${PNPM_HOME}" && pwd -P)"
-            node_path="${pnpm_home}/nodejs/${node_version}"
-          fi
-          {
-            echo "pnpm-version=${pnpm_version}"
-            echo "pnpm-major=${pnpm_major}"
-            echo "store-path=${store_path}"
-            echo "node-version=${node_version}"
-            echo "node-path=${node_path}"
-          } >> "${GITHUB_OUTPUT}"
-      - name: Cache pnpm store
-        if: inputs.enable-cache && env.PACKAGE_MANAGER == 'pnpm'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ${{ steps.pnpm-cache.outputs.store-path }}
-          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-${{ steps.pnpm-cache.outputs.node-version || 'none' }}-${{ hashFiles(inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE)) }}
-          restore-keys: |
-            pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-${{ steps.pnpm-cache.outputs.node-version || 'none' }}-
-            pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-
-      - name: Cache pnpm-managed Node.js
-        if: inputs.enable-cache && env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-cache.outputs.node-path != ''
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ${{ steps.pnpm-cache.outputs.node-path }}
-          key: pnpm-runtime-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-${{ steps.pnpm-cache.outputs.node-version }}
-      # Use tools bundled with this exact Node.js version, not current npm/Corepack.
-      # This also provides the runtime on Intel macOS, which cannot use standalone pnpm.
-      - name: Preserve compatible Node.js bundled tools
-        if: env.PACKAGE_MANAGER == 'pnpm'
+          echo "version=${pnpm_version}" >> "${GITHUB_OUTPUT}"
+          echo "major=${pnpm_version%%.*}" >> "${GITHUB_OUTPUT}"
+      - name: Setup Node.js for legacy pnpm
+        if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
-          node-version: ${{ steps.pnpm-cache.outputs.node-version }}
-      - name: Setup Node.js with pnpm
-        if: env.PACKAGE_MANAGER == 'pnpm'
-        env:
-          NODE_VERSION: ${{ steps.pnpm-cache.outputs.node-version }}
-          PNPM_MAJOR: ${{ steps.pnpm-cache.outputs.pnpm-major }}
-          PNPM_STORE_PATH: ${{ steps.pnpm-cache.outputs.store-path }}
-        working-directory: ${{ inputs.package-path }}
+          node-version: ${{ steps.pnpm-config.outputs.node-version }}
+          cache: ${{ inputs.enable-cache && steps.legacy-pnpm.outputs.major != '11' && 'pnpm' || '' }}
+          cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/pnpm-lock.yaml', inputs.package-path) }}
+      - name: Validate pnpm 11 Node.js runtime on Intel macOS
+        if: steps.legacy-pnpm.outputs.major == '11'
         run: |
-          if [[ -n "${NODE_VERSION}" && "${RUNNER_OS}-${RUNNER_ARCH}" != macOS-X64 ]]; then
-            if (( PNPM_MAJOR >= 11 )); then
-              pnpm_config_store_dir="${PNPM_STORE_PATH}" pnpm runtime set node "${NODE_VERSION}" --global
-            else
-              pnpm env use --global "${NODE_VERSION}"
-            fi
+          node_version="$(node --version)"
+          if [[ ! "${node_version}" =~ ^v([0-9]+)\.([0-9]+)\.[0-9]+$ ]]; then
+            echo "::error::Unable to identify the selected Node.js version: ${node_version}" >&2
+            exit 1
           fi
-          export PNPM_CONFIG_GLOBAL_SHIMS='{"node":false}'
-          echo 'PNPM_CONFIG_GLOBAL_SHIMS={"node":false}' >> "${GITHUB_ENV}"
-          if [[ "${RUNNER_OS}-${RUNNER_ARCH}" != macOS-X64 ]]; then
-            pnpm_bin="$(pnpm bin --global)"
-            export PATH="${pnpm_bin}:${PATH}"
-            echo "${pnpm_bin}" >> "${GITHUB_PATH}"
+          node_major="${BASH_REMATCH[1]}"
+          node_minor="${BASH_REMATCH[2]}"
+          if (( 10#${node_major} < 22 || (10#${node_major} == 22 && 10#${node_minor} < 13) )); then
+            echo "::error::pnpm 11 on Intel macOS requires Node.js >=22.13.0; selected ${node_version}. Select a compatible Node.js runtime or use pnpm 10." >&2
+            exit 1
           fi
-          node --version
+      - name: Locate pnpm 11 store on Intel macOS
+        id: pnpm11-store
+        if: inputs.enable-cache && steps.legacy-pnpm.outputs.major == '11'
+        run: |
+          echo "path=$(pnpm store path --silent)" >> "${GITHUB_OUTPUT}"
+          echo "node-version=$(node --version)" >> "${GITHUB_OUTPUT}"
+      - name: Cache pnpm 11 store on Intel macOS
+        if: inputs.enable-cache && steps.legacy-pnpm.outputs.major == '11'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ steps.pnpm11-store.outputs.path }}
+          key: pnpm11-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.legacy-pnpm.outputs.version }}-${{ steps.pnpm11-store.outputs.node-version }}-${{ hashFiles(inputs.cache-dependency-path || format('{0}/pnpm-lock.yaml', inputs.package-path)) }}
+          restore-keys: |
+            pnpm11-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.legacy-pnpm.outputs.version }}-${{ steps.pnpm11-store.outputs.node-version }}-
       - name: Setup Node.js
         if: env.PACKAGE_MANAGER != 'pnpm'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0

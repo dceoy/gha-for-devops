@@ -28,18 +28,20 @@ The TypeScript and HTML workflows select Node.js from the project's `package.jso
 2. `engines.node`.
 3. The workflow's `node-version` input, which defaults to `latest`.
 
-A manifest declaration takes precedence even when `node-version` is explicitly supplied. Version ranges resolve to the latest matching release through pnpm. Invalid declarations fail setup. For example:
+Manifest declarations take precedence over the workflow input. On pnpm 11+, [`pnpm/setup@v3`](https://github.com/pnpm/setup) installs Node.js and manages the pnpm store cache; the workflows retain their explicit `pnpm install --frozen-lockfile` steps to avoid duplicate installations and preserve additional dependency setup. Relative LTS selectors such as `lts/-1` resolve through the Node.js release index before setup. Other version selectors resolve through pnpm. For pnpm 11+, `pnpm/setup@v3` is the sole Node.js installer, avoiding a duplicate `actions/setup-node` step. This pnpm-managed Node.js runtime does not guarantee bundled `npm`, `npx`, or Corepack; pnpm-based scripts should use `pnpm`/`pnpm exec`, or provision those tools separately if required. The action is pinned to a commit SHA.
+
+pnpm 10 and earlier use `pnpm/action-setup` with `actions/setup-node` (including its pnpm cache). pnpm 11 on Intel macOS also uses this legacy path because it has no standalone darwin-x64 binary; pnpm 12+ is supported by the new action. npm-only workflows continue to use `actions/setup-node`. The Bats workflow prefers `devEngines.runtime`, then `engines.node`, with `latest` as its fallback. A nonempty `cache-salt` selects a separate pnpm store cache that can be reused by subsequent runs with the same salt.
+
+Example project manifest:
 
 ```json
 {
-  "packageManager": "pnpm@11.25.0",
+  "packageManager": "pnpm@12.0.0",
   "devEngines": {
-    "runtime": { "name": "node", "version": "^22.0.0", "onFail": "download" }
+    "runtime": { "name": "node", "version": "^24.0.0", "onFail": "download" }
   }
 }
 ```
-
-Node.js is installed with `pnpm runtime set` on pnpm 11+ or `pnpm env use` on pnpm 10. Store caches include the resolved Node.js version; pnpm 10 also caches the runtime directory. The exact official Node.js distribution also supplies compatible bundled npm/npx and Corepack (where included), rather than installing the latest tool releases. This requires a second distribution/cache, but pnpm-managed Node.js is restored to the front of PATH. Intel macOS uses `setup-node` for the selected version because standalone pnpm is unavailable on that platform. npm workflows continue to use `node-version` directly. The Bats workflow follows the same manifest selection, with `latest` as its fallback.
 
 ### GitHub Pages
 
