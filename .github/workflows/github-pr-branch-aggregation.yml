@@ -126,7 +126,7 @@ jobs:
           persist-credentials: false
       - name: Fetch the remote branches
         run: |
-          git_auth="$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 -w 0)"
+          git_auth="$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 | tr -d '\r\n')"
           echo "::add-mask::${git_auth}"
           validate_branch_record() {
             local record="$1"
@@ -165,7 +165,7 @@ jobs:
           done < <(jq -r '.[].branch' <<< "${BRANCH_RECORDS_JSON}")
       - name: Push the changes
         run: |
-          git_auth="$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 -w 0)"
+          git_auth="$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 | tr -d '\r\n')"
           echo "::add-mask::${git_auth}"
           git check-ref-format "refs/heads/${HEAD_REF}" >/dev/null
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${git_auth}" \
@@ -176,7 +176,7 @@ jobs:
           DELETE_BRANCH_AUTHOR_ALLOWLIST: ${{ inputs.delete-branch-author-allowlist }}
           DELETE_BRANCH_HEAD_OWNER_ALLOWLIST: ${{ inputs.delete-branch-head-owner-allowlist }}
         run: |
-          git_auth="$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 -w 0)"
+          git_auth="$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 | tr -d '\r\n')"
           echo "::add-mask::${git_auth}"
           default_branch="$(gh repo view "${GITHUB_REPOSITORY}" --json defaultBranchRef --jq '.defaultBranchRef.name')"
           repository_owner="${GITHUB_REPOSITORY%%/*}"
