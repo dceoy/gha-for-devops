@@ -20,6 +20,27 @@ jobs:
 
 For production use, replace `@main` with a release tag or commit SHA. Pass sensitive values through `secrets:`, never `with:`. Cache-enabled workflows document options such as `enable-cache`, `cache-dependency-path`, and `cache-salt` in their workflow files.
 
+### Node.js versions with pnpm
+
+The TypeScript and HTML workflows select Node.js from the project's `package.json` when using pnpm, in this order:
+
+1. The Node.js entry in `devEngines.runtime` (an object or an array).
+2. `engines.node`.
+3. The workflow's `node-version` input, which defaults to `latest`.
+
+A manifest declaration takes precedence even when `node-version` is explicitly supplied. Version ranges resolve to the latest matching release through pnpm. Invalid declarations fail setup. For example:
+
+```json
+{
+  "packageManager": "pnpm@11.25.0",
+  "devEngines": {
+    "runtime": { "name": "node", "version": "^22.0.0", "onFail": "download" }
+  }
+}
+```
+
+Node.js is installed with `pnpm runtime set` on pnpm 11+ or `pnpm env use` on pnpm 10. Store caches include the resolved Node.js version; pnpm 10 also caches the runtime directory. The exact official Node.js distribution also supplies compatible bundled npm/npx and Corepack (where included), rather than installing the latest tool releases. This requires a second distribution/cache, but pnpm-managed Node.js is restored to the front of PATH. Intel macOS uses `setup-node` for the selected version because standalone pnpm is unavailable on that platform. npm workflows continue to use `node-version` directly. The Bats workflow follows the same manifest selection, with `latest` as its fallback.
+
 ### GitHub Pages
 
 For a conventional Hugo site, call the combined build and deployment workflow:

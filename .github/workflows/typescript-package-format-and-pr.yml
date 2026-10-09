@@ -11,7 +11,7 @@ on:
       node-version:
         required: false
         type: string
-        description: Node.js version to use
+        description: Node.js version fallback (pnpm prefers package.json devEngines.runtime, then engines.node)
         default: latest
       pnpm-version:
         required: false
@@ -136,38 +136,155 @@ jobs:
               echo 'PACKAGE_MANAGER='
             fi
           } | tee -a "${GITHUB_ENV}"
-      - name: Setup Node.js with cache
-        if: inputs.enable-cache && env.PACKAGE_MANAGER == 'npm'
+      - name: Bootstrap Node.js on Intel macOS
+        if: env.PACKAGE_MANAGER == 'pnpm' && (runner.os == 'macOS' && runner.arch == 'X64')
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
-          node-version: ${{ inputs.node-version }}
-          cache: npm
-          cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE) }}
-      - name: Setup Node.js without cache
-        if: env.PACKAGE_MANAGER != 'npm' || ! inputs.enable-cache
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
-        with:
-          node-version: ${{ inputs.node-version }}
+          node-version: latest
       - name: Setup pnpm
         if: env.PACKAGE_MANAGER == 'pnpm'
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
         with:
           version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
           package_json_file: ${{ format('{0}/package.json', inputs.package-path) }}
-      - name: Get pnpm store path
+          standalone: ${{ runner.os != 'macOS' || runner.arch != 'X64' }}
+      - name: Resolve pnpm runtime version and paths
         id: pnpm-cache
-        if: inputs.enable-cache && env.PACKAGE_MANAGER == 'pnpm'
+        if: env.PACKAGE_MANAGER == 'pnpm'
+        env:
+          NODE_VERSION: ${{ inputs.node-version }}
         working-directory: ${{ inputs.package-path }}
-        run: echo "store-path=$(pnpm store path --silent)" >> "${GITHUB_OUTPUT}"
+        run: |
+          pnpm_version="$(pnpm --version)"
+          pnpm_major="${pnpm_version%%.*}"
+          store_path="$(pnpm store path --silent)"
+          node_version="${NODE_VERSION}"
+          # The project manifest takes precedence over the workflow fallback.
+          if [[ -f package.json ]]; then
+            manifest_version="$(jq -r '
+              . as $manifest
+              | (.devEngines.runtime // [])
+              | if type == "array" then . else [.] end
+              | map(select(.name == "node"))
+              | if length > 1 then error("Multiple Node.js runtime declarations")
+                elif length == 1 then
+                  .[0].version | if type == "string" and length > 0 then .
+                    else error("Node.js runtime.version must be a nonempty string") end
+                else $manifest.engines.node // "" end
+              | if type == "string" then . else error("engines.node must be a string") end
+            ' package.json)"
+            node_version="${manifest_version:-${NODE_VERSION}}"
+          fi
+          case "${node_version}" in
+            latest|current|node|stable|\*) node_version=latest ;;
+            lts/*)
+              node_version="${node_version#lts/}"
+              case "${node_version}" in
+                '*') node_version=lts ;;
+                -*)
+                  offset="${node_version#-}"
+                  if [[ ! "${offset}" =~ ^[0-9]+$ ]]; then
+                    echo "Invalid Node.js LTS offset: ${NODE_VERSION}" >&2
+                    exit 1
+                  fi
+                  node_version="$(curl -fsSL https://nodejs.org/dist/index.json | jq -r --argjson offset "${offset}" '[.[] | select(.lts) | .version | capture("^v(?<major>[0-9]+)\\.").major | tonumber] | unique | sort | reverse | .[$offset] // empty')"
+                  if [[ -z "${node_version}" ]]; then
+                    echo "Unable to resolve Node.js LTS selector: ${NODE_VERSION}" >&2
+                    exit 1
+                  fi
+                  ;;
+                *) ;;
+              esac
+              ;;
+          esac
+          if [[ -n "${node_version}" ]]; then
+            node_version="${node_version#v}"
+            if [[ ! "${node_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+              node_version="$(pnpm env list --remote "${node_version}" | tail -n 1)"
+            fi
+            if [[ ! "${node_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+              echo "Unable to resolve Node.js version selector: ${NODE_VERSION}" >&2
+              exit 1
+            fi
+          fi
+          # Intel macOS uses the Node-backed pnpm CLI; validate before setup-node replaces its interpreter.
+          if (( pnpm_major == 11 )) && [[ "${RUNNER_OS}-${RUNNER_ARCH}" == macOS-X64 && -n "${node_version}" ]]; then
+            node_major="${node_version%%.*}"
+            node_minor="${node_version#*.}"
+            node_minor="${node_minor%%.*}"
+            if (( 10#${node_major} < 22 || (10#${node_major} == 22 && 10#${node_minor} < 13) )); then
+              echo "::error::pnpm 11 on Intel macOS requires Node.js >=22.13.0; selected ${node_version}. Use pnpm 10 or select a compatible project runtime." >&2
+              exit 1
+            fi
+          fi
+          node_path=''
+          if (( pnpm_major < 11 )) && [[ -n "${node_version}" ]] && [[ "${RUNNER_OS}-${RUNNER_ARCH}" != macOS-X64 ]]; then
+            if [[ -z "${PNPM_HOME:-}" ]]; then
+              echo 'PNPM_HOME was not set by pnpm/action-setup.' >&2
+              exit 1
+            fi
+            pnpm_home="$(cd "${PNPM_HOME}" && pwd -P)"
+            node_path="${pnpm_home}/nodejs/${node_version}"
+          fi
+          {
+            echo "pnpm-version=${pnpm_version}"
+            echo "pnpm-major=${pnpm_major}"
+            echo "store-path=${store_path}"
+            echo "node-version=${node_version}"
+            echo "node-path=${node_path}"
+          } >> "${GITHUB_OUTPUT}"
       - name: Cache pnpm store
         if: inputs.enable-cache && env.PACKAGE_MANAGER == 'pnpm'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ${{ steps.pnpm-cache.outputs.store-path }}
-          key: pnpm-${{ runner.os }}-${{ inputs.node-version }}-${{ hashFiles(inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE)) }}
+          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-${{ steps.pnpm-cache.outputs.node-version || 'none' }}-${{ hashFiles(inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE)) }}
           restore-keys: |
-            pnpm-${{ runner.os }}-${{ inputs.node-version }}-
-            pnpm-${{ runner.os }}-
+            pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-${{ steps.pnpm-cache.outputs.node-version || 'none' }}-
+            pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-
+      - name: Cache pnpm-managed Node.js
+        if: inputs.enable-cache && env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-cache.outputs.node-path != ''
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ steps.pnpm-cache.outputs.node-path }}
+          key: pnpm-runtime-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-cache.outputs.pnpm-version }}-${{ steps.pnpm-cache.outputs.node-version }}
+      # Use tools bundled with this exact Node.js version, not current npm/Corepack.
+      # This also provides the runtime on Intel macOS, which cannot use standalone pnpm.
+      - name: Preserve compatible Node.js bundled tools
+        if: env.PACKAGE_MANAGER == 'pnpm'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ steps.pnpm-cache.outputs.node-version }}
+      - name: Setup Node.js with pnpm
+        if: env.PACKAGE_MANAGER == 'pnpm'
+        env:
+          NODE_VERSION: ${{ steps.pnpm-cache.outputs.node-version }}
+          PNPM_MAJOR: ${{ steps.pnpm-cache.outputs.pnpm-major }}
+          PNPM_STORE_PATH: ${{ steps.pnpm-cache.outputs.store-path }}
+        working-directory: ${{ inputs.package-path }}
+        run: |
+          if [[ -n "${NODE_VERSION}" && "${RUNNER_OS}-${RUNNER_ARCH}" != macOS-X64 ]]; then
+            if (( PNPM_MAJOR >= 11 )); then
+              pnpm_config_store_dir="${PNPM_STORE_PATH}" pnpm runtime set node "${NODE_VERSION}" --global
+            else
+              pnpm env use --global "${NODE_VERSION}"
+            fi
+          fi
+          export PNPM_CONFIG_GLOBAL_SHIMS='{"node":false}'
+          echo 'PNPM_CONFIG_GLOBAL_SHIMS={"node":false}' >> "${GITHUB_ENV}"
+          if [[ "${RUNNER_OS}-${RUNNER_ARCH}" != macOS-X64 ]]; then
+            pnpm_bin="$(pnpm bin --global)"
+            export PATH="${pnpm_bin}:${PATH}"
+            echo "${pnpm_bin}" >> "${GITHUB_PATH}"
+          fi
+          node --version
+      - name: Setup Node.js
+        if: env.PACKAGE_MANAGER != 'pnpm'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.enable-cache && env.PACKAGE_MANAGER == 'npm' && 'npm' || '' }}
+          cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/{1}', inputs.package-path, env.PACKAGE_LOCK_FILE) }}
       - name: Install dependencies
         env:
           ADDITIONAL_NPM_PACKAGES: ${{ inputs.additional-npm-packages }}
