@@ -168,3 +168,23 @@ CASES
   [ "${status}" -eq 0 ]
   [ "${output}" = "inputs.enable-cache && inputs.cache-salt != ''" ]
 }
+
+@test "pnpm/setup installs Node.js without a second setup-node step" {
+  local workflow count=0
+  while IFS= read -r workflow; do
+    run pnpm_setup_value "${workflow}" runtime
+    [ "${status}" -eq 0 ]
+    [ "${output}" = 'node@${{ steps.pnpm-config.outputs.node-version }}' ]
+    run yq -r '.jobs.*.steps[] | select(.uses | test("^actions/setup-node@")) | .if // ""' "${workflow}"
+    [ "${status}" -eq 0 ]
+    if [[ "${workflow}" == */bats-test.yml ]]; then
+      [ -z "${output}" ]
+    else
+      [[ "${output}" == *"steps.pnpm-config.outputs.legacy == 'true'"* ]]
+      [[ "${output}" == *"env.PACKAGE_MANAGER != 'pnpm'"* ]]
+      [[ "${output}" != *"steps.pnpm-config.outputs.legacy != 'true'"* ]]
+    fi
+    count=$((count + 1))
+  done < <(grep -rl --include='*.yml' 'pnpm/setup@' "${WORKFLOWS}")
+  [ "${count}" -eq 5 ]
+}

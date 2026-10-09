@@ -201,7 +201,6 @@ jobs:
         with:
           node-version: latest
       - name: Setup pnpm and Node.js
-        id: pnpm-runtime
         if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy != 'true'
         uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024  # v3
         with:
@@ -211,11 +210,6 @@ jobs:
           install: false
           cache: ${{ inputs.enable-cache }}
           cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/pnpm-lock.yaml', inputs.package-path) }}
-      - name: Preserve compatible Node.js bundled tools
-        if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy != 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
-        with:
-          node-version: ${{ steps.pnpm-runtime.outputs.runtime-version }}
       - name: Setup legacy pnpm
         if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true'
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
