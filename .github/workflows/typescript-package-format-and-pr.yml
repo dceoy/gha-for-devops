@@ -178,6 +178,19 @@ jobs:
           case "${node_version}" in
             node|stable|current|\*) node_version=latest ;;
             lts/\*) node_version=lts ;;
+            lts/-*)
+              offset="${node_version#lts/-}"
+              if [[ ! "${offset}" =~ ^[0-9]+$ ]]; then
+                echo "Invalid Node.js LTS offset: ${node_version}" >&2
+                exit 1
+              fi
+              node_version="$(curl -fsSL https://nodejs.org/dist/index.json | jq -r --argjson offset "$((10#${offset}))" '[.[] | select(.lts) | .version | capture("^v(?<major>[0-9]+)\\.").major | tonumber] | unique | sort | reverse | .[$offset] // empty')"
+              if [[ -z "${node_version}" ]]; then
+                echo "Unable to resolve Node.js LTS selector: ${NODE_VERSION}" >&2
+                exit 1
+              fi
+              ;;
+            lts/*) node_version="${node_version#lts/}" ;;
           esac
           {
             echo "legacy=${legacy}"
@@ -189,6 +202,7 @@ jobs:
         with:
           node-version: latest
       - name: Setup pnpm and Node.js
+        id: pnpm-runtime
         if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy != 'true'
         uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024  # v3
         with:
@@ -198,6 +212,11 @@ jobs:
           install: false
           cache: ${{ inputs.enable-cache }}
           cache-dependency-path: ${{ inputs.cache-dependency-path || format('{0}/pnpm-lock.yaml', inputs.package-path) }}
+      - name: Preserve compatible Node.js bundled tools
+        if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy != 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ steps.pnpm-runtime.outputs.runtime-version }}
       - name: Setup legacy pnpm
         if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true'
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0

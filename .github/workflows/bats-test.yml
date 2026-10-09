@@ -88,8 +88,27 @@ jobs:
               | if type == "string" then . else error("engines.node must be a string") end
             ' package.json)"
           fi
-          echo "node-version=${node_version:-${NODE_VERSION}}" >> "${GITHUB_OUTPUT}"
+          node_version="${node_version:-${NODE_VERSION}}"
+          case "${node_version}" in
+            node|stable|current|\*) node_version=latest ;;
+            lts/\*) node_version=lts ;;
+            lts/-*)
+              offset="${node_version#lts/-}"
+              if [[ ! "${offset}" =~ ^[0-9]+$ ]]; then
+                echo "Invalid Node.js LTS offset: ${node_version}" >&2
+                exit 1
+              fi
+              node_version="$(curl -fsSL https://nodejs.org/dist/index.json | jq -r --argjson offset "$((10#${offset}))" '[.[] | select(.lts) | .version | capture("^v(?<major>[0-9]+)\\.").major | tonumber] | unique | sort | reverse | .[$offset] // empty')"
+              if [[ -z "${node_version}" ]]; then
+                echo "Unable to resolve Node.js LTS selector: ${NODE_VERSION}" >&2
+                exit 1
+              fi
+              ;;
+            lts/*) node_version="${node_version#lts/}" ;;
+          esac
+          echo "node-version=${node_version}" >> "${GITHUB_OUTPUT}"
       - name: Setup pnpm with Node.js
+        id: pnpm-runtime
         uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024  # v3
         with:
           version: latest
@@ -98,6 +117,10 @@ jobs:
           install: false
           cache: ${{ inputs.enable-cache && inputs.cache-salt == '' && hashFiles('**/pnpm-lock.yaml') != '' }}
           cache-dependency-path: '**/pnpm-lock.yaml'
+      - name: Preserve compatible Node.js bundled tools
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ steps.pnpm-runtime.outputs.runtime-version }}
       - name: Locate salted pnpm store
         id: pnpm-store
         if: inputs.enable-cache && inputs.cache-salt != ''
