@@ -115,120 +115,10 @@ on:
         type: number
         description: Timeout in minutes for the job
         default: 360
-  workflow_dispatch:  # checkov:skip=CKV_GHA_7:workflow_dispatch inputs are required for deployment parameters
-    inputs:
-      project-id:
-        required: true
-        type: string
-        description: Google Cloud project ID to use
-      infra-manager-deployment-name:
-        required: true
-        type: string
-        description: Infrastructure Manager deployment ID
-      workload-identity-provider:
-        required: true
-        type: string
-        description: Workload Identity Provider to use for authentication
-      workload-identity-service-account-name:
-        required: false
-        type: string
-        description: Service Account name to use for Workload Identity Federation
-        default: null
-      location:
-        required: false
-        type: string
-        description: Google Cloud location
-        default: us-central1
-      gcloud-version:
-        required: false
-        type: string
-        description: gcloud CLI version to use
-        default: latest
-      gcloud-components:
-        required: false
-        type: string
-        description: gcloud components to install (comma-separated)
-        default: null
-      infra-manager-source-directory:
-        required: false
-        type: string
-        description: Local directory containing Terraform configuration for Infrastructure Manager
-        default: .
-      infra-manager-input-values:
-        required: false
-        type: string
-        description: Comma-separated input values (e.g., "region=us-central1,env=prod")
-        default: null
-      infra-manager-inputs-file:
-        required: false
-        type: string
-        description: Path to inputs file for Infrastructure Manager
-        default: null
-      infra-manager-service-account-name:
-        required: false
-        type: string
-        description: Service account name for Infrastructure Manager deployment execution
-        default: null
-      infra-manager-artifacts-gcs-bucket:
-        required: false
-        type: string
-        description: GCS bucket to store Infrastructure Manager artifacts
-        default: null
-      infra-manager-labels:
-        required: false
-        type: string
-        description: Labels to set on the deployment (comma-separated key=value pairs)
-        default: null
-      infra-manager-annotations:
-        required: false
-        type: string
-        description: Annotations to set on the deployment (comma-separated key=value pairs)
-        default: null
-      infra-manager-import-existing-resources:
-        required: false
-        type: boolean
-        description: Import existing resources into Infrastructure Manager deployment
-        default: true
-      infra-manager-delete-policy:
-        required: false
-        type: string
-        description: Delete policy for Infrastructure Manager (abandon, delete, or delete-policy-unspecified)
-        default: null
-      infra-manager-async:
-        required: false
-        type: boolean
-        description: Run Infrastructure Manager operations asynchronously
-        default: false
-      apply:
-        required: false
-        type: boolean
-        description: Create or update infrastructure
-        default: false
-      destroy:
-        required: false
-        type: boolean
-        description: Destroy infrastructure
-        default: false
-      environment-variables:
-        required: false
-        type: string
-        description: Environment variables to set (e.g., "FOO=bar")
-        default: null
-      environment-file:
-        required: false
-        type: string
-        description: Environment file to set environment variables
-        default: null
-      runs-on:
-        required: false
-        type: string
-        description: GitHub Actions runner to use
-        default: ubuntu-latest
-      timeout-minutes:
-        required: false
-        type: number
-        description: Timeout in minutes for the job
-        default: 360
+    outputs:
+      preview-resource-name:
+        description: Full preview resource name (empty for apply); callers must delete previews after polling/review to avoid exhausting the project quota
+        value: ${{ jobs.deploy.outputs.preview-resource-name }}
 permissions:
   contents: read
   id-token: write
@@ -239,10 +129,12 @@ defaults:
 jobs:
   deploy:
     runs-on: ${{ inputs.runs-on }}
+    outputs:
+      preview-resource-name: ${{ steps.preview-name.outputs.preview-resource-name }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:
       IM_SERVICE_ACCOUNT: ${{ inputs.infra-manager-service-account-name && format('projects/{0}/serviceAccounts/{1}', inputs.project-id, inputs.infra-manager-service-account-name) || null }}
-      IM_PREVIEW: projects/${{ inputs.project-id }}/locations/${{ inputs.location }}/previews/${{ inputs.infra-manager-deployment-name }}-preview
+      IM_PREVIEW_PREFIX: projects/${{ inputs.project-id }}/locations/${{ inputs.location }}/previews
       IM_DEPLOYMENT: projects/${{ inputs.project-id }}/locations/${{ inputs.location }}/deployments/${{ inputs.infra-manager-deployment-name }}
     steps:
       - name: Checkout repository
@@ -274,6 +166,14 @@ jobs:
           version: ${{ inputs.gcloud-version }}
           project_id: ${{ inputs.project-id }}
           install_components: ${{ inputs.gcloud-components }}
+      - name: Generate a unique Infrastructure Manager preview ID
+        if: (! inputs.apply)
+        id: preview-name
+        run: |
+          preview_id="preview-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-$(openssl rand -hex 8)"
+          preview_resource="${IM_PREVIEW_PREFIX}/${preview_id}"
+          echo "IM_PREVIEW=${preview_resource}" >> "${GITHUB_ENV}"
+          echo "preview-resource-name=${preview_resource}" >> "${GITHUB_OUTPUT}"
       - name: Preview infrastructure using Infrastructure Manager
         if: (! inputs.apply) && (! inputs.destroy)
         env:
@@ -309,6 +209,16 @@ jobs:
         if: (! inputs.apply) && (! inputs.infra-manager-async)
         run: |
           gcloud infra-manager previews describe "${IM_PREVIEW}"
+      - name: Document preview cleanup
+        if: (! inputs.apply)
+        run: |
+          {
+            echo '### Infrastructure Manager preview retention'
+            printf 'Preview: %s\n\n' "${IM_PREVIEW}"
+            echo 'This preview is retained so callers can inspect or export its plan.'
+            echo 'After review (and after polling asynchronous previews), delete it to avoid exhausting the project preview quota:'
+            printf '    gcloud infra-manager previews delete --quiet %q\n' "${IM_PREVIEW}"
+          } >> "${GITHUB_STEP_SUMMARY}"
       - name: Create or update infrastructure using Infrastructure Manager
         if: inputs.apply && (! inputs.destroy)
         env:
