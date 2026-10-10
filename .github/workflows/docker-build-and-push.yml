@@ -31,8 +31,8 @@ on:
       platforms:
         required: false
         type: string
-        description: List of target platforms for build
-        default: linux/amd64,linux/arm64
+        description: List of target platforms for build (single platform by default for local Docker load)
+        default: linux/amd64
       target:
         required: false
         type: string
@@ -56,8 +56,8 @@ on:
       push:
         required: false
         type: boolean
-        description: Push an image to the registry
-        default: true
+        description: Push an image to the registry (opt in explicitly)
+        default: false
       provenance:
         required: false
         type: boolean
@@ -135,7 +135,7 @@ on:
         default: |
           type=sha
           type=sha,format=long
-          type=raw,value=latest
+          type=raw,value=latest,enable={{is_default_branch}}
           type=schedule
           type=ref,event=branch
           type=ref,event=tag
@@ -267,6 +267,16 @@ jobs:
           registry: ${{ inputs.registry }}
           username: ${{ inputs.registry-user }}
           password: ${{ secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+      - name: Validate local Docker load platform
+        if: (! inputs.push)
+        env:
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          platform_count="$(printf '%s\n' "${PLATFORMS}" | awk -F, '{ for (i = 1; i <= NF; i++) if ($i ~ /[^[:space:]]/) count++ } END { print count + 0 }')"
+          if (( platform_count > 1 )); then
+            echo "::error::Local Docker load supports one platform. Set push: true for multi-platform builds, or select a single platform." >&2
+            exit 1
+          fi
       - name: Build and push an image
         id: docker-build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0

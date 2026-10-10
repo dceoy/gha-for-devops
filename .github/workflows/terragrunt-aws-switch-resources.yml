@@ -11,8 +11,8 @@ on:
       terragrunt-target-resource-directories:
         required: false
         type: string
-        description: Terragrunt directories for the target resources to apply or destroy
-        default: vpce
+        description: Explicit Terragrunt directories for the target resources to apply or destroy (omission skips this step)
+        default: null
       aws-iam-role-to-assume:
         required: false
         type: string
@@ -161,7 +161,7 @@ jobs:
             fi
           fi
       - name: Create or destroy target resources
-        if: inputs.terragrunt-target-resource-directories != null
+        if: inputs.terragrunt-target-resource-directories != ''
         env:
           AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
