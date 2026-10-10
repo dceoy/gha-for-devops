@@ -97,6 +97,10 @@ on:
       GH_TOKEN:
         required: false
         description: GitHub token
+    outputs:
+      image-refs-json:
+        description: JSON array of pulled Docker image references
+        value: ${{ jobs.pull-and-save.outputs.image-refs-json }}
 permissions:
   contents: read    # This is required for actions/checkout
   id-token: write   # This is required for requesting the JWT
