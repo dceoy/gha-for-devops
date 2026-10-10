@@ -68,6 +68,7 @@ permissions:
 concurrency:
   group: formatter-python-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: false
+  queue: max  # Keep up to 100 pending formatter runs instead of replacing pending work
 defaults:
   run:
     shell: bash -euo pipefail {0}
