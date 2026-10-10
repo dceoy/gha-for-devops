@@ -11,12 +11,15 @@ teardown() { rm -rf "${TEST_DIR}"; }
 run_profile() {
   local workflow="$1"
   local entries="$2"
+  local event="${3:-push}"
+  local explicit_role="${4:-}"
   yq -r '.jobs[] | select(has("steps")) | .steps[] | select(.id == "aws-profile-env") | .run' \
     "${REPO_ROOT}/.github/workflows/${workflow}.yml" > "${TEST_DIR}/parse.sh"
   [[ -s "${TEST_DIR}/parse.sh" ]] || return 1
   printf '%s\n' "${entries}" > "${TEST_DIR}/profile.env"
   : > "${TEST_DIR}/output"
-  run env AWS_PROFILE_ENV_FILE="${TEST_DIR}/profile.env" \
+  run env GITHUB_EVENT_NAME="${event}" AWS_IAM_ROLE_INPUT="${explicit_role}" \
+    AWS_PROFILE_ENV_FILE="${TEST_DIR}/profile.env" \
     GITHUB_OUTPUT="${TEST_DIR}/output" bash -euo pipefail "${TEST_DIR}/parse.sh"
 }
 
@@ -69,4 +72,29 @@ run_profile() {
   [ "$(cat "${TEST_DIR}/output")" = $'ROLE_ARN=arn:aws-us-gov:iam::123456789012:role/team/build\nREGION=us-gov-west-1' ]
   run_profile aws-codebuild-run $'ROLE_ARN=arn:aws-cn:iam::123456789012:role/build\nREGION=cn-north-1'
   [ "${status}" -eq 0 ]
+}
+
+@test "PR runs cannot select a role from the profile file without an explicit caller role" {
+  for workflow in aws-codebuild-run docker-pull-from-aws terraform-deploy-to-aws terragrunt-aws-switch-resources; do
+    for event in pull_request pull_request_target; do
+      run_profile "${workflow}" 'ROLE_ARN=arn:aws:iam::123456789012:role/file-selected' "${event}"
+      [ "${status}" -ne 0 ]
+      [[ "${output}" == *'explicit aws-iam-role-to-assume'* ]]
+      [ ! -s "${TEST_DIR}/output" ]
+      run_profile "${workflow}" 'ROLE_ARN=arn:aws:iam::123456789012:role/file-selected' "${event}" 'arn:aws:iam::123456789012:role/caller-selected'
+      [ "${status}" -eq 0 ]
+    done
+  done
+}
+
+@test "AWS region precedence honors a profile override but defaults to us-east-1" {
+  local yaml
+  local expr
+  for workflow in aws-codebuild-run docker-pull-from-aws terraform-deploy-to-aws terragrunt-aws-switch-resources; do
+    yaml="${REPO_ROOT}/.github/workflows/${workflow}.yml"
+    [ "$(yq -r '.on.workflow_call.inputs."aws-region".default' "${yaml}")" = null ]
+    expr="$(yq -r '.jobs[] | select(has("steps")) | .steps[] | select(.name == "Configure AWS credentials") | .with."aws-region"' "${yaml}")"
+    [[ "${expr}" == *"inputs.aws-region || steps.aws-profile-env.outputs.REGION || 'us-east-1'"* ]]
+    ! grep -Fq 'inputs.aws-region || steps.aws-profile-env.outputs.REGION || null' "${yaml}"
+  done
 }

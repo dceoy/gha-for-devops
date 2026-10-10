@@ -16,17 +16,17 @@ on:
       aws-iam-role-to-assume:
         required: false
         type: string
-        description: AWS IAM role ARN to assume
+        description: IAM role ARN to assume; required for PR runs using profile ROLE_ARN. Restrict OIDC trust to trusted refs/environments
         default: null
       aws-region:
         required: false
         type: string
-        description: AWS region to use
-        default: us-east-1
+        description: AWS region (explicit input, then profile REGION, then us-east-1)
+        default: null
       aws-profile-env-file:
         required: false
         type: string
-        description: KEY=VALUE file with ROLE_ARN, REGION; restrict IAM OIDC trust to trusted refs
+        description: KEY=VALUE profile (ROLE_ARN, REGION); PRs require explicit role input; IAM OIDC trust policy remains authoritative
         default: null
       image-artifact-name:
         required: false
@@ -126,6 +126,7 @@ jobs:
         id: aws-profile-env
         env:
           AWS_PROFILE_ENV_FILE: ${{ inputs.aws-profile-env-file }}
+          AWS_IAM_ROLE_INPUT: ${{ inputs.aws-iam-role-to-assume }}
         run: |
           declare -A seen=()
           while IFS= read -r line || [[ -n "${line}" ]]; do
@@ -139,6 +140,11 @@ jobs:
             value="${line#*=}"
             case "${key}" in
               ROLE_ARN)
+                if [[ "${GITHUB_EVENT_NAME:-}" == pull_request || "${GITHUB_EVENT_NAME:-}" == pull_request_target ]] \
+                  && [[ -z "${AWS_IAM_ROLE_INPUT:-}" ]]; then
+                  echo "::error::PR-triggered workflows must use an explicit aws-iam-role-to-assume instead of a profile ROLE_ARN" >&2
+                  exit 1
+                fi
                 if [[ ! "${value}" =~ ^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$ ]]; then
                   echo "::error::Invalid ROLE_ARN in AWS profile file" >&2
                   exit 1
@@ -165,7 +171,7 @@ jobs:
         with:
           mask-aws-account-id: true
           role-to-assume: ${{ inputs.aws-iam-role-to-assume || steps.aws-profile-env.outputs.ROLE_ARN || null }}
-          aws-region: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
+          aws-region: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || 'us-east-1' }}
           role-session-name: github-actions-${{ github.run_id }}
           output-credentials: true
           output-env-credentials: false
@@ -175,7 +181,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
           AWS_SESSION_TOKEN: ${{ steps.aws-credentials.outputs.aws-session-token }}
-          AWS_REGION: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
+          AWS_REGION: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || 'us-east-1' }}
       - name: Login to Amazon ECR Public
         uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd  # v2.1.7
         with:
