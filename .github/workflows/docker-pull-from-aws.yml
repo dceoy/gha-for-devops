@@ -97,6 +97,10 @@ on:
       GH_TOKEN:
         required: false
         description: GitHub token
+    outputs:
+      image-refs-json:
+        description: JSON array of pulled Docker image references
+        value: ${{ jobs.pull-and-save.outputs.image-refs-json }}
 permissions:
   contents: read    # This is required for actions/checkout
   id-token: write   # This is required for requesting the JWT
@@ -132,7 +136,7 @@ jobs:
         id: aws-credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd  # v6.3.0
         with:
-          mask-aws-account-id: true
+          mask-aws-account-id: false  # ECR image-reference job outputs must not contain masked account IDs
           role-to-assume: ${{ inputs.aws-iam-role-to-assume || steps.aws-profile-env.outputs.ROLE_ARN || null }}
           aws-region: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
           role-session-name: github-actions-${{ github.run_id }}
