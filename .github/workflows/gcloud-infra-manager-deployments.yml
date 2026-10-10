@@ -214,12 +214,10 @@ jobs:
         run: |
           {
             echo '### Infrastructure Manager preview retention'
-            printf 'Preview: `%s`\n\n' "${IM_PREVIEW}"
+            printf 'Preview: %s\n\n' "${IM_PREVIEW}"
             echo 'This preview is retained so callers can inspect or export its plan.'
-            echo 'After review (and after polling if using `infra-manager-async: true`), delete it to avoid exhausting the project preview quota:'
-            echo '```sh'
-            printf 'gcloud infra-manager previews delete --quiet %q\n' "${IM_PREVIEW}"
-            echo '```'
+            echo 'After review (and after polling asynchronous previews), delete it to avoid exhausting the project preview quota:'
+            printf '    gcloud infra-manager previews delete --quiet %q\n' "${IM_PREVIEW}"
           } >> "${GITHUB_STEP_SUMMARY}"
       - name: Create or update infrastructure using Infrastructure Manager
         if: inputs.apply && (! inputs.destroy)
