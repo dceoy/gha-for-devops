@@ -164,6 +164,9 @@ on:
       bake-metadata-json:
         description: Build result metadata
         value: ${{ jobs.bake.outputs.bake-metadata-json }}
+      image-refs-json:
+        description: JSON array of Docker image references from Bake
+        value: ${{ jobs.bake.outputs.image-refs-json }}
 permissions:
   contents: write
   packages: write
