@@ -115,6 +115,10 @@ on:
         type: number
         description: Timeout in minutes for the job
         default: 360
+    outputs:
+      preview-resource-name:
+        description: Full Infrastructure Manager preview resource name (empty when applying)
+        value: ${{ jobs.deploy.outputs.preview-resource-name }}
 permissions:
   contents: read
   id-token: write
@@ -125,6 +129,8 @@ defaults:
 jobs:
   deploy:
     runs-on: ${{ inputs.runs-on }}
+    outputs:
+      preview-resource-name: ${{ steps.preview-name.outputs.preview-resource-name }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:
       IM_SERVICE_ACCOUNT: ${{ inputs.infra-manager-service-account-name && format('projects/{0}/serviceAccounts/{1}', inputs.project-id, inputs.infra-manager-service-account-name) || null }}
@@ -162,9 +168,12 @@ jobs:
           install_components: ${{ inputs.gcloud-components }}
       - name: Generate a unique Infrastructure Manager preview ID
         if: (! inputs.apply)
+        id: preview-name
         run: |
           preview_id="preview-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-$(openssl rand -hex 8)"
-          echo "IM_PREVIEW=${IM_PREVIEW_PREFIX}/${preview_id}" >> "${GITHUB_ENV}"
+          preview_resource="${IM_PREVIEW_PREFIX}/${preview_id}"
+          echo "IM_PREVIEW=${preview_resource}" >> "${GITHUB_ENV}"
+          echo "preview-resource-name=${preview_resource}" >> "${GITHUB_OUTPUT}"
       - name: Preview infrastructure using Infrastructure Manager
         if: (! inputs.apply) && (! inputs.destroy)
         env:
