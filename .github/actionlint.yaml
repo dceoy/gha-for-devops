@@ -2,7 +2,3 @@
 self-hosted-runner:
   labels:
     - ubuntu-slim
-paths:
-  .github/workflows/gcloud-infra-manager-deployments.yml:
-    ignore:
-      - 'maximum number of inputs for "workflow_dispatch" event is 10'
