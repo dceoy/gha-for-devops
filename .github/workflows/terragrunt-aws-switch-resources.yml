@@ -110,75 +110,7 @@ jobs:
         run: |
           declare -A seen=()
           while IFS= read -r line || [[ -n "${line}" ]]; do
-            line="${line%
-      - name: Configure AWS credentials
-        id: aws-credentials
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd  # v6.3.0
-        with:
-          mask-aws-account-id: true
-          role-to-assume: ${{ inputs.aws-iam-role-to-assume || steps.aws-profile-env.outputs.ROLE_ARN || null }}
-          aws-region: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
-          role-session-name: github-actions-${{ github.run_id }}
-          output-credentials: true
-          output-env-credentials: false
-      - name: Prepare working directories for Terraform
-        working-directory: ${{ inputs.terragrunt-working-directory }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
-          AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
-          AWS_SESSION_TOKEN: ${{ steps.aws-credentials.outputs.aws-session-token }}
-          AWS_REGION: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
-        run: |
-          terragrunt run --all -- init
-      - name: Start or stop EC2 instances
-        if: inputs.terragrunt-target-ec2-directory != null
-        env:
-          AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
-          AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
-          AWS_SESSION_TOKEN: ${{ steps.aws-credentials.outputs.aws-session-token }}
-          AWS_REGION: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
-          TERRAGRUNT_TARGET_EC2_DIRECTORY: ${{ inputs.terragrunt-target-ec2-directory }}
-          START: ${{ inputs.start }}
-          TERMINATE: ${{ inputs.terminate }}
-        run: |
-          if [[ "${START}" != "true" ]] && [[ "${TERMINATE}" == "true" ]]; then
-            terragrunt destroy --working-dir="${TERRAGRUNT_TARGET_EC2_DIRECTORY}" -auto-approve
-          else
-            if [[ "${START}" == "true" ]]; then
-              AWS_EC2_COMMAND=start-instances
-            else
-              AWS_EC2_COMMAND=stop-instances
-            fi
-            ec2_instance_ids_txt="$(mktemp)"
-            {
-              terragrunt output --working-dir="${TERRAGRUNT_TARGET_EC2_DIRECTORY}" \
-                | grep -e '_ec2_instance_id = ' \
-                | grep -oe 'i-[0-9a-z]\+' \
-                || :
-            } | tee "${ec2_instance_ids_txt}"
-            if [[ -s "${ec2_instance_ids_txt}" ]]; then
-              xargs -t aws ec2 "${AWS_EC2_COMMAND}" --instance-ids < "${ec2_instance_ids_txt}"
-            elif [[ "${START}" == "true" ]]; then
-              terragrunt apply --working-dir="${TERRAGRUNT_TARGET_EC2_DIRECTORY}" -auto-approve
-            fi
-          fi
-      - name: Create or destroy target resources
-        if: inputs.terragrunt-target-resource-directories != null
-        env:
-          AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
-          AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
-          AWS_SESSION_TOKEN: ${{ steps.aws-credentials.outputs.aws-session-token }}
-          AWS_REGION: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
-          START: ${{ inputs.start }}
-          TERRAGRUNT_TARGET_RESOURCE_DIRECTORIES: ${{ inputs.terragrunt-target-resource-directories }}
-        run: |
-          if [[ "${START}" == "true" ]]; then
-            TERRAGRUNT_COMMAND=apply
-          else
-            TERRAGRUNT_COMMAND=destroy
-          fi
-          xargs -I{} -t terragrunt "${TERRAGRUNT_COMMAND}" --working-dir='{}' -auto-approve <<< "${TERRAGRUNT_TARGET_RESOURCE_DIRECTORIES}"
-\r'}"
+            line="${line%$'\r'}"
             [[ -z "${line}" || "${line}" == \#* ]] && continue
             if [[ "${line}" != *=* ]]; then
               echo "::error::Invalid AWS profile entry (expected KEY=VALUE)" >&2
