@@ -117,7 +117,7 @@ on:
         default: 360
     outputs:
       preview-resource-name:
-        description: Full Infrastructure Manager preview resource name (empty when applying)
+        description: Full preview resource name (empty for apply); callers must delete previews after polling/review to avoid exhausting the project quota
         value: ${{ jobs.deploy.outputs.preview-resource-name }}
 permissions:
   contents: read
@@ -209,6 +209,18 @@ jobs:
         if: (! inputs.apply) && (! inputs.infra-manager-async)
         run: |
           gcloud infra-manager previews describe "${IM_PREVIEW}"
+      - name: Document preview cleanup
+        if: (! inputs.apply)
+        run: |
+          {
+            echo '### Infrastructure Manager preview retention'
+            printf 'Preview: `%s`\n\n' "${IM_PREVIEW}"
+            echo 'This preview is retained so callers can inspect or export its plan.'
+            echo 'After review (and after polling if using `infra-manager-async: true`), delete it to avoid exhausting the project preview quota:'
+            echo '```sh'
+            printf 'gcloud infra-manager previews delete --quiet %q\n' "${IM_PREVIEW}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
       - name: Create or update infrastructure using Infrastructure Manager
         if: inputs.apply && (! inputs.destroy)
         env:
