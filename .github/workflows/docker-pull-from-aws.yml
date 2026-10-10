@@ -26,7 +26,7 @@ on:
       aws-profile-env-file:
         required: false
         type: string
-        description: Path to the file containing the AWS profile environment variables
+        description: KEY=VALUE file with ROLE_ARN, REGION; restrict IAM OIDC trust to trusted refs
         default: null
       image-artifact-name:
         required: false
@@ -127,7 +127,118 @@ jobs:
         env:
           AWS_PROFILE_ENV_FILE: ${{ inputs.aws-profile-env-file }}
         run: |
-          cat "${AWS_PROFILE_ENV_FILE}" >> "${GITHUB_OUTPUT}"
+          declare -A seen=()
+          while IFS= read -r line || [[ -n "${line}" ]]; do
+            line="${line%
+      - name: Configure AWS credentials
+        id: aws-credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd  # v6.3.0
+        with:
+          mask-aws-account-id: true
+          role-to-assume: ${{ inputs.aws-iam-role-to-assume || steps.aws-profile-env.outputs.ROLE_ARN || null }}
+          aws-region: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
+          role-session-name: github-actions-${{ github.run_id }}
+          output-credentials: true
+          output-env-credentials: false
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd  # v2.1.7
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.aws-credentials.outputs.aws-session-token }}
+          AWS_REGION: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
+      - name: Login to Amazon ECR Public
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd  # v2.1.7
+        with:
+          registry-type: public
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.aws-credentials.outputs.aws-session-token }}
+          AWS_REGION: us-east-1
+      - name: Pull the Docker images
+        run: |
+          {
+            if [[ -n "${IMAGE_NAMES}" ]]; then
+              tr ' ' '\n' <<< "${IMAGE_NAMES}"
+            elif [[ -n "${TAG_SOURCE_TO_TARGET_JSON}" ]]; then
+              jq -r 'keys[]' <<< "${TAG_SOURCE_TO_TARGET_JSON}"
+            fi
+          } | sort -u -o "${IMAGE_URI_LIST_TXT}"
+          xargs -L1 -t docker pull < "${IMAGE_URI_LIST_TXT}"
+      - name: Tag the Docker images
+        if: inputs.tag-source-to-target-json != null
+        run: |
+          jq -r 'to_entries[] | [.key, .value] | @tsv' <<< "${TAG_SOURCE_TO_TARGET_JSON}" \
+            | while IFS=$'\t' read -r src dst; do
+                docker tag "${src}" "${dst}"
+              done
+          jq -r 'values[]' <<< "${TAG_SOURCE_TO_TARGET_JSON}" >> "${IMAGE_URI_LIST_TXT}"
+          sort -u -o "${IMAGE_URI_LIST_TXT}" "${IMAGE_URI_LIST_TXT}"
+      - name: Output the image references
+        id: output-image-refs
+        run: |
+          jq -rRs 'split("\n")[:-1] | "image_refs_json=\(.)"' < "${IMAGE_URI_LIST_TXT}" \
+            | tee -a "${GITHUB_OUTPUT}"
+      - name: Save the Docker images to an image tarball
+        run: |
+          xargs -t docker save -o "${IMAGE_TAR}" < "${IMAGE_URI_LIST_TXT}"
+      - name: Upload the image tarball
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: ${{ inputs.image-artifact-name }}
+          path: ${{ env.IMAGE_TAR }}
+          retention-days: ${{ inputs.image-artifact-retention-days }}
+          overwrite: ${{ inputs.image-artifact-overwrite }}
+  postpull-scan:
+    if: >
+      inputs.scan-after-pull
+    needs:
+      - pull-and-save
+    uses: ./.github/workflows/docker-image-scan.yml
+    with:
+      image-refs-json: ${{ needs.pull-and-save.outputs.image-refs-json }}
+      image-artifact-name: ${{ inputs.image-artifact-name }}
+      trivy-scanners: ${{ inputs.trivy-scanners }}
+      trivy-severity: ${{ inputs.trivy-severity }}
+      trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+      trivy-exit-code: ${{ inputs.trivy-exit-code }}
+      trivy-config: ${{ inputs.trivy-config }}
+      trivy-timeout: ${{ inputs.trivy-timeout }}
+      trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
+      runs-on: ${{ inputs.runs-on }}
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+\r'}"
+            [[ -z "${line}" || "${line}" == \#* ]] && continue
+            if [[ "${line}" != *=* ]]; then
+              echo "::error::Invalid AWS profile entry (expected KEY=VALUE)" >&2
+              exit 1
+            fi
+            key="${line%%=*}"
+            value="${line#*=}"
+            case "${key}" in
+              ROLE_ARN)
+                if [[ ! "${value}" =~ ^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$ ]]; then
+                  echo "::error::Invalid ROLE_ARN in AWS profile file" >&2
+                  exit 1
+                fi
+                ;;
+              REGION)
+                if [[ ! "${value}" =~ ^[a-z]{2}(-[a-z0-9]+)+-[0-9]+$ ]]; then
+                  echo "::error::Invalid REGION in AWS profile file" >&2
+                  exit 1
+                fi
+                ;;
+              *) continue ;;
+            esac
+            if [[ -n "${seen[${key}]+x}" ]]; then
+              echo "::error::Duplicate ${key} in AWS profile file" >&2
+              exit 1
+            fi
+            seen["${key}"]=1
+            printf '%s=%s\n' "${key}" "${value}" >> "${GITHUB_OUTPUT}"
+          done < "${AWS_PROFILE_ENV_FILE}"
       - name: Configure AWS credentials
         id: aws-credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd  # v6.3.0

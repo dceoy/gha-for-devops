@@ -16,7 +16,7 @@ on:
       aws-profile-env-file:
         required: false
         type: string
-        description: Environment file containing AWS IAM role ARN (ROLE_ARN) and region (REGION)
+        description: KEY=VALUE file with ROLE_ARN, REGION, and AWS_CODEBUILD_PROJECT_NAME; restrict IAM OIDC trust to trusted refs
         default: null
       aws-codebuild-project-name:
         required: false
@@ -142,7 +142,81 @@ jobs:
         env:
           AWS_PROFILE_ENV_FILE: ${{ inputs.aws-profile-env-file }}
         run: |
-          cat "${AWS_PROFILE_ENV_FILE}" >> "${GITHUB_OUTPUT}"
+          declare -A seen=()
+          while IFS= read -r line || [[ -n "${line}" ]]; do
+            line="${line%
+      - name: Configure AWS credentials
+        id: aws-credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd  # v6.3.0
+        with:
+          mask-aws-account-id: true
+          role-to-assume: ${{ inputs.aws-iam-role-to-assume || steps.aws-profile-env.outputs.ROLE_ARN || null }}
+          aws-region: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
+          role-session-name: github-actions-${{ github.run_id }}
+          output-credentials: true
+          output-env-credentials: false
+      - name: Run an AWS CodeBuild project
+        id: aws-codebuild-run-build
+        uses: aws-actions/aws-codebuild-run-build@7e46c3fa1c1f217e26a73712796b1f78938b534b  # v1.0.19
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.aws-credentials.outputs.aws-session-token }}
+          AWS_REGION: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
+        with:
+          project-name: ${{ inputs.aws-codebuild-project-name || steps.aws-profile-env.outputs.AWS_CODEBUILD_PROJECT_NAME || null }}
+          buildspec-override: ${{ inputs.buildspec-override }}
+          compute-type-override: ${{ inputs.compute-type-override }}
+          environment-type-override: ${{ inputs.environment-type-override }}
+          image-override: ${{ inputs.image-override }}
+          image-pull-credentials-type-override: ${{ inputs.image-pull-credentials-type-override }}
+          env-vars-for-codebuild: ${{ inputs.env-vars-for-codebuild }}
+          update-interval: ${{ inputs.update-interval }}
+          update-back-off: ${{ inputs.update-back-off }}
+          disable-source-override: ${{ inputs.disable-source-override }}
+          source-version-override: ${{ inputs.source-version-override }}
+          source-type-override: ${{ inputs.source-type-override }}
+          source-location-override: ${{ inputs.source-location-override }}
+          hide-cloudwatch-logs: ${{ inputs.hide-cloudwatch-logs }}
+          disable-github-env-vars: ${{ inputs.disable-github-env-vars }}
+          artifacts-type-override: ${{ inputs.artifacts-type-override }}
+          stop-on-signals: ${{ inputs.stop-on-signals }}
+\r'}"
+            [[ -z "${line}" || "${line}" == \#* ]] && continue
+            if [[ "${line}" != *=* ]]; then
+              echo "::error::Invalid AWS profile entry (expected KEY=VALUE)" >&2
+              exit 1
+            fi
+            key="${line%%=*}"
+            value="${line#*=}"
+            case "${key}" in
+              ROLE_ARN)
+                if [[ ! "${value}" =~ ^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_/-]+$ ]]; then
+                  echo "::error::Invalid ROLE_ARN in AWS profile file" >&2
+                  exit 1
+                fi
+                ;;
+              REGION)
+                if [[ ! "${value}" =~ ^[a-z]{2}(-[a-z0-9]+)+-[0-9]+$ ]]; then
+                  echo "::error::Invalid REGION in AWS profile file" >&2
+                  exit 1
+                fi
+                ;;
+              AWS_CODEBUILD_PROJECT_NAME)
+                if [[ ! "${value}" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{1,254}$ ]]; then
+                  echo "::error::Invalid AWS_CODEBUILD_PROJECT_NAME in AWS profile file" >&2
+                  exit 1
+                fi
+                ;;
+              *) continue ;;
+            esac
+            if [[ -n "${seen[${key}]+x}" ]]; then
+              echo "::error::Duplicate ${key} in AWS profile file" >&2
+              exit 1
+            fi
+            seen["${key}"]=1
+            printf '%s=%s\n' "${key}" "${value}" >> "${GITHUB_OUTPUT}"
+          done < "${AWS_PROFILE_ENV_FILE}"
       - name: Configure AWS credentials
         id: aws-credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd  # v6.3.0
