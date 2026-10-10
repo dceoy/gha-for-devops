@@ -272,7 +272,8 @@ jobs:
         env:
           PLATFORMS: ${{ inputs.platforms }}
         run: |
-          if [[ "${PLATFORMS}" == *,* ]]; then
+          platform_count="$(printf '%s\n' "${PLATFORMS}" | awk -F, '{ for (i = 1; i <= NF; i++) if ($i ~ /[^[:space:]]/) count++ } END { print count + 0 }')"
+          if (( platform_count > 1 )); then
             echo "::error::Local Docker load supports one platform. Set push: true for multi-platform builds, or select a single platform." >&2
             exit 1
           fi
