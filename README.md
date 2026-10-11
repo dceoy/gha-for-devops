@@ -51,6 +51,27 @@ Example project manifest:
 }
 ```
 
+### mise lockfile updates
+
+Refresh `mise.lock` without installing project tools, and open a PR only when the lockfile or native dependency sidecars change:
+
+```yaml
+name: Refresh mise lock
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-mise-lock:
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: dceoy/gha-for-devops/.github/workflows/mise-lock-update.yml@main
+```
+
+The workflow runs `mise lock --bump` by default, updating floating version requests within the constraints of `mise.toml` without changing that file. Exactly pinned versions remain pinned; update them separately (for example, with Renovate). Set `bump: false` to refresh lockfile metadata only. Use a dedicated `GH_TOKEN` (PAT or GitHub App token) if PRs need to trigger CI, because PRs made with the default `GITHUB_TOKEN` do not trigger other workflows.
+
 ### GitHub Pages
 
 For a conventional Hugo site, call the combined build and deployment workflow:
@@ -179,6 +200,7 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [markdown-format-and-pr.yml](.github/workflows/markdown-format-and-pr.yml)                                       | Formatting for Markdown                                           |
 | [markdown-lint.yml](.github/workflows/markdown-lint.yml)                                                         | Lint for Markdown                                                 |
 | [microsoft-defender-for-devops.yml](.github/workflows/microsoft-defender-for-devops.yml)                         | Microsoft Defender for Devops                                     |
+| [mise-lock-update.yml](.github/workflows/mise-lock-update.yml)                                                 | Update mise.lock and create a pull request                        |
 | [python-package-format-and-pr.yml](.github/workflows/python-package-format-and-pr.yml)                           | Formatting for Python                                             |
 | [python-package-lint-and-scan.yml](.github/workflows/python-package-lint-and-scan.yml)                           | Lint and security scan for Python                                 |
 | [python-package-mkdocs-gh-deploy.yml](.github/workflows/python-package-mkdocs-gh-deploy.yml)                     | Build and deployment of MkDocs documentation                      |
