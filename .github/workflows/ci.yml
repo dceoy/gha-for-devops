@@ -177,6 +177,16 @@ jobs:
     uses: $/.github/workflows/markdown-format-and-pr.yml
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  mise-lock-update:
+    if: >
+      github.event_name == 'push'
+      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'update')
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/mise-lock-update.yml
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   update-readme-md:
     if: >
       github.event_name == 'push'
