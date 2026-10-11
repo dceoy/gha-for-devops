@@ -59,7 +59,7 @@ Refresh `mise.lock` without installing project tools, and open a PR only when th
 name: Refresh mise lock
 on:
   schedule:
-    - cron: '17 3 * * 1'
+    - cron: "17 3 * * 1"
   workflow_dispatch:
 
 jobs:
