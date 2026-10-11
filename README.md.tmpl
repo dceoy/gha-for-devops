@@ -28,6 +28,27 @@ Once reusable workflow changes trigger a release, version severity uses all firs
 
 For an on-demand run, dispatch **CI/CD** on `main` with `workflow: weekly-release`. The existing tag-based manual release remains available.
 
+### mise lockfile updates
+
+Refresh `mise.lock` without installing project tools, and open a PR only when the lockfile or native dependency sidecars change:
+
+```yaml
+name: Refresh mise lock
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-mise-lock:
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: dceoy/gha-for-devops/.github/workflows/mise-lock-update.yml@main
+```
+
+The workflow runs `mise lock --bump` by default, updating floating version requests within the constraints of `mise.toml` without changing that file. Exactly pinned versions remain pinned; update them separately (for example, with Renovate). Set `bump: false` to refresh lockfile metadata only. Use a dedicated `GH_TOKEN` (PAT or GitHub App token) if PRs need to trigger CI, because PRs made with the default `GITHUB_TOKEN` do not trigger other workflows.
+
 ### GitHub Pages
 
 For a conventional Hugo site, call the combined build and deployment workflow:
