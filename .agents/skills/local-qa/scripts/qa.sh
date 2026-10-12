@@ -78,46 +78,46 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
   fi
 
   if command -v biome > /dev/null 2>&1; then
-    npx -y @biomejs/biome check --write "${PACKAGE_DIRECTORY}"
+    pnpm dlx @biomejs/biome check --write "${PACKAGE_DIRECTORY}"
   fi
   if command -v prettier > /dev/null 2>&1 && ! command -v biome > /dev/null 2>&1; then
-    npx -y prettier --write "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss,md,mdx,html,htm}"
+    pnpm dlx prettier --write "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss,md,mdx,html,htm}"
   fi
   if command -v oxlint > /dev/null 2>&1; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
-      npx -y oxlint --fix --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
+      pnpm dlx oxlint --fix --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
     else
-      npx -y oxlint --fix "${PACKAGE_DIRECTORY}"
+      pnpm dlx oxlint --fix "${PACKAGE_DIRECTORY}"
     fi
   fi
   if command -v eslint > /dev/null 2>&1; then
-    npx -y eslint --fix --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
+    pnpm dlx eslint --fix --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
   fi
 
   if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]]; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
-      npx -y --package typescript tsc --noEmit --project "${TSCONFIG_JSON_FILE}"
+      pnpm --package=typescript dlx tsc --noEmit --project "${TSCONFIG_JSON_FILE}"
     else
-      npx -y --package typescript tsc --noEmit
+      pnpm --package=typescript dlx tsc --noEmit
     fi
   fi
 else
   if [[ "${N_HTML_FILES}" -gt 0 ]]; then
-    npx -y prettier --write './**/*.{html,htm}'
+    pnpm dlx prettier --write './**/*.{html,htm}'
   fi
   if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
-    npx -y prettier --write './**/*.{md,mdx}'
+    pnpm dlx prettier --write './**/*.{md,mdx}'
   fi
 fi
 
 if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
   if [[ -f .markdownlint-cli2.jsonc ]]; then
-    git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t npx -y markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
+    git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t pnpm dlx markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
   else
     (
       trap 'rm -f .markdownlint-cli2.jsonc' EXIT
       printf '%s\n' '{"config":{"MD013":false,"MD033":false,"MD041":false}}' > .markdownlint-cli2.jsonc
-      git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t npx -y markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
+      git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t pnpm dlx markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
     )
   fi
 fi
