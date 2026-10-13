@@ -1,5 +1,5 @@
 [tools]
-actionlint = "1.7.12"
+actionlint = "latest"
 checkov = "latest"
 gomplate = "latest"
 shellcheck = "latest"
