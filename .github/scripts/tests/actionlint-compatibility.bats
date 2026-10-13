@@ -10,7 +10,7 @@ setup() {
   WORKFLOW="${REPO_ROOT}/.github/workflows/github-actions-lint-and-scan.yml"
   RUN_SCRIPT="$(yq -r '.jobs."github-actions-lint-scan".steps[] | select(.name == "Execute actionlint") | .run' "${WORKFLOW}")"
   WORKFLOW_ACTIONLINT_VERSION="$(yq -r '.jobs."github-actions-lint-scan".env.ACTIONLINT_VERSION' "${WORKFLOW}")"
-  MISE_ACTIONLINT_VERSION="$(yq -r '.tools.actionlint' "${REPO_ROOT}/mise.toml")"
+  MISE_ACTIONLINT_VERSION="$(sed -n '/^\[tools\]/,/^\[/s/^actionlint = "\([^"]*\)"/\1/p' "${REPO_ROOT}/mise.toml")"
   JOB_WORKFLOW_REPOSITORY='$'"{{ job.workflow_repository }}"
   JOB_WORKFLOW_SHA='$'"{{ job.workflow_sha }}"
   JOB_WORKFLOW_REF='$'"{{ job.workflow_ref }}"
@@ -96,8 +96,8 @@ run_actionlint_step() {
     bash -euo pipefail -c "${RUN_SCRIPT}"
 }
 
-@test "mise and reusable workflow use the same actionlint version" {
-  [ "${MISE_ACTIONLINT_VERSION#v}" = "${WORKFLOW_ACTIONLINT_VERSION#v}" ]
+@test "mise latest selector keeps locked actionlint aligned with workflow" {
+  [ "${MISE_ACTIONLINT_VERSION}" = "latest" ]
 
   run actionlint -version
 
