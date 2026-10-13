@@ -86,7 +86,7 @@ permissions:
   contents: write
   pull-requests: write
 concurrency:
-  group: formatter-typescript-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
+  group: formatter-typescript-${{ github.repository }}-${{ inputs.package-path }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: false
   queue: max  # Keep up to 100 pending formatter runs instead of replacing pending work
 defaults:
@@ -362,6 +362,7 @@ jobs:
           USE_PRETTIER: ${{ inputs.use-prettier }}
           USE_ESLINT: ${{ inputs.use-eslint }}
           PR_BASE: ${{ github.head_ref || github.ref_name }}
+          TARGET_PATH: ${{ inputs.package-path }}
         run: |
           formatters=()
           if ${USE_BIOME}; then
@@ -381,6 +382,12 @@ jobs:
           else
             formatter_text='TypeScript formatters'
           fi
+          target_hash=$(printf '%s' "${TARGET_PATH}" | sha256sum | cut -c1-12)
+          target_slug=$(printf '%s' "${TARGET_PATH}" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9._-]+#-#g; s#^-+|-+$##g; s#-+#-#g' | cut -c1-40)
+          if [[ -z "${target_slug}" || "${target_slug}" == "." ]]; then
+            target_slug=root
+          fi
+          target_id="${target_slug}-${target_hash}"
           {
             if [[ "${{ inputs.audit }}" == 'true' ]]; then
               echo "commit_message=Reformat TypeScript code using ${formatter_text} and fix security vulnerabilities"
@@ -388,7 +395,7 @@ jobs:
               echo "commit_message=Reformat TypeScript code using ${formatter_text}"
             fi
             echo "pr_base=${PR_BASE}"
-            echo "pr_branch=github-actions/typescript/${PR_BASE}"
+            echo "pr_branch=github-actions/typescript/${target_id}/${PR_BASE}"
           } >> "${GITHUB_OUTPUT}"
       - name: Detect changed files and create a pull request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
