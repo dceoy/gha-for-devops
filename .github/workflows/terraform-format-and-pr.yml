@@ -107,7 +107,7 @@ jobs:
             formatters='terraform'
           fi
           target_hash=$(printf '%s' "${TARGET_PATH}" | sha256sum | cut -c1-12)
-          target_slug=$(printf '%s' "${TARGET_PATH}" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9._-]+#-#g; s#^-+|-+$##g; s#-+#-#g' | cut -c1-40)
+          target_slug=$(printf '%s' "${TARGET_PATH}" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9_-]+#-#g; s#^-+|-+$##g; s#-+#-#g' | cut -c1-40)
           if [[ -z "${target_slug}" || "${target_slug}" == "." ]]; then
             target_slug=root
           fi
