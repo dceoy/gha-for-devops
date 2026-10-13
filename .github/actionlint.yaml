@@ -2,3 +2,21 @@
 self-hosted-runner:
   labels:
     - ubuntu-slim
+# GitHub supports concurrency.queue; rhysd/actionlint v1.7.12 does not (rhysd/actionlint#657).
+# Keep narrow suppressions until actionlint recognizes this field.
+paths:
+  .github/workflows/python-package-format-and-pr.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
+  .github/workflows/typescript-package-format-and-pr.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
+  .github/workflows/r-package-format-and-pr.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
+  .github/workflows/markdown-format-and-pr.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
+  .github/workflows/terraform-format-and-pr.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
