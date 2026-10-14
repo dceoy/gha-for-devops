@@ -21,6 +21,7 @@ run_discovery() {
   local skills_directory="$2"
   local output_file="$3"
 
+  # shellcheck disable=SC2016
   run env \
     GITHUB_WORKSPACE="${workspace}" \
     GITHUB_OUTPUT="${output_file}" \
@@ -35,6 +36,7 @@ run_packaging() {
   local skills_directory="$3"
   local skill_name="$4"
 
+  # shellcheck disable=SC2016
   run env \
     GITHUB_WORKSPACE="${workspace}" \
     RUNNER_TEMP="${runner_temp}" \
