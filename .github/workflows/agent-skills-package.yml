@@ -217,6 +217,7 @@ jobs:
         with:
           name: ${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}
           path: ${{ runner.temp }}/agent-skill-release-assets
+          skip-decompress: true
       - name: Attach skill to the release
         env:
           GH_TOKEN: ${{ github.token }}
