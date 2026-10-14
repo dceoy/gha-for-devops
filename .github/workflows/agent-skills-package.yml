@@ -16,7 +16,7 @@ on:
       artifact-name:
         required: false
         type: string
-        description: Prefix for individually uploaded skill ZIP artifacts
+        description: Prefix for individual direct-download ZIP artifacts
         default: agent-skills
       artifact-retention-days:
         required: false
@@ -81,6 +81,11 @@ jobs:
             exit 1
           fi
 
+          if [[ ! "${ARTIFACT_NAME}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+            echo "::error::artifact-name must contain only ASCII letters, digits, dots, underscores or hyphens"
+            exit 1
+          fi
+
           shopt -s nullglob
           skill_files=("${skills_abs}"/*/SKILL.md)
           if (("${#skill_files[@]}" == 0)); then
@@ -99,7 +104,7 @@ jobs:
           done
 
           skills_json="$(printf '%s\n' "${skill_names[@]}" | jq -Rsc 'split("\n")[:-1]')"
-          artifact_names_json="$(printf '%s\n' "${skill_names[@]}" | jq -Rsc --arg prefix "${ARTIFACT_NAME}" 'split("\n")[:-1] | map("\($prefix)-\(.)")')"
+          artifact_names_json="$(printf '%s\n' "${skill_names[@]}" | jq -Rsc --arg prefix "${ARTIFACT_NAME}" 'split("\n")[:-1] | map("\($prefix)-\(.).zip")')"
           printf 'skills=%s\n' "${skills_json}" >> "${GITHUB_OUTPUT}"
           printf 'artifact-names=%s\n' "${artifact_names_json}" >> "${GITHUB_OUTPUT}"
   package:
@@ -120,6 +125,7 @@ jobs:
         env:
           SKILLS_DIRECTORY: ${{ inputs.skills-directory }}
           SKILL_NAME: ${{ matrix.skill }}
+          ARTIFACT_NAME: ${{ inputs.artifact-name }}
         run: |
           workspace_abs="$(realpath -e -- "${GITHUB_WORKSPACE}")"
           skills_abs="$(realpath -e -- "${SKILLS_DIRECTORY}")" || {
@@ -144,7 +150,7 @@ jobs:
 
           dist_dir="${RUNNER_TEMP}/agent-skill-packages"
           mkdir -p -- "${dist_dir}"
-          archive="${dist_dir}/${SKILL_NAME}.zip"
+          archive="${dist_dir}/${ARTIFACT_NAME}-${SKILL_NAME}.zip"
 
           symlink="$(find "${skill_dir}" -type l -print -quit)"
           if [[ -n "${symlink}" ]]; then
@@ -186,12 +192,11 @@ jobs:
       - name: Upload skill ZIP
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
-          name: ${{ format('{0}-{1}', inputs.artifact-name, matrix.skill) }}
-          path: ${{ runner.temp }}/agent-skill-packages/${{ matrix.skill }}.zip
+          path: ${{ runner.temp }}/agent-skill-packages/${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}
           if-no-files-found: error
           retention-days: ${{ inputs.artifact-retention-days }}
           overwrite: ${{ inputs.artifact-overwrite }}
-          compression-level: 0
+          archive: false
   attach-to-release:
     if: github.event_name == 'release' || inputs.release-tag != ''
     needs:
@@ -200,23 +205,29 @@ jobs:
     permissions:
       contents: write
     runs-on: ${{ inputs.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        skill: ${{ fromJSON(needs.discover.outputs.skills) }}
     steps:
-      - name: Download packaged skills
+      - name: Download skill ZIP
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
-          pattern: ${{ format('{0}-*', inputs.artifact-name) }}
-          merge-multiple: true
+          name: ${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}
           path: ${{ runner.temp }}/agent-skill-release-assets
-      - name: Attach packaged skills to the release
+      - name: Attach skill to the release
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ inputs.release-tag || github.event.release.tag_name }}
+          ARTIFACT_NAME: ${{ inputs.artifact-name }}
+          SKILL_NAME: ${{ matrix.skill }}
         run: |
-          shopt -s nullglob
-          assets=("${RUNNER_TEMP}/agent-skill-release-assets"/*.zip)
-          if (("${#assets[@]}" == 0)); then
-            echo "::error::no packaged skill ZIPs found for release attachment"
+          artifact="${RUNNER_TEMP}/agent-skill-release-assets/${ARTIFACT_NAME}-${SKILL_NAME}.zip"
+          if [[ ! -f "${artifact}" || -L "${artifact}" ]]; then
+            echo "::error::expected downloaded skill ZIP not found: ${artifact}"
             exit 1
           fi
-          gh release upload "${RELEASE_TAG}" "${assets[@]}" --repo "${REPOSITORY}" --clobber
+          asset="${RUNNER_TEMP}/agent-skill-release-assets/${SKILL_NAME}.zip"
+          mv -- "${artifact}" "${asset}"
+          gh release upload "${RELEASE_TAG}" "${asset}" --repo "${REPOSITORY}" --clobber
