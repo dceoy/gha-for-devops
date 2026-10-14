@@ -97,3 +97,43 @@ run_packaging() {
   [ "${status}" -ne 0 ]
   [[ "${output}" == *"no skills found"* ]]
 }
+
+@test "an explicit release tag enables attachment with release-event fallback" {
+  local attach_condition
+  local release_tag_env
+
+  [ "$(yq -r '.on.workflow_call.inputs."release-tag".type' "${WORKFLOW}")" = 'string' ]
+  [ "$(yq -r '.on.workflow_call.inputs."release-tag".default' "${WORKFLOW}")" = 'null' ]
+  attach_condition="$(yq -r '.jobs."attach-to-release".if' "${WORKFLOW}")"
+  [ "${attach_condition}" = "github.event_name == 'release' || inputs.release-tag != ''" ]
+  release_tag_env="$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach packaged skills to the release") | .env.RELEASE_TAG' "${WORKFLOW}")"
+  [ "${release_tag_env}" = "\${{ inputs.release-tag || github.event.release.tag_name }}" ]
+}
+
+@test "release attachment uploads per-skill ZIPs using the selected tag" {
+  local attach_script="${TEST_TEMP}/attach-skills.sh"
+  local bin_dir="${TEST_TEMP}/bin"
+  local runner_temp="${TEST_TEMP}/runner"
+
+  yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach packaged skills to the release") | .run' "${WORKFLOW}" > "${attach_script}"
+  mkdir -p "${bin_dir}" "${runner_temp}/agent-skill-release-assets"
+  touch "${runner_temp}/agent-skill-release-assets/alpha.zip"
+  cat > "${bin_dir}/gh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "${RUNNER_TEMP}/gh-args"
+EOF
+  chmod +x "${bin_dir}/gh"
+
+  run env PATH="${bin_dir}:${PATH}" RUNNER_TEMP="${runner_temp}" \
+    RELEASE_TAG=v2.3.4 REPOSITORY=dceoy/example GH_TOKEN=test \
+    bash -euo pipefail "${attach_script}"
+
+  [ "${status}" -eq 0 ]
+  [ "$(sed -n '1p' "${runner_temp}/gh-args")" = 'release' ]
+  [ "$(sed -n '2p' "${runner_temp}/gh-args")" = 'upload' ]
+  [ "$(sed -n '3p' "${runner_temp}/gh-args")" = 'v2.3.4' ]
+  [ "$(sed -n '4p' "${runner_temp}/gh-args")" = "${runner_temp}/agent-skill-release-assets/alpha.zip" ]
+  [ "$(sed -n '5p' "${runner_temp}/gh-args")" = '--repo' ]
+  [ "$(sed -n '6p' "${runner_temp}/gh-args")" = 'dceoy/example' ]
+  [ "$(sed -n '7p' "${runner_temp}/gh-args")" = '--clobber' ]
+}
