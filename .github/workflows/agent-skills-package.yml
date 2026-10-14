@@ -8,11 +8,6 @@ on:
         type: string
         description: Directory containing one subdirectory per skill
         default: skills
-      release-tag:
-        required: false
-        type: string
-        description: GitHub Release tag to attach packaged skills to (omit to use release event)
-        default: null
       artifact-name:
         required: false
         type: string
@@ -152,7 +147,7 @@ jobs:
           overwrite: ${{ inputs.artifact-overwrite }}
           compression-level: 0
   attach-to-release:
-    if: github.event_name == 'release' || inputs.release-tag
+    if: github.event_name == 'release' && github.event.release.tag_name != ''
     needs:
       - package
     permissions:
@@ -168,7 +163,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: ${{ inputs.release-tag || github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           shopt -s nullglob
           assets=("${RUNNER_TEMP}/agent-skill-release-assets"/*.zip)
