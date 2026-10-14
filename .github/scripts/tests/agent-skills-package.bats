@@ -118,7 +118,7 @@ run_packaging() {
   yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach packaged skills to the release") | .run' "${WORKFLOW}" > "${attach_script}"
   mkdir -p "${bin_dir}" "${runner_temp}/agent-skill-release-assets"
   touch "${runner_temp}/agent-skill-release-assets/alpha.zip"
-  cat > "${bin_dir}/gh" <<'EOF'
+  cat > "${bin_dir}/gh" << 'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" > "${RUNNER_TEMP}/gh-args"
 EOF
