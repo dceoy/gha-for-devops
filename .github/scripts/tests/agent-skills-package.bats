@@ -97,3 +97,14 @@ run_packaging() {
   [ "${status}" -ne 0 ]
   [[ "${output}" == *"no skills found"* ]]
 }
+
+@test "release attachments accept an explicit tag and preserve event fallback" {
+  local attach_condition
+  local release_tag_env
+
+  [ "$(yq -r '.on.workflow_call.inputs."release-tag".default' "${WORKFLOW}")" = 'null' ]
+  attach_condition="$(yq -r '.jobs."attach-to-release".if' "${WORKFLOW}")"
+  [ "${attach_condition}" = "github.event_name == 'release' || inputs.release-tag" ]
+  release_tag_env="$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach packaged skills to the release") | .env.RELEASE_TAG' "${WORKFLOW}")"
+  [ "${release_tag_env}" = '${{ inputs.release-tag || github.event.release.tag_name }}' ]
+}
