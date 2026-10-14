@@ -176,7 +176,7 @@ run_packaging() {
 @test "uploads raw ZIP files as individual Actions artifacts" {
   [ "$(yq -r '.jobs.package.strategy.matrix.skill' "${WORKFLOW}")" = "\${{ fromJSON(needs.discover.outputs.skills) }}" ]
   [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.archive' "${WORKFLOW}")" = 'false' ]
-  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.name' "${WORKFLOW}")" = 'null' ]
+  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.name' "${WORKFLOW}")" = "\${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}" ]
   [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.path' "${WORKFLOW}")" = "\${{ runner.temp }}/agent-skill-packages/\${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}" ]
   [ "$(yq -r '.on.workflow_call.outputs."artifact-names".value' "${WORKFLOW}")" = "\${{ jobs.discover.outputs.artifact-names }}" ]
 }
