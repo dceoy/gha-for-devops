@@ -152,18 +152,18 @@ run_packaging() {
   attach_condition="$(yq -r '.jobs."attach-to-release".if' "${WORKFLOW}")"
   [ "${attach_condition}" = "github.event_name == 'release' || inputs.release-tag != ''" ]
   release_tag_env="$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach packaged skills to the release") | .env.RELEASE_TAG' "${WORKFLOW}")"
-  [ "${release_tag_env}" = "${{ inputs.release-tag || github.event.release.tag_name }}" ]
-  [ "$(yq -r '.jobs.discover.steps[] | select(.name == "Checkout repository") | .with.ref' "${WORKFLOW}")" = "${{ inputs.release-tag || github.sha }}" ]
-  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Checkout repository") | .with.ref' "${WORKFLOW}")" = "${{ inputs.release-tag || github.sha }}" ]
+  [ "${release_tag_env}" = "\${{ inputs.release-tag || github.event.release.tag_name }}" ]
+  [ "$(yq -r '.jobs.discover.steps[] | select(.name == "Checkout repository") | .with.ref' "${WORKFLOW}")" = "\${{ inputs.release-tag || github.sha }}" ]
+  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Checkout repository") | .with.ref' "${WORKFLOW}")" = "\${{ inputs.release-tag || github.sha }}" ]
 }
 
 @test "uploads one Actions artifact per skill and merges only for release attachments" {
-  [ "$(yq -r '.jobs.package.strategy.matrix.skill' "${WORKFLOW}")" = "${{ fromJSON(needs.discover.outputs.skills) }}" ]
-  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.name' "${WORKFLOW}")" = "${{ format('{0}-{1}', inputs.artifact-name, matrix.skill) }}" ]
-  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.path' "${WORKFLOW}")" = "${{ runner.temp }}/agent-skill-packages/${{ matrix.skill }}.zip" ]
-  [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download packaged skills") | .with.pattern' "${WORKFLOW}")" = "${{ format('{0}-*', inputs.artifact-name) }}" ]
+  [ "$(yq -r '.jobs.package.strategy.matrix.skill' "${WORKFLOW}")" = "\${{ fromJSON(needs.discover.outputs.skills) }}" ]
+  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.name' "${WORKFLOW}")" = "\${{ format('{0}-{1}', inputs.artifact-name, matrix.skill) }}" ]
+  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.path' "${WORKFLOW}")" = "\${{ runner.temp }}/agent-skill-packages/\${{ matrix.skill }}.zip" ]
+  [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download packaged skills") | .with.pattern' "${WORKFLOW}")" = "\${{ format('{0}-*', inputs.artifact-name) }}" ]
   [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download packaged skills") | .with."merge-multiple"' "${WORKFLOW}")" = 'true' ]
-  [ "$(yq -r '.on.workflow_call.outputs."artifact-names".value' "${WORKFLOW}")" = "${{ jobs.discover.outputs.artifact-names }}" ]
+  [ "$(yq -r '.on.workflow_call.outputs."artifact-names".value' "${WORKFLOW}")" = "\${{ jobs.discover.outputs.artifact-names }}" ]
 }
 
 @test "release attachment uploads multiple individual ZIP assets using the selected tag" {
