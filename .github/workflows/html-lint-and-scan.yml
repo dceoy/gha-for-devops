@@ -197,7 +197,7 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
       - name: Bootstrap Node.js for legacy pnpm on Intel macOS
         if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true' && runner.os == 'macOS' && runner.arch == 'X64'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: latest
       - name: Setup pnpm and Node.js
@@ -226,7 +226,7 @@ jobs:
           echo "major=${pnpm_version%%.*}" >> "${GITHUB_OUTPUT}"
       - name: Setup Node.js for legacy pnpm
         if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: ${{ steps.pnpm-config.outputs.node-version }}
           cache: ${{ inputs.enable-cache && steps.legacy-pnpm.outputs.major != '11' && 'pnpm' || '' }}
@@ -261,7 +261,7 @@ jobs:
             pnpm11-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.legacy-pnpm.outputs.version }}-${{ steps.pnpm11-store.outputs.node-version }}-
       - name: Setup Node.js
         if: env.PACKAGE_MANAGER != 'pnpm'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ inputs.enable-cache && env.PACKAGE_MANAGER == 'npm' && env.PACKAGE_LOCK_FILE != '' && 'npm' || '' }}
