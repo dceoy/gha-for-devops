@@ -231,6 +231,10 @@ jobs:
             echo "::error::expected downloaded skill ZIP not found: ${artifact}"
             exit 1
           fi
+          if ! unzip -tqq "${artifact}" >/dev/null; then
+            echo "::error::downloaded skill artifact is not a valid ZIP: ${artifact}"
+            exit 1
+          fi
           asset="${RUNNER_TEMP}/agent-skill-release-assets/${SKILL_NAME}.zip"
           mv -- "${artifact}" "${asset}"
           gh release upload "${RELEASE_TAG}" "${asset}" --repo "${REPOSITORY}" --clobber
