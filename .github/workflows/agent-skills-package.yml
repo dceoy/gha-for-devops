@@ -99,7 +99,7 @@ jobs:
           done
 
           skills_json="$(printf '%s\n' "${skill_names[@]}" | jq -Rsc 'split("\n")[:-1]')"
-          artifact_names_json="$(printf '%s\n' "${skill_names[@]}" | jq -Rsc --arg prefix "${ARTIFACT_NAME}" 'split("\n")[:-1] | map("\($$prefix)-\(.)")')"
+          artifact_names_json="$(printf '%s\n' "${skill_names[@]}" | jq -Rsc --arg prefix "${ARTIFACT_NAME}" 'split("\n")[:-1] | map("\($prefix)-\(.)")')"
           printf 'skills=%s\n' "${skills_json}" >> "${GITHUB_OUTPUT}"
           printf 'artifact-names=%s\n' "${artifact_names_json}" >> "${GITHUB_OUTPUT}"
   package:
