@@ -184,6 +184,7 @@ run_packaging() {
 @test "release downloads only the exact matrix skill ZIP" {
   [ "$(yq -r '.jobs."attach-to-release".strategy.matrix.skill' "${WORKFLOW}")" = "\${{ fromJSON(needs.discover.outputs.skills) }}" ]
   [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download skill ZIP") | .with.name' "${WORKFLOW}")" = "\${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}" ]
+  [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download skill ZIP") | .with."skip-decompress"' "${WORKFLOW}")" = 'true' ]
   [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download skill ZIP") | .with.pattern' "${WORKFLOW}")" = 'null' ]
   [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download skill ZIP") | .with."merge-multiple"' "${WORKFLOW}")" = 'null' ]
 }
@@ -195,7 +196,9 @@ run_packaging() {
 
   yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach skill to the release") | .run' "${WORKFLOW}" > "${attach_script}"
   mkdir -p "${bin_dir}" "${runner_temp}/agent-skill-release-assets"
-  printf 'skill archive' > "${runner_temp}/agent-skill-release-assets/agent-skills-alpha.zip"
+  mkdir -p "${runner_temp}/source/alpha"
+  printf '# alpha\n' > "${runner_temp}/source/alpha/SKILL.md"
+  (cd "${runner_temp}/source" && zip -q "${runner_temp}/agent-skill-release-assets/agent-skills-alpha.zip" alpha/SKILL.md)
   printf 'unrelated' > "${runner_temp}/agent-skill-release-assets/unrelated.zip"
   cat > "${bin_dir}/gh" << 'EOF'
 #!/usr/bin/env bash
@@ -210,6 +213,7 @@ EOF
 
   [ "${status}" -eq 0 ]
   [ -f "${runner_temp}/agent-skill-release-assets/alpha.zip" ]
+  [ "$(unzip -p "${runner_temp}/agent-skill-release-assets/alpha.zip" alpha/SKILL.md)" = '# alpha' ]
   [ ! -f "${runner_temp}/agent-skill-release-assets/agent-skills-alpha.zip" ]
   [ -f "${runner_temp}/agent-skill-release-assets/unrelated.zip" ]
   [ "$(sed -n '1p' "${runner_temp}/gh-args")" = 'release' ]
@@ -235,4 +239,21 @@ EOF
 
   [ "${status}" -ne 0 ]
   [[ "${output}" == *"expected downloaded skill ZIP not found"* ]]
+}
+
+@test "release attachment rejects a downloaded ZIP that was decompressed or corrupted" {
+  local attach_script="${TEST_TEMP}/attach-skills.sh"
+  local runner_temp="${TEST_TEMP}/runner"
+
+  yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach skill to the release") | .run' "${WORKFLOW}" > "${attach_script}"
+  mkdir -p "${runner_temp}/agent-skill-release-assets"
+  printf 'not a ZIP' > "${runner_temp}/agent-skill-release-assets/agent-skills-alpha.zip"
+
+  run env RUNNER_TEMP="${runner_temp}" RELEASE_TAG=v2.3.4 REPOSITORY=dceoy/example \
+    ARTIFACT_NAME=agent-skills SKILL_NAME=alpha \
+    bash -euo pipefail "${attach_script}"
+
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *"not a valid ZIP"* ]]
+  [ ! -f "${runner_temp}/agent-skill-release-assets/alpha.zip" ]
 }
