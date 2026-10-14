@@ -108,6 +108,7 @@ run_packaging() {
   [ "${attach_condition}" = "github.event_name == 'release' || inputs.release-tag != ''" ]
   release_tag_env="$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach packaged skills to the release") | .env.RELEASE_TAG' "${WORKFLOW}")"
   [ "${release_tag_env}" = "\${{ inputs.release-tag || github.event.release.tag_name }}" ]
+  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Checkout repository") | .with.ref' "${WORKFLOW}")" = "\${{ inputs.release-tag || github.sha }}" ]
 }
 
 @test "release attachment uploads per-skill ZIPs using the selected tag" {
