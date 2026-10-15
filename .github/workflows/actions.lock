@@ -36,7 +36,7 @@ workflows:
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
         - 'bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43'
         - 'endbug/add-and-commit@cc9c08ba6c8df3b93a8f2db63e89b98368ae2ae8'
-        - 'jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492'
+        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'anthropics/claude-code-action@ed670b4cf9de2a5a570d130d2f6197b9e543cd64'
@@ -461,9 +461,9 @@ dependencies:
         commit: 'sha1-dfe3c3f87815947d99a8997f908cb6525fc44e9e'
         owner_id: 761456
         repo_id: 258271226
-    'jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492':
-        ref: 'v5.0.1'
-        commit: 'sha1-7a4e45a543138629540c9a1616d08632b893e492'
+    'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca':
+        ref: 'v5.1.1'
+        commit: 'sha1-2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
         owner_id: 216188
         repo_id: 738284564
     'microsoft/security-devops-action@08976cb623803b1b36d7112d4ff9f59eae704de0':
