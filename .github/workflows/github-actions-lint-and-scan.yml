@@ -219,15 +219,14 @@ jobs:
               /^workflows:/ { in_workflows = 1; next }
               /^dependencies:/ { in_workflows = 0; next }
               in_workflows && substr($0, 1, 4) == "    " && substr($0, 5, 1) == sprintf("%c", 39) {
-                workflow = substr($0, 6)
-                sub(/\\047:.*/, "", workflow)
+                workflow = substr($0, 6, length($0) - 7)
                 print workflow
               }
             ' .github/workflows/actions.lock
           )
           if ! diff -u \
-            <(printf '%s\\n' "${workflows[@]}" | sort) \
-            <(printf '%s\\n' "${locked_workflows[@]}" | sort); then
+            <(printf '%s\n' "${workflows[@]}" | sort) \
+            <(printf '%s\n' "${locked_workflows[@]}" | sort); then
             echo "::error::Actions lockfile workflow paths do not match selected workflow files."
             echo "::error::Run gh actions-lock for all selected workflow files and commit the result."
             exit 1
