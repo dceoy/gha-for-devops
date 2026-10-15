@@ -219,8 +219,12 @@ jobs:
               /^workflows:/ { in_workflows = 1; next }
               /^dependencies:/ { in_workflows = 0; next }
               in_workflows && substr($0, 1, 4) == "    " && substr($0, 5, 1) == sprintf("%c", 39) {
-                workflow = substr($0, 6, length($0) - 7)
-                print workflow
+                workflow = substr($0, 6)
+                colon = index(workflow, ":")
+                if (colon > 0) {
+                  workflow = substr(workflow, 1, colon - 2)
+                  print workflow
+                }
               }
             ' .github/workflows/actions.lock
           )
