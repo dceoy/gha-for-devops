@@ -101,6 +101,7 @@ jobs:
       zizmor-search-path: .github
       go-version: stable
       python-version: 3.x
+      actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml
   github-codeql-analysis:
     if: >
       github.event_name == 'push'
