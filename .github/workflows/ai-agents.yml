@@ -95,7 +95,7 @@ jobs:
       issues: write
       id-token: write
       actions: read
-    uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@main  # zizmor: ignore[unpinned-uses]
+    uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@6e4133ea79ff8e904dafcaef4539d800c9671fe2
     with:
       model: openrouter/stealth/ox-alpha
     secrets:
@@ -115,7 +115,7 @@ jobs:
       issues: write
       id-token: write
       actions: read
-    uses: dceoy/opencode-action/.github/workflows/opencode-bot.yml@main  # zizmor: ignore[unpinned-uses]
+    uses: dceoy/opencode-action/.github/workflows/opencode-bot.yml@6e4133ea79ff8e904dafcaef4539d800c9671fe2
     with:
       model: openrouter/stealth/space-bunny-alpha
     secrets:

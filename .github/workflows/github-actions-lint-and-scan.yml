@@ -198,6 +198,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ACTIONS_LOCK_EXCLUDE_WORKFLOWS: ${{ inputs.actions-lock-exclude-workflows }}
         run: |
+          gh release verify v0.2.0 --repo github/gh-actions-lock
           gh extension install github/gh-actions-lock --pin v0.2.0
           workflows=()
           while IFS= read -r -d '' workflow; do
@@ -208,6 +209,27 @@ jobs:
             \( -name '*.yml' -o -name '*.yaml' \) -print0)
           if (("${#workflows[@]}" == 0)); then
             echo "::error::No workflows selected for lockfile verification."
+            exit 1
+          fi
+          locked_workflows=()
+          while IFS= read -r workflow; do
+            locked_workflows+=("${workflow}")
+          done < <(
+            awk '
+              /^workflows:/ { in_workflows = 1; next }
+              /^dependencies:/ { in_workflows = 0; next }
+              in_workflows && substr($0, 1, 4) == "    " && substr($0, 5, 1) == sprintf("%c", 39) {
+                workflow = substr($0, 6)
+                sub(/\\047:.*/, "", workflow)
+                print workflow
+              }
+            ' .github/workflows/actions.lock
+          )
+          if ! diff -u \
+            <(printf '%s\\n' "${workflows[@]}" | sort) \
+            <(printf '%s\\n' "${locked_workflows[@]}" | sort); then
+            echo "::error::Actions lockfile workflow paths do not match selected workflow files."
+            echo "::error::Run gh actions-lock for all selected workflow files and commit the result."
             exit 1
           fi
           gh actions-lock --verify "${workflows[@]}"
