@@ -1,0 +1,30 @@
+---
+name: Regenerate Actions lockfile
+on:
+  push:
+    branches: [codex/add-actions-lockfiles]
+    paths: [.github/workflows/actions-lock-bootstrap.yml]
+permissions:
+  contents: read
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Generate lockfile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm .github/workflows/actions-lock-bootstrap.yml
+          gh extension install github/gh-actions-lock --pin v0.2.0
+          mapfile -t workflows < <(
+            find .github/workflows -maxdepth 1 -type f \
+              \( -name '*.yml' -o -name '*.yaml' \) \
+              ! -name 'python-package-release-on-pypi-and-github.yml' | sort
+          )
+          gh actions-lock --no-interactive --no-narrow --no-migrate-local-actions "${workflows[@]}"
+          gh actions-lock --verify "${workflows[@]}"
+          echo "LOCKFILE_RESULT $(base64 -w0 .github/workflows/actions.lock)"
