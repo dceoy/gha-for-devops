@@ -101,6 +101,76 @@ MOCK
   grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
 }
 
+@test 'regular CI workflow changes do not trigger a release' {
+  git reset -q --hard v1.2.3
+  printf 'on:\n  push:\njobs: {}\n' > .github/workflows/ci.yml
+  git add .
+  git commit -qm 'ci: update regular workflow'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+}
+
+@test 'composite action changes alone do not trigger a release' {
+  git reset -q --hard v1.2.3
+  mkdir -p .github/actions/local
+  printf 'name: local\nruns:\n  using: composite\n  steps: []\n' > .github/actions/local/action.yml
+  git add .
+  git commit -qm 'fix: adjust composite action'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+}
+
+@test 'shared script changes alone do not trigger a release' {
+  git reset -q --hard v1.2.3
+  echo '# updated' > .github/scripts/helper.sh
+  git add .
+  git commit -qm 'fix: adjust helper'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+}
+
+@test 'a new reusable workflow triggers a patch release' {
+  git reset -q --hard v1.2.3
+  printf 'on:\n  workflow_call:\njobs: {}\n' > .github/workflows/new.yml
+  git add .
+  git commit -qm 'fix: add reusable workflow'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
+}
+
+@test 'removal of workflow_call triggers a release' {
+  git reset -q --hard v1.2.3
+  printf 'on:\n  push:\njobs: {}\n' > .github/workflows/reusable.yml
+  git add .
+  git commit -qm 'fix: drop reusable interface'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
+}
+
+@test 'deleting a reusable workflow triggers a release' {
+  git reset -q --hard v1.2.3
+  git rm -q .github/workflows/reusable.yml
+  git commit -qm 'fix: remove reusable workflow'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
+}
+
+@test 'a YAML file without workflow_call does not trigger a release' {
+  git reset -q --hard v1.2.3
+  printf 'on:\n  push:\njobs: {}\n' > .github/workflows/other.yaml
+  git add .
+  git commit -qm 'ci: add push-only workflow'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+}
+
 @test 'an existing local tag stops publication planning' {
   git tag v1.2.4
   run bash "${SCRIPT}" plan
