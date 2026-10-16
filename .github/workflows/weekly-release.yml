@@ -25,12 +25,113 @@ jobs:
           persist-credentials: false
       - name: Decide whether to release
         id: plan
-        uses: $/.github/actions/weekly-release
-        with:
-          phase: plan
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.sha }}
+        run: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          
+          # Release only the main commit whose source is being validated by this run.
+          : "${GITHUB_REPOSITORY:?}"
+          : "${RELEASE_SHA:?}"
+          if [[ "${GITHUB_REF:-}" != 'refs/heads/main' ]]; then
+            echo '::error::Weekly releases must run on refs/heads/main.' >&2
+            exit 1
+          fi
+          
+          main_is_current() {
+            local head_sha
+            head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+            if [[ "${head_sha}" != "${RELEASE_SHA}" ]]; then
+              echo '::notice::main advanced since this workflow started; skipping this release.'
+              return 1
+            fi
+          }
+          
+          tag_is_absent() {
+            local tag="$1"
+            local remote
+            if git show-ref --verify --quiet "refs/tags/${tag}"; then
+              echo "::error::Tag ${tag} already exists locally." >&2
+              return 1
+            fi
+            # An API error is fatal; an empty successful response means the tag is absent.
+            remote="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${tag}" \
+              --jq ".[] | select(.ref == \"refs/tags/${tag}\") | .ref")"
+            if [[ -n "${remote}" ]]; then
+              echo "::error::Tag ${tag} already exists remotely." >&2
+              return 1
+            fi
+          }
+          
+          # Only workflow files with workflow_call are part of the release surface.
+          # Inspect both revisions so removals of reusable workflows are included.
+          is_reusable_workflow() {
+            local ref="$1"
+            local path="$2"
+            git cat-file -e "${ref}:${path}" 2> /dev/null || return 1
+            git show "${ref}:${path}" | awk '
+              /^(on|"on"|\047on\047):[[:space:]]*(\[.*workflow_call|workflow_call)([[:space:],\]#]|$)/ { found=1; exit }
+              /^(on|"on"|\047on\047):[[:space:]]*(#.*)?$/ { in_on=1; next }
+              in_on && /^[^[:space:]#][^:]*:/ { in_on=0 }
+              in_on && /^  workflow_call:[[:space:]]*/ { found=1; exit }
+              END { exit(!found) }
+            '
+          }
+          
+          reusable_workflows_changed() {
+            local path
+            while IFS= read -r -d '' path; do
+              [[ "${path}" =~ ^\.github/workflows/[^/]+\.ya?ml$ ]] || continue
+              if is_reusable_workflow "${previous_tag}" "${path}" \
+                || is_reusable_workflow "${RELEASE_SHA}" "${path}"; then
+                return 0
+              fi
+            done < <(git diff --no-renames --name-only -z "${previous_tag}" "${RELEASE_SHA}" -- .github/workflows)
+            return 1
+          }
+          
+          if ! main_is_current; then
+            exit 0
+          fi
+          
+          previous_tag="$(gh release list --repo "${GITHUB_REPOSITORY}" \
+            --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
+          if [[ ! "${previous_tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Expected a latest stable SemVer release, got: ${previous_tag}" >&2
+            exit 1
+          fi
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          if ! git merge-base --is-ancestor "${previous_tag}" "${RELEASE_SHA}"; then
+            echo "::error::Release tag ${previous_tag} is not an ancestor of the release commit." >&2
+            exit 1
+          fi
+          
+          if ! reusable_workflows_changed; then
+            echo '::notice::No changes to reusable workflows since the latest release.'
+            exit 0
+          fi
+          
+          messages="$(git log --first-parent --format=%B "${previous_tag}..${RELEASE_SHA}")"
+          # Squash-merge bodies can prefix subjects with "* "; trailers can be indented.
+          # Breaking changes intentionally use a minor bump for this workflow library.
+          if grep -Eq '^[[:space:]]*(\*[[:space:]]*)?[[:alnum:]_-]+(\([^)]*\))?!:|^[[:space:]]*(\*[[:space:]]*)?BREAKING[ -]CHANGE:' <<< "${messages}" \
+            || grep -Eq '^[[:space:]]*(\*[[:space:]]*)?feat(\([^)]*\))?:' <<< "${messages}"; then
+            minor=$((minor + 1))
+            patch=0
+          else
+            patch=$((patch + 1))
+          fi
+          tag="v${major}.${minor}.${patch}"
+          tag_is_absent "${tag}"
+          {
+            echo 'ready=true'
+            echo "tag=${tag}"
+            echo "sha=${RELEASE_SHA}"
+          } >> "${GITHUB_OUTPUT:?}"
 
   shell-lint:
     needs: plan
@@ -116,13 +217,63 @@ jobs:
           persist-credentials: false
       - name: Publish validated release
         id: publish
-        uses: $/.github/actions/weekly-release
-        with:
-          phase: publish
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ needs.plan.outputs.sha }}
           RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          
+          # Release only the main commit whose source is being validated by this run.
+          : "${GITHUB_REPOSITORY:?}"
+          : "${RELEASE_SHA:?}"
+          if [[ "${GITHUB_REF:-}" != 'refs/heads/main' ]]; then
+            echo '::error::Weekly releases must run on refs/heads/main.' >&2
+            exit 1
+          fi
+          
+          main_is_current() {
+            local head_sha
+            head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+            if [[ "${head_sha}" != "${RELEASE_SHA}" ]]; then
+              echo '::notice::main advanced since this workflow started; skipping this release.'
+              return 1
+            fi
+          }
+          
+          tag_is_absent() {
+            local tag="$1"
+            local remote
+            if git show-ref --verify --quiet "refs/tags/${tag}"; then
+              echo "::error::Tag ${tag} already exists locally." >&2
+              return 1
+            fi
+            # An API error is fatal; an empty successful response means the tag is absent.
+            remote="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${tag}" \
+              --jq ".[] | select(.ref == \"refs/tags/${tag}\") | .ref")"
+            if [[ -n "${remote}" ]]; then
+              echo "::error::Tag ${tag} already exists remotely." >&2
+              return 1
+            fi
+          }
+          
+          : "${RELEASE_TAG:?}"
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid release tag: ${RELEASE_TAG}" >&2
+            exit 1
+          fi
+          if ! main_is_current; then
+            exit 0
+          fi
+          tag_is_absent "${RELEASE_TAG}"
+          # Creating the tag atomically first prevents --target from silently
+          # publishing an existing tag that points to a different commit.
+          gh api "repos/${GITHUB_REPOSITORY}/git/refs" --method POST \
+            --field "ref=refs/tags/${RELEASE_TAG}" --field "sha=${RELEASE_SHA}" > /dev/null
+          gh release create "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+            --verify-tag --title "${RELEASE_TAG}" --generate-notes
+          echo 'published=true' >> "${GITHUB_OUTPUT:?}"
 
   weekly-major-version-tag:
     needs: publish
