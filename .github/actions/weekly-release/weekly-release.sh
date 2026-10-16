@@ -34,6 +34,33 @@ tag_is_absent() {
   fi
 }
 
+# Only workflow files with workflow_call are part of the release surface.
+# Inspect both revisions so removals of reusable workflows are included.
+is_reusable_workflow() {
+  local ref="$1"
+  local path="$2"
+  git cat-file -e "${ref}:${path}" 2>/dev/null || return 1
+  git show "${ref}:${path}" | awk '
+    /^(on|"on"|\047on\047):[[:space:]]*(\[.*workflow_call|workflow_call)([[:space:],\]#]|$)/ { found=1; exit }
+    /^(on|"on"|\047on\047):[[:space:]]*(#.*)?$/ { in_on=1; next }
+    in_on && /^[^[:space:]#][^:]*:/ { in_on=0 }
+    in_on && /^  workflow_call:[[:space:]]*/ { found=1; exit }
+    END { exit(!found) }
+  '
+}
+
+reusable_workflows_changed() {
+  local path
+  while IFS= read -r -d '' path; do
+    [[ "${path}" =~ ^\.github/workflows/[^/]+\.ya?ml$ ]] || continue
+    if is_reusable_workflow "${previous_tag}" "${path}" \
+      || is_reusable_workflow "${RELEASE_SHA}" "${path}"; then
+      return 0
+    fi
+  done < <(git diff --name-only -z "${previous_tag}" "${RELEASE_SHA}" -- .github/workflows)
+  return 1
+}
+
 case "${1:-}" in
   plan)
     if ! main_is_current; then
@@ -54,9 +81,8 @@ case "${1:-}" in
       exit 1
     fi
 
-    if git diff --quiet "${previous_tag}" "${RELEASE_SHA}" -- \
-      .github/workflows .github/scripts .github/actions; then
-      echo '::notice::No changes to reusable workflows or shared scripts since the latest release.'
+    if ! reusable_workflows_changed; then
+      echo '::notice::No changes to reusable workflows since the latest release.'
       exit 0
     fi
 
