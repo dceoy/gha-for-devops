@@ -11,6 +11,8 @@ on:
       - opened
       - synchronize
       - reopened
+  schedule:
+    - cron: '15 0 * * 1'  # Mondays 09:15 JST (UTC+09:00)
   workflow_dispatch:  # checkov:skip=CKV_GHA_7:workflow_dispatch inputs are required to select the pipeline
     inputs:
       workflow:
@@ -20,12 +22,13 @@ on:
           - lint
           - analyze
           - release
+          - weekly-release
           - update
         description: Choose the workflow to run
         default: lint
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ inputs.workflow || github.event.pull_request.number || github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || '' }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && github.event_name != 'schedule' }}
 permissions:
   contents: read
 env:
@@ -134,6 +137,105 @@ jobs:
     uses: ./.github/workflows/github-major-version-tag.yml
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  weekly-release:
+    if: >
+      github.event_name == 'schedule'
+      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'weekly-release')
+    runs-on: ubuntu-slim
+    concurrency:
+      group: weekly-release-main
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      published: ${ steps.publish.outputs.published }}
+    steps:
+      - name: Checkout repository and tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Publish weekly release
+        id: publish
+        env:
+          GH_TOKEN: ${ github.token }}
+          RELEASE_SHA: ${ github.sha }}
+        run: |
+          head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "${head_sha}" != "${RELEASE_SHA}" ]]; then
+            echo '::notice::main advanced after the run started; skipping this release.'
+            exit 0
+          fi
+
+          # Only release the exact main commit that passed the push CI pipeline.
+          passed="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow ci.yml \
+            --branch main --commit "${RELEASE_SHA}" --event push --status success \
+            --json databaseId --jq 'length')"
+          if (( passed == 0 )); then
+            echo '::error::The release commit has no successful main push CI run.'
+            exit 1
+          fi
+
+          previous_tag="$(gh release list --repo "${GITHUB_REPOSITORY}" \
+            --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
+          if [[ ! "${previous_tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Expected a latest stable SemVer release, got: ${previous_tag}"
+            exit 1
+          fi
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          if ! git merge-base --is-ancestor "${previous_tag}" "${RELEASE_SHA}"; then
+            echo "::error::Release tag ${previous_tag} is not an ancestor of main."
+            exit 1
+          fi
+
+          # Documentation-only changes do not affect the reusable workflows.
+          if git diff --quiet "${previous_tag}" "${RELEASE_SHA}" -- \
+            .github/workflows .github/scripts; then
+            echo '::notice::No workflow or shared script changes since the last release.'
+            exit 0
+          fi
+
+          messages="$(git log --first-parent --format=%B "${previous_tag}..${RELEASE_SHA}")"
+          if grep -Eq '^[[:alnum:]_-]+(\([^)]*\))?!:|^BREAKING CHANGE:' <<< "${messages}"; then
+            echo '::error::Breaking changes require a reviewed manual major release.'
+            exit 1
+          fi
+          if grep -Eq '^feat(\([^)]*\))?:' <<< "${messages}"; then
+            minor=$((minor + 1))
+            patch=0
+          else
+            patch=$((patch + 1))
+          fi
+          tag="v${major}.${minor}.${patch}"
+
+          # Avoid publishing code that landed after the validated commit.
+          head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "${head_sha}" != "${RELEASE_SHA}" ]]; then
+            echo '::notice::main advanced during release preparation; skipping.'
+            exit 0
+          fi
+          if gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "::error::Release ${tag} already exists."
+            exit 1
+          fi
+          gh release create "${tag}" --repo "${GITHUB_REPOSITORY}" \
+            --target "${RELEASE_SHA}" --title "${tag}" --generate-notes
+          echo 'published=true' >> "${GITHUB_OUTPUT}"
+
+  weekly-major-version-tag:
+    if: needs.weekly-release.outputs.published == 'true'
+    needs:
+      - weekly-release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/github-major-version-tag.yml
+    secrets:
+      GH_TOKEN: ${ secrets.GITHUB_TOKEN }}
+
   dependabot-auto-merge:
     if: >
       github.event_name == 'pull_request'
