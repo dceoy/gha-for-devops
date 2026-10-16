@@ -188,6 +188,7 @@ jobs:
       && github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: write
+      actions: write
     runs-on: ubuntu-slim
     env:
       npm_config_min_release_age: '7'
@@ -226,7 +227,7 @@ jobs:
           ./.github/scripts/update-readme.sh
       - name: Commit and push README to the PR branch
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           git add -- README.md
@@ -241,3 +242,12 @@ jobs:
           token_header="$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 -w0)"
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${token_header}" \
             push origin "HEAD:refs/heads/${PR_BRANCH}"
+          # GITHUB_TOKEN pushes do not trigger PR CI; explicitly validate the new head.
+          node -e 'console.log(JSON.stringify({ref: process.env.PR_BRANCH, inputs: {workflow: "lint"}}))' |
+            curl --fail-with-body --silent --show-error \
+              --request POST \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header 'Accept: application/vnd.github+json' \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              --data-binary @- \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches"
