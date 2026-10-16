@@ -73,7 +73,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 1
-          persist-credentials: false
+          persist-credentials: true
       - name: Set up mise
         uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
         with:
@@ -225,24 +225,20 @@ jobs:
       - name: Update README.md
         run: |
           ./.github/scripts/update-readme.sh
-      - name: Commit and push README to the PR branch
+      - name: Commit and push README changes
+        id: readme-commit
+        uses: EndBug/add-and-commit@cc9c08ba6c8df3b93a8f2db63e89b98368ae2ae8  # v11.1.1
+        with:
+          add: ./README.md
+          message: Update README.md
+          push: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Dispatch lint for generated README
+        if: steps.readme-commit.outputs.committed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
-          git add -- README.md
-          if git diff --cached --quiet; then
-            echo '::notice::Generated README.md is already up to date.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'docs: update generated README'
-          # Authenticate only for this push; do not persist credentials in the checkout.
-          token_header="$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 -w0)"
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${token_header}" \
-            push origin "HEAD:refs/heads/${PR_BRANCH}"
-          # GITHUB_TOKEN pushes do not trigger PR CI; explicitly validate the new head.
           node -e 'console.log(JSON.stringify({ref: process.env.PR_BRANCH, inputs: {workflow: "lint"}}))' |
             curl --fail-with-body --silent --show-error \
               --request POST \
