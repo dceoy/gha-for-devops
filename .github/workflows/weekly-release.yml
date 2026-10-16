@@ -25,10 +25,12 @@ jobs:
           persist-credentials: false
       - name: Decide whether to release
         id: plan
+        uses: $/.github/actions/weekly-release
+        with:
+          phase: plan
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.sha }}
-        run: bash .github/scripts/weekly-release.sh plan
 
   shell-lint:
     needs: plan
@@ -79,8 +81,13 @@ jobs:
         uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
         with:
           github-token: ${{ github.token }}
-      - name: Run tests
-        run: bats --print-output-on-failure .github/scripts/tests/*.bats
+      - name: Run tests when present
+        run: |
+          if compgen -G '.github/scripts/tests/*.bats' > /dev/null; then
+            bats --print-output-on-failure .github/scripts/tests/*.bats
+          else
+            echo '::notice::Caller has no Bats test suite.'
+          fi
 
   publish:
     needs:
@@ -109,11 +116,13 @@ jobs:
           persist-credentials: false
       - name: Publish validated release
         id: publish
+        uses: $/.github/actions/weekly-release
+        with:
+          phase: publish
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ needs.plan.outputs.sha }}
           RELEASE_TAG: ${{ needs.plan.outputs.tag }}
-        run: bash .github/scripts/weekly-release.sh publish
 
   weekly-major-version-tag:
     needs: publish
