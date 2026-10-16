@@ -31,6 +31,10 @@ case "$1 $2" in
     printf '%s\n' "${FAKE_HEAD:-${RELEASE_SHA}}"
     ;;
   'api repos/example/test/git/matching-refs/'*)
+    if [[ "${FAKE_REMOTE_ERROR:-false}" == true ]]; then
+      echo 'GitHub API error' >&2
+      exit 1
+    fi
     printf '%s\n' "${FAKE_REMOTE_TAG:-}"
     ;;
   'release list')
@@ -108,4 +112,26 @@ MOCK
   run bash "${SCRIPT}" plan
   [ "$status" -eq 0 ]
   [ ! -s "${GITHUB_OUTPUT}" ]
+}
+
+@test 'GitHub API failures are not treated as missing tags' {
+  export FAKE_REMOTE_ERROR=true
+  run bash "${SCRIPT}" plan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'GitHub API error'* ]]
+}
+
+@test 'publication rejects an existing remote tag' {
+  export FAKE_REMOTE_TAG='refs/tags/v1.2.4'
+  run env RELEASE_TAG=v1.2.4 bash "${SCRIPT}" publish
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'already exists remotely'* ]]
+}
+
+@test 'publication requires every validation job to succeed' {
+  workflow="${BATS_TEST_DIRNAME}/../../workflows/weekly-release.yml"
+  for name in shell-lint markdown-lint github-actions-lint-and-scan bats-tests; do
+    run grep -F "&& needs.${name}.result == 'success'" "${workflow}"
+    [ "$status" -eq 0 ]
+  done
 }
