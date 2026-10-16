@@ -13,11 +13,6 @@ on:
         type: string
         description: AWS region to use
         default: us-east-1
-      aws-profile-env-file:
-        required: false
-        type: string
-        description: Environment file containing AWS IAM role ARN (ROLE_ARN) and region (REGION)
-        default: null
       aws-codebuild-project-name:
         required: false
         type: string
@@ -136,20 +131,13 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Read AWS profile environment file
-        if: inputs.aws-profile-env-file != null
-        id: aws-profile-env
-        env:
-          AWS_PROFILE_ENV_FILE: ${{ inputs.aws-profile-env-file }}
-        run: |
-          cat "${AWS_PROFILE_ENV_FILE}" >> "${GITHUB_OUTPUT}"
       - name: Configure AWS credentials
         id: aws-credentials
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd  # v6.3.0
         with:
           mask-aws-account-id: true
-          role-to-assume: ${{ inputs.aws-iam-role-to-assume || steps.aws-profile-env.outputs.ROLE_ARN || null }}
-          aws-region: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
+          role-to-assume: ${{ inputs.aws-iam-role-to-assume }}
+          aws-region: ${{ inputs.aws-region }}
           role-session-name: github-actions-${{ github.run_id }}
           output-credentials: true
           output-env-credentials: false
@@ -160,9 +148,9 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
           AWS_SESSION_TOKEN: ${{ steps.aws-credentials.outputs.aws-session-token }}
-          AWS_REGION: ${{ inputs.aws-region || steps.aws-profile-env.outputs.REGION || null }}
+          AWS_REGION: ${{ inputs.aws-region }}
         with:
-          project-name: ${{ inputs.aws-codebuild-project-name || steps.aws-profile-env.outputs.AWS_CODEBUILD_PROJECT_NAME || null }}
+          project-name: ${{ inputs.aws-codebuild-project-name }}
           buildspec-override: ${{ inputs.buildspec-override }}
           compute-type-override: ${{ inputs.compute-type-override }}
           environment-type-override: ${{ inputs.environment-type-override }}
