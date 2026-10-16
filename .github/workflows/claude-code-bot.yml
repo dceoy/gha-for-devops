@@ -196,7 +196,7 @@ jobs:
           output-credentials: true
           output-env-credentials: false
       - name: Run Claude Code
-        uses: anthropics/claude-code-action@2dca132ff0e0c4094ce6048b422c6915a071210b  # v1.0.247
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc  # v1.0.248
         env:
           AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}

@@ -39,11 +39,11 @@ workflows:
         - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@2dca132ff0e0c4094ce6048b422c6915a071210b'
+        - 'anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/claude-code-review.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@2dca132ff0e0c4094ce6048b422c6915a071210b'
+        - 'anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/dependabot-auto-merge.yml':
         - 'dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98'
@@ -331,9 +331,9 @@ dependencies:
         repo_id: 496012378
         uses:
             - 'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f'
-    'anthropics/claude-code-action@2dca132ff0e0c4094ce6048b422c6915a071210b':
-        ref: 'v1.0.247'
-        commit: 'sha1-2dca132ff0e0c4094ce6048b422c6915a071210b'
+    'anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc':
+        ref: 'v1.0.248'
+        commit: 'sha1-1d6de8cb0c237e7c15e9e1bdf973826ebae490cc'
         owner_id: 76263028
         repo_id: 986421638
         uses:
