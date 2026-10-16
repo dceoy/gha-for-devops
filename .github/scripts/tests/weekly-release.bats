@@ -94,8 +94,7 @@ MOCK
 }
 
 @test 'an existing remote tag stops publication planning' {
-  export FAKE_REMOTE_TAG='refs/tags/v1.2.4'
-  run bash "${SCRIPT}" plan
+  run env FAKE_REMOTE_TAG=refs/tags/v1.2.4 bash "${SCRIPT}" plan
   [ "$status" -ne 0 ]
   [[ "$output" == *'already exists remotely'* ]]
 }
@@ -122,8 +121,7 @@ MOCK
 }
 
 @test 'publication rejects an existing remote tag' {
-  export FAKE_REMOTE_TAG='refs/tags/v1.2.4'
-  run env RELEASE_TAG=v1.2.4 bash "${SCRIPT}" publish
+  run env FAKE_REMOTE_TAG=refs/tags/v1.2.4 RELEASE_TAG=v1.2.4 bash "${SCRIPT}" publish
   [ "$status" -ne 0 ]
   [[ "$output" == *'already exists remotely'* ]]
 }
