@@ -184,7 +184,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: ./.github/workflows/mise-lock-update.yml
+    uses: $/.github/workflows/mise-lock-update.yml
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   update-readme-md:

@@ -37,7 +37,10 @@ defaults:
     working-directory: .
 jobs:
   update-and-pr:
-    if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+    if: >
+      startsWith(github.ref, 'refs/heads/')
+      && github.event_name != 'pull_request'
+      && github.event_name != 'pull_request_target'
     runs-on: ${{ inputs.runs-on }}
     env:
       MISE_SAFE: '1'
@@ -72,12 +75,10 @@ jobs:
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
         with:
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
-          add-paths: ${{ inputs.working-directory }}/
           commit-message: Update mise.lock
           title: Update mise.lock
           branch: github-actions/mise-lock-update
           base: ${{ github.ref_name }}
-          labels: agent:github-actions
           body: |
             Refresh the mise lockfile using `mise lock`.
 
