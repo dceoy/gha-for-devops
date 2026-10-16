@@ -22,9 +22,11 @@ For production use, replace `@main` with a release tag or commit SHA. Pass sensi
 
 ### Weekly releases
 
-The [CI workflow](.github/workflows/ci.yml) checks for unpublished changes to `.github/workflows/` or `.github/scripts/` every Monday at 09:15 JST (00:15 UTC). It publishes a GitHub Release only when the current `main` commit passed its push CI run. Releases use the latest stable SemVer release as the baseline: a `feat:` commit or merged PR title increments the minor version; other workflow changes, including `chore(deps):`, increment the patch version. Breaking-change markers (`!:` or `BREAKING CHANGE:`) stop the automatic release for manual review. The `v1`-style major tag is updated after a successful release.
+The [CI workflow](.github/workflows/ci.yml) invokes the reusable [weekly release workflow](.github/workflows/weekly-release.yml) every Monday at 09:15 JST (00:15 UTC). It skips when neither `.github/workflows/` nor `.github/scripts/` has changed since the latest stable SemVer release. Otherwise, it validates the exact candidate commit with ShellCheck/shfmt, Markdown lint, GitHub Actions lint/security checks, and Bats tests before publishing. This is independent of earlier `push` runs, which can be missing after token-driven merges.
 
-For an on-demand run, dispatch **CI/CD** with `workflow: weekly-release`. Weeks with no workflow or shared-script changes are skipped; the existing tag-based manual release remains available.
+A `feat:` commit or squash-merge entry increments the minor version; other changes, including `chore(deps):`, increment the patch version. Breaking-change markers (`!:`, `BREAKING CHANGE:`, and `BREAKING-CHANGE:`) stop automatic publication for manual major-release review. The workflow rejects non-`main` dispatches and existing release tags, and atomically creates the version tag at the validated commit before publishing a GitHub Release. The `v1`-style major tag is synchronized only after publication.
+
+For an on-demand run, dispatch **CI/CD** on `main` with `workflow: weekly-release`. The existing tag-based manual release remains available.
 
 ### GitHub Pages
 
