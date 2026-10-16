@@ -1,0 +1,125 @@
+---
+name: Weekly release
+on:
+  workflow_call:
+concurrency:
+  group: weekly-release-${{ github.repository }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+jobs:
+  plan:
+    runs-on: ubuntu-slim
+    outputs:
+      ready: ${{ steps.plan.outputs.ready }}
+      tag: ${{ steps.plan.outputs.tag }}
+      sha: ${{ steps.plan.outputs.sha }}
+    steps:
+      - name: Check out the release candidate and tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide whether to release
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: bash .github/scripts/weekly-release.sh plan
+
+  shell-lint:
+    needs: plan
+    if: needs.plan.outputs.ready == 'true'
+    uses: $/.github/workflows/shell-lint.yml
+    with:
+      use-shfmt: true
+
+  markdown-lint:
+    needs: plan
+    if: needs.plan.outputs.ready == 'true'
+    uses: $/.github/workflows/markdown-lint.yml
+
+  github-actions-lint-and-scan:
+    needs: plan
+    if: needs.plan.outputs.ready == 'true'
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    uses: $/.github/workflows/github-actions-lint-and-scan.yml
+    with:
+      search-path: .github/workflows
+      zizmor-search-path: .github
+      go-version: stable
+      python-version: 3.x
+      actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml
+
+  bats-tests:
+    needs: plan
+    if: needs.plan.outputs.ready == 'true'
+    runs-on: ubuntu-slim
+    steps:
+      - name: Check out the release candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up mise
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
+        with:
+          version: 2026.8.5
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version: stable
+          cache: false
+      - name: Set up Bats
+        uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
+        with:
+          github-token: ${{ github.token }}
+      - name: Run tests
+        run: bats --print-output-on-failure .github/scripts/tests/*.bats
+
+  publish:
+    needs:
+      - plan
+      - shell-lint
+      - markdown-lint
+      - github-actions-lint-and-scan
+      - bats-tests
+    if: >-
+      needs.plan.outputs.ready == 'true'
+      && needs.shell-lint.result == 'success'
+      && needs.markdown-lint.result == 'success'
+      && needs.github-actions-lint-and-scan.result == 'success'
+      && needs.bats-tests.result == 'success'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
+    steps:
+      - name: Check out validated release candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Publish validated release
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ needs.plan.outputs.sha }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+        run: bash .github/scripts/weekly-release.sh publish
+
+  weekly-major-version-tag:
+    needs: publish
+    if: needs.publish.outputs.published == 'true'
+    permissions:
+      contents: write
+    uses: $/.github/workflows/github-major-version-tag.yml
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
