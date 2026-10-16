@@ -138,11 +138,6 @@ on:
         type: string
         description: AWS region to use for resource deployment
         default: us-east-1
-      target-aws-profile-env-file:
-        required: false
-        type: string
-        description: Path to the file containing the target AWS profile environment variables
-        default: null
       source-aws-iam-role-to-assume:
         required: false
         type: string
@@ -153,11 +148,6 @@ on:
         type: string
         description: AWS region to use for Docker image pull
         default: us-east-1
-      source-aws-profile-env-file:
-        required: false
-        type: string
-        description: Path to the file containing the source AWS profile environment variables
-        default: null
       terraform-or-terragrunt-working-directory:
         required: false
         type: string
@@ -293,7 +283,6 @@ jobs:
       tag-source-to-target-json: ${{ inputs.docker-tag-source-to-target-json }}
       aws-iam-role-to-assume: ${{ inputs.source-aws-iam-role-to-assume }}
       aws-region: ${{ inputs.source-aws-region }}
-      aws-profile-env-file: ${{ inputs.source-aws-profile-env-file }}
       image-artifact-name: ${{ inputs.docker-image-artifact-name }}
       image-artifact-retention-days: ${{ inputs.docker-image-artifact-retention-days }}
       image-artifact-overwrite: ${{ inputs.docker-image-artifact-overwrite }}
@@ -318,7 +307,6 @@ jobs:
     with:
       aws-iam-role-to-assume: ${{ inputs.target-aws-iam-role-to-assume }}
       aws-region: ${{ inputs.target-aws-region }}
-      aws-profile-env-file: ${{ inputs.target-aws-profile-env-file }}
       terraform-or-terragrunt-working-directory: ${{ inputs.terraform-or-terragrunt-working-directory }}
       apply: ${{ inputs.apply }}
       terraform-version: ${{ inputs.terraform-version }}
