@@ -2,6 +2,10 @@
 name: Weekly release
 on:
   workflow_call:
+    secrets:
+      GH_TOKEN:
+        required: false
+        description: Optional App or PAT token for mise update PR checks; the default GITHUB_TOKEN does not trigger them
 concurrency:
   group: weekly-release-${{ github.repository }}
   cancel-in-progress: false
@@ -166,6 +170,15 @@ jobs:
             echo "tag=${tag}"
             echo "sha=${RELEASE_SHA}"
           } >> "${GITHUB_OUTPUT:?}"
+  mise-lock-update:
+    needs: plan
+    if: needs.plan.outputs.ready == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: $/.github/workflows/mise-lock-update.yml
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   shell-lint:
     needs: plan
     if: needs.plan.outputs.ready == 'true'
@@ -226,12 +239,14 @@ jobs:
       - markdown-lint
       - github-actions-lint-and-scan
       - bats-tests
+      - mise-lock-update
     if: >-
       needs.plan.outputs.ready == 'true'
       && needs.shell-lint.result == 'success'
       && needs.markdown-lint.result == 'success'
       && needs.github-actions-lint-and-scan.result == 'success'
       && needs.bats-tests.result == 'success'
+      && needs.mise-lock-update.result == 'success'
     runs-on: ubuntu-slim
     permissions:
       contents: write

@@ -143,9 +143,12 @@ jobs:
       || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'weekly-release')
     permissions:
       contents: write
+      pull-requests: write
       actions: read
       security-events: write
     uses: $/.github/workflows/weekly-release.yml
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   dependabot-auto-merge:
     if: >
       github.event_name == 'pull_request'
