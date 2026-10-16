@@ -20,6 +20,13 @@ jobs:
 
 For production use, replace `@main` with a release tag or commit SHA. Pass sensitive values through `secrets:`, never `with:`. Cache-enabled workflows document options such as `enable-cache`, `cache-dependency-path`, and `cache-salt` in their workflow files.
 
+### Weekly releases
+
+The [CI workflow](.github/workflows/ci.yml) checks for unpublished changes to `.github/workflows/` or `.github/scripts/` every Monday at 09:15 JST (00:15 UTC). It publishes a GitHub Release only when the current `main` commit passed its push CI run. Releases use the latest stable SemVer release as the baseline: a `feat:` commit or merged PR title increments the minor version; other workflow changes, including `chore(deps):`, increment the patch version. Breaking-change markers (`!:` or `BREAKING CHANGE:`) stop the automatic release for manual review. The `v1`-style major tag is updated after a successful release.
+
+For an on-demand run, dispatch **CI/CD** with `workflow: weekly-release`. Weeks with no workflow or shared-script changes are skipped; the existing tag-based manual release remains available.
+
+
 ### Node.js versions with pnpm
 
 The TypeScript and HTML workflows select Node.js from the project's `package.json` when using pnpm, in this order:
