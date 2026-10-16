@@ -35,7 +35,6 @@ workflows:
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
         - 'bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43'
-        - 'endbug/add-and-commit@cc9c08ba6c8df3b93a8f2db63e89b98368ae2ae8'
         - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
