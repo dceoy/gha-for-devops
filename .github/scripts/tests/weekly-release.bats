@@ -171,6 +171,37 @@ MOCK
   [ ! -s "${GITHUB_OUTPUT}" ]
 }
 
+@test 'renaming a reusable workflow into a regular workflow triggers a release' {
+  git reset -q --hard v1.2.3
+  git mv .github/workflows/reusable.yml .github/workflows/ci.yml
+  printf 'on:\n  push:\njobs: {}\n' > .github/workflows/ci.yml
+  git add .
+  git commit -qm 'fix: retire renamed reusable workflow'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
+}
+
+@test 'Actions lockfile changes do not trigger a release' {
+  git reset -q --hard v1.2.3
+  echo 'version: locked' > .github/workflows/actions.lock
+  git add .
+  git commit -qm 'ci: regenerate Actions lockfile'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+}
+
+@test 'quoted inline workflow_call in a yaml file triggers a release' {
+  git reset -q --hard v1.2.3
+  printf "'on': [workflow_call]\njobs: {}\n" > .github/workflows/inline.yaml
+  git add .
+  git commit -qm 'fix: add quoted YAML reusable workflow'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
+}
+
 @test 'an existing local tag stops publication planning' {
   git tag v1.2.4
   run bash "${SCRIPT}" plan
