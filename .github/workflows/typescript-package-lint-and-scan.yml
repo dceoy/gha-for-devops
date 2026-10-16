@@ -203,7 +203,7 @@ jobs:
           node-version: latest
       - name: Setup pnpm and Node.js
         if: env.PACKAGE_MANAGER == 'pnpm' && steps.pnpm-config.outputs.legacy != 'true'
-        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024  # v3
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024  # v3.0.0
         with:
           version: ${{ inputs.pnpm-version || env.PNPM_VERSION }}
           runtime: node@${{ steps.pnpm-config.outputs.node-version }}
