@@ -8,6 +8,11 @@ on:
         type: string
         description: Path to search for Markdown files
         default: .
+      update-readme:
+        required: false
+        type: boolean
+        description: Regenerate README.md before creating the formatting pull request
+        default: false
       node-version:
         required: false
         type: string
@@ -60,6 +65,8 @@ jobs:
       npm_config_min_release_age: '7'
       # renovate: datasource=npm depName=prettier
       PRETTIER_VERSION: 3.9.6
+      # renovate: datasource=github-releases depName=jdx/mise
+      MISE_VERSION: 2026.8.5
       # renovate: datasource=npm depName=@biomejs/biome
       BIOME_VERSION: 2.5.6
     steps:
@@ -77,6 +84,28 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: ${{ inputs.node-version }}
+      - name: Set up mise
+        if: inputs.update-readme
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - name: Provide Prettier wrapper
+        if: inputs.update-readme
+        env:
+          PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
+        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Prettier through npx
+          [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
+          mkdir -p "${HOME}/.local/bin"
+          cat > "${HOME}/.local/bin/prettier" <<EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec npx --yes "prettier@${PRETTIER_VERSION}" "\$@"
+          EOF
+          chmod 0755 "${HOME}/.local/bin/prettier"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+      - name: Update README.md
+        if: inputs.update-readme
+        run: ./.github/scripts/update-readme.sh
       - name: Format Markdown files using Prettier
         if: inputs.use-prettier
         working-directory: ${{ inputs.search-path }}
@@ -91,6 +120,15 @@ jobs:
           BIOME_GLOB: ${{ inputs.biome-glob }}
         run: >  # zizmor: ignore[adhoc-packages] runs pinned Biome through npx
           npx --yes "@biomejs/biome@${BIOME_VERSION}" format --write --files-ignore-unknown=true "${BIOME_GLOB}"
+      - name: Require a PR-triggering token for README updates
+        if: inputs.update-readme
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          if ! git diff --quiet -- README.md && [[ -z "${GH_TOKEN}" ]]; then
+            echo '::error::Set the GH_TOKEN repository secret to a GitHub App token or PAT before creating a README update PR.'
+            exit 1
+          fi
       - name: Create output parameters
         id: parameters
         env:
@@ -125,7 +163,7 @@ jobs:
       - name: Detect changed files and create a pull request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
         with:
-          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          token: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
           commit-message: ${{ steps.parameters.outputs.commit_message }}
           title: ${{ steps.parameters.outputs.commit_message }}
           branch: ${{ steps.parameters.outputs.pr_branch }}
