@@ -8,11 +8,11 @@ setup() {
   git init -q -b main
   git config user.email ci@example.invalid
   git config user.name 'Release test'
-  echo 'baseline' > .github/workflows/ci.yml
+  printf 'on:\n  workflow_call:\njobs: {}\n' > .github/workflows/reusable.yml
   git add .
   git commit -qm 'ci: baseline'
   git tag v1.2.3
-  echo 'update' >> .github/workflows/ci.yml
+  echo '# update' >> .github/workflows/reusable.yml
   git add .
   git commit -qm 'fix: update reusable workflow'
 
