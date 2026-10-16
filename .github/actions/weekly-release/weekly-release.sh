@@ -39,7 +39,7 @@ tag_is_absent() {
 is_reusable_workflow() {
   local ref="$1"
   local path="$2"
-  git cat-file -e "${ref}:${path}" 2>/dev/null || return 1
+  git cat-file -e "${ref}:${path}" 2> /dev/null || return 1
   git show "${ref}:${path}" | awk '
     /^(on|"on"|\047on\047):[[:space:]]*(\[.*workflow_call|workflow_call)([[:space:],\]#]|$)/ { found=1; exit }
     /^(on|"on"|\047on\047):[[:space:]]*(#.*)?$/ { in_on=1; next }
