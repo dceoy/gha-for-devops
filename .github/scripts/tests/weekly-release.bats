@@ -27,6 +27,8 @@ setup() {
   export GITHUB_REPOSITORY='example/test'
   export GITHUB_REF='refs/heads/main'
   export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/output"
+  export FAKE_STATE="${BATS_TEST_TMPDIR}/github"
+  mkdir -p "${FAKE_STATE}"
   export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
   mkdir -p "${BATS_TEST_TMPDIR}/bin"
   cat > "${BATS_TEST_TMPDIR}/bin/gh" << 'MOCK'
@@ -34,6 +36,10 @@ setup() {
 set -euo pipefail
 case "$1 $2" in
   'api repos/example/test/git/ref/heads/main')
+    if [[ "${FAKE_MAIN_ERROR:-false}" == true ]]; then
+      echo 'GitHub API error' >&2
+      exit 1
+    fi
     printf '%s\n' "${FAKE_HEAD:-${RELEASE_SHA}}"
     ;;
   'api repos/example/test/git/matching-refs/'*)
@@ -41,10 +47,32 @@ case "$1 $2" in
       echo 'GitHub API error' >&2
       exit 1
     fi
-    printf '%s\n' "${FAKE_REMOTE_TAG:-}"
+    if [[ -f "${FAKE_STATE}/tag" ]]; then
+      cat "${FAKE_STATE}/tag"
+    else
+      printf '%s\n' "${FAKE_REMOTE_TAG:-}"
+    fi
     ;;
   'release list')
-    printf 'v1.2.3\n'
+    printf '%s\n' "${FAKE_LATEST:-v1.2.3}"
+    ;;
+  'api repos/example/test/releases')
+    if [[ "${FAKE_RELEASE_ERROR:-false}" == true ]]; then
+      echo 'GitHub API error' >&2
+      exit 1
+    fi
+    printf '%s\n' "${FAKE_EXISTING_RELEASE:-}"
+    ;;
+  'api repos/example/test/git/refs')
+    echo tag-create >> "${FAKE_STATE}/mutations"
+    printf 'commit\t%s\n' "${RELEASE_SHA}" > "${FAKE_STATE}/tag"
+    ;;
+  'release create')
+    echo release-create >> "${FAKE_STATE}/mutations"
+    if [[ "${FAKE_CREATE_ERROR:-false}" == true ]]; then
+      echo 'Release creation failed' >&2
+      exit 1
+    fi
     ;;
   *)
     echo "Unexpected gh invocation: $*" >&2
@@ -69,7 +97,7 @@ MOCK
   git commit -qm 'docs: documentation'
   run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
-  [ ! -s "${GITHUB_OUTPUT}" ]
+  grep -qx 'sync-major=true' "${GITHUB_OUTPUT}"
 }
 
 @test 'a feature in a squash commit body increments minor' {
@@ -114,7 +142,7 @@ MOCK
   git commit -qm 'ci: update regular workflow'
   run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
-  [ ! -s "${GITHUB_OUTPUT}" ]
+  grep -qx 'sync-major=true' "${GITHUB_OUTPUT}"
 }
 
 @test 'composite action changes alone do not trigger a release' {
@@ -125,7 +153,7 @@ MOCK
   git commit -qm 'fix: adjust composite action'
   run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
-  [ ! -s "${GITHUB_OUTPUT}" ]
+  grep -qx 'sync-major=true' "${GITHUB_OUTPUT}"
 }
 
 @test 'shared script changes alone do not trigger a release' {
@@ -135,7 +163,7 @@ MOCK
   git commit -qm 'fix: adjust helper'
   run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
-  [ ! -s "${GITHUB_OUTPUT}" ]
+  grep -qx 'sync-major=true' "${GITHUB_OUTPUT}"
 }
 
 @test 'a new reusable workflow triggers a patch release' {
@@ -174,7 +202,7 @@ MOCK
   git commit -qm 'ci: add push-only workflow'
   run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
-  [ ! -s "${GITHUB_OUTPUT}" ]
+  grep -qx 'sync-major=true' "${GITHUB_OUTPUT}"
 }
 
 @test 'renaming a reusable workflow into a regular workflow triggers a release' {
@@ -195,7 +223,7 @@ MOCK
   git commit -qm 'ci: regenerate Actions lockfile'
   run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
-  [ ! -s "${GITHUB_OUTPUT}" ]
+  grep -qx 'sync-major=true' "${GITHUB_OUTPUT}"
 }
 
 @test 'quoted inline workflow_call in a yaml file triggers a release' {
@@ -209,7 +237,7 @@ MOCK
 }
 
 @test 'an existing local tag stops publication planning' {
-  git tag v1.2.4
+  git tag v1.2.4 v1.2.3
   run bash "${PLAN_SCRIPT}"
   [ "$status" -ne 0 ]
   [[ "$output" == *'already exists locally'* ]]
@@ -254,4 +282,121 @@ MOCK
     run grep -F "&& needs.${name}.result == 'success'" "${workflow}"
     [ "$status" -eq 0 ]
   done
+}
+
+@test 'reusable YAML trigger variants are parsed structurally' {
+  local fixture
+  local -a fixtures=(
+    'on:\n    workflow_call:\njobs: {}\n'
+    '"on":\n  "workflow_call":\njobs: {}\n'
+    "'on': {'workflow_call': {}}\njobs: {}\n"
+    'on: workflow_call\njobs: {}\n'
+    'on: [push, workflow_call]\njobs: {}\n'
+  )
+  for fixture in "${fixtures[@]}"; do
+    echo "fixture: ${fixture}"
+    git reset -q --hard v1.2.3
+    printf '%b' "${fixture}" > .github/workflows/new.yaml
+    git add .
+    git commit -qm 'fix: add reusable workflow'
+    : > "${GITHUB_OUTPUT}"
+    run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
+    [ "$status" -eq 0 ]
+    grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
+  done
+}
+
+@test 'malformed workflow YAML fails planning even after a qualifying change' {
+  printf 'on: [\n' > .github/workflows/z-invalid.yml
+  git add .
+  git commit -qm 'fix: invalid workflow'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
+  [ "$status" -ne 0 ]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+}
+
+@test 'unrelated feature messages contribute to repository-wide severity' {
+  echo documentation > README.md
+  git add .
+  git commit -qm 'feat: improve documentation'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
+  [ "$status" -eq 0 ]
+  grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
+}
+
+@test 'main API failures fail both planning and publication' {
+  local script
+  for script in "${PLAN_SCRIPT}" "${PUBLISH_SCRIPT}"; do
+    echo "script: ${script}"
+    run env FAKE_MAIN_ERROR=true RELEASE_TAG=v1.2.4 bash "${script}"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *'GitHub API error'* ]]
+    [ ! -s "${GITHUB_OUTPUT}" ]
+    [ ! -e "${FAKE_STATE}/mutations" ]
+  done
+}
+
+@test 'a partial publication retries its exact tag after validation planning' {
+  run env FAKE_CREATE_ERROR=true RELEASE_TAG=v1.2.4 bash "${PUBLISH_SCRIPT}"
+  [ "$status" -ne 0 ]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+  [ -f "${FAKE_STATE}/tag" ]
+  git tag v1.2.4 "${RELEASE_SHA}"
+
+  run bash "${PLAN_SCRIPT}"
+  [ "$status" -eq 0 ]
+  grep -qx 'ready=true' "${GITHUB_OUTPUT}"
+  : > "${GITHUB_OUTPUT}"
+  run env RELEASE_TAG=v1.2.4 bash "${PUBLISH_SCRIPT}"
+  [ "$status" -eq 0 ]
+  grep -qx 'published=true' "${GITHUB_OUTPUT}"
+  [ "$(grep -c '^tag-create$' "${FAKE_STATE}/mutations")" -eq 1 ]
+  [ "$(grep -c '^release-create$' "${FAKE_STATE}/mutations")" -eq 2 ]
+}
+
+@test 'retry rejects conflicting or annotated remote tag objects' {
+  local script remote
+  local -a remotes=(
+    $'commit\t0000000000000000000000000000000000000000'
+    "$(printf 'tag\t%s' "${RELEASE_SHA}")"
+  )
+  for script in "${PLAN_SCRIPT}" "${PUBLISH_SCRIPT}"; do
+    for remote in "${remotes[@]}"; do
+      echo "script: ${script}, object: ${remote}"
+      run env "FAKE_REMOTE_TAG=${remote}" RELEASE_TAG=v1.2.4 bash "${script}"
+      [ "$status" -ne 0 ]
+      [[ "$output" == *'already exists remotely'* ]]
+      [ ! -s "${GITHUB_OUTPUT}" ]
+      [ ! -e "${FAKE_STATE}/mutations" ]
+    done
+  done
+}
+
+@test 'retry fails closed for release lookup errors or an existing release' {
+  local script scenario
+  local -a scenarios=(FAKE_RELEASE_ERROR=true FAKE_EXISTING_RELEASE=123)
+  for script in "${PLAN_SCRIPT}" "${PUBLISH_SCRIPT}"; do
+    for scenario in "${scenarios[@]}"; do
+      echo "script: ${script}, scenario: ${scenario}"
+      run env "${scenario}" "FAKE_REMOTE_TAG=$(printf 'commit\t%s' "${RELEASE_SHA}")" \
+        RELEASE_TAG=v1.2.4 bash "${script}"
+      [ "$status" -ne 0 ]
+      [ ! -s "${GITHUB_OUTPUT}" ]
+      [ ! -e "${FAKE_STATE}/mutations" ]
+    done
+  done
+}
+
+@test 'no-change runs can retry synchronization after successful publication' {
+  git tag v1.2.4 "${RELEASE_SHA}"
+  run env FAKE_LATEST=v1.2.4 bash "${PLAN_SCRIPT}"
+  [ "$status" -eq 0 ]
+  [ "$(cat "${GITHUB_OUTPUT}")" = 'sync-major=true' ]
+  [ ! -e "${FAKE_STATE}/mutations" ]
+  [ "$(yq -r '.jobs.weekly-major-version-tag.needs | join(",")' "${WORKFLOW_FILE}")" = 'plan,publish' ]
+  condition="$(yq -r '.jobs.weekly-major-version-tag.if' "${WORKFLOW_FILE}")"
+  [[ "${condition}" == *"!cancelled()"* ]]
+  [[ "${condition}" == *"needs.plan.result == 'success'"* ]]
+  [[ "${condition}" == *"needs.plan.outputs.sync-major == 'true'"* ]]
+  [[ "${condition}" == *"needs.publish.outputs.published == 'true'"* ]]
 }

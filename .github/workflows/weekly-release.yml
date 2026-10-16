@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-slim
     outputs:
       ready: ${{ steps.plan.outputs.ready }}
+      sync-major: ${{ steps.plan.outputs.sync-major }}
       tag: ${{ steps.plan.outputs.tag }}
       sha: ${{ steps.plan.outputs.sha }}
     steps:
@@ -23,6 +24,16 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Set up YAML parser
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
+        with:
+          version: 2026.8.5
+          working_directory: ${{ runner.temp }}
+          mise_toml: |
+            [tools]
+            yq = "4.53.3"
+      - name: Add pinned YAML parser to PATH
+        run: mise where yq@4.53.3 >> "${GITHUB_PATH}"
       - name: Decide whether to release
         id: plan
         env:
@@ -43,25 +54,40 @@ jobs:
           main_is_current() {
             local head_sha
             head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+            MAIN_CURRENT=true
             if [[ "${head_sha}" != "${RELEASE_SHA}" ]]; then
               echo '::notice::main advanced since this workflow started; skipping this release.'
-              return 1
+              MAIN_CURRENT=false
             fi
           }
 
-          tag_is_absent() {
+          tag_is_publishable() {
             local tag="$1"
-            local remote
+            local local_sha remote release
             if git show-ref --verify --quiet "refs/tags/${tag}"; then
-              echo "::error::Tag ${tag} already exists locally." >&2
-              return 1
+              local_sha="$(git rev-parse "refs/tags/${tag}")"
+              if [[ "${local_sha}" != "${RELEASE_SHA}" ]]; then
+                echo "::error::Tag ${tag} already exists locally at a different object." >&2
+                return 1
+              fi
             fi
-            # An API error is fatal; an empty successful response means the tag is absent.
+            # An API error is fatal; only an empty successful response means absent.
             remote="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${tag}" \
-              --jq ".[] | select(.ref == \"refs/tags/${tag}\") | .ref")"
+              --jq ".[] | select(.ref == \"refs/tags/${tag}\") | [.object.type, .object.sha] | @tsv")"
+            TAG_EXISTS=false
             if [[ -n "${remote}" ]]; then
-              echo "::error::Tag ${tag} already exists remotely." >&2
-              return 1
+              if [[ "${remote}" != "$(printf 'commit\t%s' "${RELEASE_SHA}")" ]]; then
+                echo "::error::Tag ${tag} already exists remotely at a different object." >&2
+                return 1
+              fi
+              # Recover only an orphan tag at this exact validated commit.
+              release="$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+                --jq ".[] | select(.tag_name == \"${tag}\") | .id")"
+              if [[ -n "${release}" ]]; then
+                echo "::error::Release ${tag} already exists." >&2
+                return 1
+              fi
+              TAG_EXISTS=true
             fi
           }
 
@@ -70,29 +96,32 @@ jobs:
           is_reusable_workflow() {
             local ref="$1"
             local path="$2"
-            git cat-file -e "${ref}:${path}" 2> /dev/null || return 1
-            git show "${ref}:${path}" | awk '
-              /^(on|"on"|\047on\047):[[:space:]]*(\[.*workflow_call|workflow_call)([[:space:],\]#]|$)/ { found=1; exit }
-              /^(on|"on"|\047on\047):[[:space:]]*(#.*)?$/ { in_on=1; next }
-              in_on && /^[^[:space:]#][^:]*:/ { in_on=0 }
-              in_on && /^  workflow_call:[[:space:]]*/ { found=1; exit }
-              END { exit(!found) }
+            if ! git cat-file -e "${ref}:${path}" 2> /dev/null; then
+              echo false
+              return
+            fi
+            git show "${ref}:${path}" | yq -o=json '.on' | jq -r '
+              if type == "object" then has("workflow_call")
+              elif type == "array" then index("workflow_call") != null
+              else . == "workflow_call" end
             '
           }
 
           reusable_workflows_changed() {
-            local path
+            local path old_reusable new_reusable
+            WORKFLOWS_CHANGED=false
             while IFS= read -r -d '' path; do
               [[ "${path}" =~ ^\.github/workflows/[^/]+\.ya?ml$ ]] || continue
-              if is_reusable_workflow "${previous_tag}" "${path}" \
-                || is_reusable_workflow "${RELEASE_SHA}" "${path}"; then
-                return 0
+              old_reusable="$(is_reusable_workflow "${previous_tag}" "${path}")"
+              new_reusable="$(is_reusable_workflow "${RELEASE_SHA}" "${path}")"
+              if [[ "${old_reusable}" == true || "${new_reusable}" == true ]]; then
+                WORKFLOWS_CHANGED=true
               fi
             done < <(git diff --no-renames --name-only -z "${previous_tag}" "${RELEASE_SHA}" -- .github/workflows)
-            return 1
           }
 
-          if ! main_is_current; then
+          main_is_current
+          if [[ "${MAIN_CURRENT}" != true ]]; then
             exit 0
           fi
 
@@ -110,8 +139,10 @@ jobs:
             exit 1
           fi
 
-          if ! reusable_workflows_changed; then
+          reusable_workflows_changed
+          if [[ "${WORKFLOWS_CHANGED}" != true ]]; then
             echo '::notice::No changes to reusable workflows since the latest release.'
+            echo 'sync-major=true' >> "${GITHUB_OUTPUT:?}"
             exit 0
           fi
 
@@ -126,7 +157,10 @@ jobs:
             patch=$((patch + 1))
           fi
           tag="v${major}.${minor}.${patch}"
-          tag_is_absent "${tag}"
+          tag_is_publishable "${tag}"
+          if [[ "${TAG_EXISTS}" == true ]]; then
+            echo "::notice::Resuming publication of ${tag} at ${RELEASE_SHA}."
+          fi
           {
             echo 'ready=true'
             echo "tag=${tag}"
@@ -236,25 +270,40 @@ jobs:
           main_is_current() {
             local head_sha
             head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+            MAIN_CURRENT=true
             if [[ "${head_sha}" != "${RELEASE_SHA}" ]]; then
               echo '::notice::main advanced since this workflow started; skipping this release.'
-              return 1
+              MAIN_CURRENT=false
             fi
           }
 
-          tag_is_absent() {
+          tag_is_publishable() {
             local tag="$1"
-            local remote
+            local local_sha remote release
             if git show-ref --verify --quiet "refs/tags/${tag}"; then
-              echo "::error::Tag ${tag} already exists locally." >&2
-              return 1
+              local_sha="$(git rev-parse "refs/tags/${tag}")"
+              if [[ "${local_sha}" != "${RELEASE_SHA}" ]]; then
+                echo "::error::Tag ${tag} already exists locally at a different object." >&2
+                return 1
+              fi
             fi
-            # An API error is fatal; an empty successful response means the tag is absent.
+            # An API error is fatal; only an empty successful response means absent.
             remote="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${tag}" \
-              --jq ".[] | select(.ref == \"refs/tags/${tag}\") | .ref")"
+              --jq ".[] | select(.ref == \"refs/tags/${tag}\") | [.object.type, .object.sha] | @tsv")"
+            TAG_EXISTS=false
             if [[ -n "${remote}" ]]; then
-              echo "::error::Tag ${tag} already exists remotely." >&2
-              return 1
+              if [[ "${remote}" != "$(printf 'commit\t%s' "${RELEASE_SHA}")" ]]; then
+                echo "::error::Tag ${tag} already exists remotely at a different object." >&2
+                return 1
+              fi
+              # Recover only an orphan tag at this exact validated commit.
+              release="$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+                --jq ".[] | select(.tag_name == \"${tag}\") | .id")"
+              if [[ -n "${release}" ]]; then
+                echo "::error::Release ${tag} already exists." >&2
+                return 1
+              fi
+              TAG_EXISTS=true
             fi
           }
 
@@ -263,21 +312,26 @@ jobs:
             echo "::error::Invalid release tag: ${RELEASE_TAG}" >&2
             exit 1
           fi
-          if ! main_is_current; then
+          main_is_current
+          if [[ "${MAIN_CURRENT}" != true ]]; then
             exit 0
           fi
-          tag_is_absent "${RELEASE_TAG}"
+          tag_is_publishable "${RELEASE_TAG}"
           # Creating the tag atomically first prevents --target from silently
           # publishing an existing tag that points to a different commit.
-          gh api "repos/${GITHUB_REPOSITORY}/git/refs" --method POST \
-            --field "ref=refs/tags/${RELEASE_TAG}" --field "sha=${RELEASE_SHA}" > /dev/null
+          if [[ "${TAG_EXISTS}" != true ]]; then
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" --method POST \
+              --field "ref=refs/tags/${RELEASE_TAG}" --field "sha=${RELEASE_SHA}" > /dev/null
+          fi
           gh release create "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
             --verify-tag --title "${RELEASE_TAG}" --generate-notes
           echo 'published=true' >> "${GITHUB_OUTPUT:?}"
 
   weekly-major-version-tag:
-    needs: publish
-    if: needs.publish.outputs.published == 'true'
+    needs: [plan, publish]
+    if: >-
+      !cancelled() && needs.plan.result == 'success'
+      && (needs.publish.outputs.published == 'true' || needs.plan.outputs.sync-major == 'true')
     permissions:
       contents: write
     uses: $/.github/workflows/github-major-version-tag.yml
