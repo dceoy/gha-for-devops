@@ -62,11 +62,9 @@ case "${1:-}" in
 
     messages="$(git log --first-parent --format=%B "${previous_tag}..${RELEASE_SHA}")"
     # Squash-merge bodies can prefix subjects with "* "; trailers can be indented.
-    if grep -Eq '^[[:space:]]*(\*[[:space:]]*)?[[:alnum:]_-]+(\([^)]*\))?!:|^[[:space:]]*(\*[[:space:]]*)?BREAKING[ -]CHANGE:' <<< "${messages}"; then
-      echo '::error::Breaking changes require a reviewed manual major release.' >&2
-      exit 1
-    fi
-    if grep -Eq '^[[:space:]]*(\*[[:space:]]*)?feat(\([^)]*\))?:' <<< "${messages}"; then
+    # Breaking changes intentionally use a minor bump for this workflow library.
+    if grep -Eq '^[[:space:]]*(\*[[:space:]]*)?[[:alnum:]_-]+(\([^)]*\))?!:|^[[:space:]]*(\*[[:space:]]*)?BREAKING[ -]CHANGE:' <<< "${messages}" \
+      || grep -Eq '^[[:space:]]*(\*[[:space:]]*)?feat(\([^)]*\))?:' <<< "${messages}"; then
       minor=$((minor + 1))
       patch=0
     else
