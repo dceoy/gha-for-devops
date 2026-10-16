@@ -245,6 +245,11 @@ workflows:
         - 'pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024'
     '.github/workflows/web-api-monitoring-with-slack.yml':
         - 'slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d'
+    '.github/workflows/weekly-release.yml':
+        - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+        - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+        - 'bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43'
+        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
     '.github/workflows/yaml-lint.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'

@@ -82,11 +82,7 @@ on:
         description: Runner to use
         default: ubuntu-latest
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  id-token: write
-  actions: read  # Required for Claude to read CI results on PRs
+  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -158,6 +154,12 @@ jobs:
               ;;
           esac
   claude-code-bot:
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read  # Required for Claude to read CI results on PRs
     needs:
       - authorize
     if: needs.authorize.outputs.authorized == 'true'

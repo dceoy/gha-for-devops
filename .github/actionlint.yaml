@@ -20,3 +20,37 @@ paths:
   .github/workflows/terraform-format-and-pr.yml:
     ignore:
       - 'unexpected key "queue" for "concurrency" section'
+  # GitHub.com supports $/ self-repository calls; keep parity with CI compatibility mode.
+  .github/workflows/ci.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/weekly-release.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/hugo-deploy-to-gh-pages.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/docker-build-and-push.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/json-schema-validation.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/docker-build-with-multi-targets.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/ai-agents.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/docker-buildx-bake.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/docker-pull-from-aws.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/docker-save-and-terraform-deploy-to-aws.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/terraform-lock-files-upgrade-and-pr-merge.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'

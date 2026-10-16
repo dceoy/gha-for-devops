@@ -20,6 +20,14 @@ jobs:
 
 For production use, replace `@main` with a release tag or commit SHA. Pass sensitive values through `secrets:`, never `with:`. Cache-enabled workflows document options such as `enable-cache`, `cache-dependency-path`, and `cache-salt` in their workflow files.
 
+### Weekly releases
+
+The [CI workflow](.github/workflows/ci.yml) invokes the reusable [weekly release workflow](.github/workflows/weekly-release.yml) every Monday at 09:15 JST (00:15 UTC). It publishes only when a reusable workflow (a `.github/workflows/*.yml` or `*.yaml` file defining `workflow_call`) has changed since the latest stable SemVer release, including additions, deletions, or removal of `workflow_call`. Changes only to regular CI workflows, composite actions, shared scripts, the Actions lockfile, or documentation do not trigger a release. Otherwise, it validates the exact candidate commit with ShellCheck/shfmt, Markdown lint, GitHub Actions lint/security checks, and available Bats tests before publishing. This is independent of earlier `push` runs, which can be missing after token-driven merges.
+
+Once reusable workflow changes trigger a release, version severity uses all first-parent commit messages since the previous release, including unrelated documentation, scripts, and ordinary CI changes. A `feat:` commit or squash-merge entry increments the minor version; other changes, including `chore(deps):`, increment the patch version. Breaking-change markers (`!:`, `BREAKING CHANGE:`, and `BREAKING-CHANGE:`) also increment the minor version instead of requiring a major release; the major component is unchanged by weekly automation. The release planning and publication logic is implemented directly in the reusable workflow, without a composite action or caller-local script. The workflow rejects non-`main` dispatches and conflicting release tags, and atomically creates the version tag at the validated commit before publishing a GitHub Release. If GitHub Release creation fails after tag creation, rerunning on the same commit can complete publication using that tag; tags at different objects are rejected. The `v1`-style major tag is synchronized after publication and reconciled to the latest published release on no-change runs, so failed tag synchronization can recover.
+
+For an on-demand run, dispatch **CI/CD** on `main` with `workflow: weekly-release`. The existing tag-based manual release remains available.
+
 ### Node.js versions with pnpm
 
 The TypeScript and HTML workflows select Node.js from the project's `package.json` when using pnpm, in this order:
@@ -191,6 +199,7 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [typescript-package-lint-and-scan.yml](.github/workflows/typescript-package-lint-and-scan.yml)                   | Lint and security scan for TypeScript                             |
 | [typescript-package-script.yml](.github/workflows/typescript-package-script.yml)                                 | Package script run for a TypeScript project                       |
 | [web-api-monitoring-with-slack.yml](.github/workflows/web-api-monitoring-with-slack.yml)                         | Synthetic web API monitoring with Slack notification              |
+| [weekly-release.yml](.github/workflows/weekly-release.yml)                                                       | Weekly release                                                    |
 | [yaml-lint.yml](.github/workflows/yaml-lint.yml)                                                                 | Lint for YAML                                                     |
 
 ## License

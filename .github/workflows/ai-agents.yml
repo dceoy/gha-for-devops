@@ -43,7 +43,7 @@ jobs:
       issues: write
       id-token: write
       actions: read
-    uses: ./.github/workflows/claude-code-review.yml
+    uses: $/.github/workflows/claude-code-review.yml
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -75,7 +75,7 @@ jobs:
       issues: write
       id-token: write
       actions: read
-    uses: ./.github/workflows/claude-code-bot.yml
+    uses: $/.github/workflows/claude-code-bot.yml
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

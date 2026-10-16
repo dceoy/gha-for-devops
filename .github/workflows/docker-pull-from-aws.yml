@@ -197,7 +197,7 @@ jobs:
       inputs.scan-after-pull
     needs:
       - pull-and-save
-    uses: ./.github/workflows/docker-image-scan.yml
+    uses: $/.github/workflows/docker-image-scan.yml
     with:
       image-refs-json: ${{ needs.pull-and-save.outputs.image-refs-json }}
       image-artifact-name: ${{ inputs.image-artifact-name }}
