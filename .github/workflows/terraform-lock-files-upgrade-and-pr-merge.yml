@@ -124,7 +124,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
-    uses: ./.github/workflows/github-pr-branch-aggregation.yml
+    uses: $/.github/workflows/github-pr-branch-aggregation.yml
     with:
       branch-prefix: ${{ inputs.merged-pr-branch-prefix }}
       delete-merged-branch: false
@@ -137,7 +137,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: ./.github/workflows/terraform-lock-files-upgrade.yml
+    uses: $/.github/workflows/terraform-lock-files-upgrade.yml
     with:
       terraform-working-directories: ${{ inputs.terraform-working-directories }}
       terraform-working-directory-to-version-tf-json: ${{ inputs.terraform-working-directory-to-version-tf-json }}
@@ -155,7 +155,7 @@ jobs:
       contents: write
       actions: read
       security-events: write
-    uses: ./.github/workflows/terraform-lint-and-scan.yml
+    uses: $/.github/workflows/terraform-lint-and-scan.yml
     with:
       search-path: ${{ inputs.search-path-for-lint-and-scan }}
       terraform-version: ${{ inputs.terraform-version }}

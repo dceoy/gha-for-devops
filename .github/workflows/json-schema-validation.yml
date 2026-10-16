@@ -42,7 +42,7 @@ defaults:
 jobs:
   lint:
     if: inputs.lint-before-validation
-    uses: ./.github/workflows/json-lint.yml
+    uses: $/.github/workflows/json-lint.yml
     with:
       search-path: ${{ inputs.search-path }}
   validation:

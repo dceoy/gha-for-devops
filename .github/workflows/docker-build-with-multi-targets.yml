@@ -218,7 +218,7 @@ jobs:
       fail-fast: false
       matrix:
         image-to-target: ${{ fromJSON(needs.create-target-matrix.outputs.target-matrix-json) }}
-    uses: ./.github/workflows/docker-build-and-push.yml
+    uses: $/.github/workflows/docker-build-and-push.yml
     with:
       registry: ${{ inputs.registry }}
       registry-user: ${{ inputs.registry-user }}

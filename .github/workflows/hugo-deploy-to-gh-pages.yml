@@ -147,7 +147,7 @@ jobs:
     permissions:
       id-token: write
       pages: write
-    uses: ./.github/workflows/github-pages-deploy.yml
+    uses: $/.github/workflows/github-pages-deploy.yml
     with:
       artifact-name: github-pages
       environment: ${{ inputs.environment }}

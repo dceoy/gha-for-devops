@@ -166,19 +166,16 @@ jobs:
             echo "tag=${tag}"
             echo "sha=${RELEASE_SHA}"
           } >> "${GITHUB_OUTPUT:?}"
-
   shell-lint:
     needs: plan
     if: needs.plan.outputs.ready == 'true'
     uses: $/.github/workflows/shell-lint.yml
     with:
       use-shfmt: true
-
   markdown-lint:
     needs: plan
     if: needs.plan.outputs.ready == 'true'
     uses: $/.github/workflows/markdown-lint.yml
-
   github-actions-lint-and-scan:
     needs: plan
     if: needs.plan.outputs.ready == 'true'
@@ -193,7 +190,6 @@ jobs:
       go-version: stable
       python-version: 3.x
       actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml
-
   bats-tests:
     needs: plan
     if: needs.plan.outputs.ready == 'true'
@@ -223,7 +219,6 @@ jobs:
           else
             echo '::notice::Caller has no Bats test suite.'
           fi
-
   publish:
     needs:
       - plan
@@ -326,7 +321,6 @@ jobs:
           gh release create "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
             --verify-tag --title "${RELEASE_TAG}" --generate-notes
           echo 'published=true' >> "${GITHUB_OUTPUT:?}"
-
   weekly-major-version-tag:
     needs: [plan, publish]
     if: >-

@@ -244,7 +244,7 @@ jobs:
   build:
     if: >
       inputs.apply && inputs.docker-image-name-to-target-stage-json != null
-    uses: ./.github/workflows/docker-build-with-multi-targets.yml
+    uses: $/.github/workflows/docker-build-with-multi-targets.yml
     permissions:
       contents: write
       packages: write
@@ -287,7 +287,7 @@ jobs:
     if: >
       inputs.apply && inputs.docker-image-name-to-target-stage-json == null
       && (inputs.docker-image-names-to-pull != null || inputs.docker-tag-source-to-target-json != null)
-    uses: ./.github/workflows/docker-pull-from-aws.yml
+    uses: $/.github/workflows/docker-pull-from-aws.yml
     with:
       image-names: ${{ inputs.docker-image-names-to-pull }}
       tag-source-to-target-json: ${{ inputs.docker-tag-source-to-target-json }}
@@ -314,7 +314,7 @@ jobs:
     needs:
       - build
       - pull
-    uses: ./.github/workflows/terraform-deploy-to-aws.yml
+    uses: $/.github/workflows/terraform-deploy-to-aws.yml
     with:
       aws-iam-role-to-assume: ${{ inputs.target-aws-iam-role-to-assume }}
       aws-region: ${{ inputs.target-aws-region }}
