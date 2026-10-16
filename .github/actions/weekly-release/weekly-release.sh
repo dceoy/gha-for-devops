@@ -57,7 +57,7 @@ reusable_workflows_changed() {
       || is_reusable_workflow "${RELEASE_SHA}" "${path}"; then
       return 0
     fi
-  done < <(git diff --name-only -z "${previous_tag}" "${RELEASE_SHA}" -- .github/workflows)
+  done < <(git diff --no-renames --name-only -z "${previous_tag}" "${RELEASE_SHA}" -- .github/workflows)
   return 1
 }
 
