@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 setup() {
-  export SCRIPT="${BATS_TEST_DIRNAME}/../weekly-release.sh"
+  export SCRIPT="${BATS_TEST_DIRNAME}/../../actions/weekly-release/weekly-release.sh"
   export TEST_DIR="${BATS_TEST_TMPDIR}/candidate"
   mkdir -p "${TEST_DIR}/.github/workflows" "${TEST_DIR}/.github/scripts"
   cd "${TEST_DIR}" || exit
@@ -23,7 +23,7 @@ setup() {
   export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/output"
   export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
   mkdir -p "${BATS_TEST_TMPDIR}/bin"
-  cat > "${BATS_TEST_TMPDIR}/bin/gh" <<'MOCK'
+  cat > "${BATS_TEST_TMPDIR}/bin/gh" << 'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
 case "$1 $2" in
