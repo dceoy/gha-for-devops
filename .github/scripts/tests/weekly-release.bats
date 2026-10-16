@@ -73,17 +73,32 @@ MOCK
   grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
 }
 
-@test 'breaking changes in squash body abort the automatic release' {
+@test 'breaking changes in squash body increment minor' {
   git commit --amend -qm 'fix: bundled change' -m '* feat!: remove input'
   run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
-  [ "$status" -ne 0 ]
-  [[ "$output" == *'Breaking changes require'* ]]
+  [ "$status" -eq 0 ]
+  grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
 }
 
-@test 'BREAKING-CHANGE footer aborts the automatic release' {
+@test 'BREAKING-CHANGE footer increments minor' {
   git commit --amend -qm 'fix: bundled change' -m '  BREAKING-CHANGE: removed inputs'
   run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
-  [ "$status" -ne 0 ]
+  [ "$status" -eq 0 ]
+  grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
+}
+
+@test 'breaking fix commit increments minor instead of patch' {
+  git commit --amend -qm 'fix!: change an existing workflow input'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
+}
+
+@test 'BREAKING CHANGE footer increments minor' {
+  git commit --amend -qm 'fix: remove old input' -m 'BREAKING CHANGE: removed old input'
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  [ "$status" -eq 0 ]
+  grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
 }
 
 @test 'an existing local tag stops publication planning' {
