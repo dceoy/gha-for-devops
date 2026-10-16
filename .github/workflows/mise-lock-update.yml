@@ -77,7 +77,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
           commit-message: Update mise.lock
           title: Update mise.lock
-          branch: github-actions/mise-lock-update
+          branch: github-actions/mise-lock-update/${{ github.ref_name }}
           base: ${{ github.ref_name }}
           body: |
             Refresh the mise lockfile using `mise lock`.
