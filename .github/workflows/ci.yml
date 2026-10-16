@@ -181,9 +181,11 @@ jobs:
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   update-readme-md:
+    # Update the originating PR, never push generated documentation to protected main.
+    # Fork PRs cannot safely receive a write token; contributors must update README themselves.
     if: >
-      github.event_name == 'push'
-      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'update')
+      github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: write
     runs-on: ubuntu-slim
@@ -196,8 +198,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 1
-          ref: ${{ github.head_ref || github.ref_name }}
-          persist-credentials: true
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
@@ -228,4 +230,4 @@ jobs:
           add: ./README.md
           message: Update README.md
           push: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
