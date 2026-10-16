@@ -150,7 +150,7 @@ jobs:
       contents: write
       actions: read
     outputs:
-      published: ${ steps.publish.outputs.published }}
+      published: ${{ steps.publish.outputs.published }}
     steps:
       - name: Checkout repository and tags
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -160,8 +160,8 @@ jobs:
       - name: Publish weekly release
         id: publish
         env:
-          GH_TOKEN: ${ github.token }}
-          RELEASE_SHA: ${ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
         run: |
           head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
           if [[ "${head_sha}" != "${RELEASE_SHA}" ]]; then
@@ -234,7 +234,7 @@ jobs:
       contents: write
     uses: ./.github/workflows/github-major-version-tag.yml
     secrets:
-      GH_TOKEN: ${ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   dependabot-auto-merge:
     if: >
