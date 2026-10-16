@@ -143,6 +143,7 @@ jobs:
       || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'weekly-release')
     permissions:
       contents: write
+      pull-requests: write
       actions: read
       security-events: write
     uses: $/.github/workflows/weekly-release.yml
@@ -175,16 +176,6 @@ jobs:
       contents: write
       pull-requests: write
     uses: $/.github/workflows/markdown-format-and-pr.yml
-    secrets:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  mise-lock-update:
-    if: >
-      github.event_name == 'push'
-      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'update')
-    permissions:
-      contents: write
-      pull-requests: write
-    uses: $/.github/workflows/mise-lock-update.yml
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   update-readme-md:
