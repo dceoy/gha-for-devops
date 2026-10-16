@@ -11,11 +11,11 @@ workflows:
     '.github/workflows/ansible-lint.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
-        - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
     '.github/workflows/aws-cloudformation-lint.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
-        - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931'
     '.github/workflows/aws-codebuild-run.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -27,7 +27,7 @@ workflows:
     '.github/workflows/bats-test.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43'
         - 'pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024'
     '.github/workflows/ci.yml':
@@ -92,7 +92,7 @@ workflows:
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
-        - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931'
         - 'zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482'
     '.github/workflows/github-codeql-analysis.yml':
@@ -152,26 +152,26 @@ workflows:
     '.github/workflows/python-package-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
-        - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1'
     '.github/workflows/python-package-lint-and-scan.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
-        - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
     '.github/workflows/python-package-mkdocs-gh-deploy.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
-        - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453'
     '.github/workflows/python-package-test.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
-        - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
     '.github/workflows/python-pyinstaller.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
-        - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
     '.github/workflows/r-package-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1'
@@ -252,7 +252,7 @@ workflows:
         - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
     '.github/workflows/yaml-lint.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
 dependencies:
     'actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae':
         ref: 'v5.0.5'
@@ -359,9 +359,9 @@ dependencies:
         uses:
             - 'actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae'
             - 'aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514'
-    'astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7':
-        ref: 'v10.2.0'
-        commit: 'sha1-c18668ad3cf93ea998bef934396af7bb5c839dc7'
+    'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884':
+        ref: 'v10.3.0'
+        commit: 'sha1-1c37ad07a6a961277cf70c0d37d6f313000f5884'
         owner_id: 115962839
         repo_id: 846733598
     'aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd':
