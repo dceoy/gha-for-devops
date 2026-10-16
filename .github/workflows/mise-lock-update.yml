@@ -39,6 +39,7 @@ jobs:
   update-and-pr:
     if: >
       startsWith(github.ref, 'refs/heads/')
+      && !startsWith(github.ref, 'refs/heads/github-actions/mise-lock-update/')
       && github.event_name != 'pull_request'
       && github.event_name != 'pull_request_target'
     runs-on: ${{ inputs.runs-on }}
@@ -71,13 +72,21 @@ jobs:
           else
             mise lock
           fi
+      - name: Create update branch name
+        id: parameters
+        env:
+          PR_BASE: ${{ github.ref_name }}
+          TARGET_PATH: ${{ inputs.working-directory }}
+        run: |
+          target_hash=$(printf '%s' "${TARGET_PATH}" | sha256sum | cut -c1-12)
+          printf 'branch=github-actions/mise-lock-update/%s/%s\n' "${PR_BASE}" "${target_hash}" >> "${GITHUB_OUTPUT}"
       - name: Create a pull request if the lockfile changed
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
         with:
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
           commit-message: Update mise.lock
           title: Update mise.lock
-          branch: github-actions/mise-lock-update/${{ github.ref_name }}
+          branch: ${{ steps.parameters.outputs.branch }}
           base: ${{ github.ref_name }}
           body: |
             Refresh the mise lockfile using `mise lock`.

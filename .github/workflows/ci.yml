@@ -147,6 +147,8 @@ jobs:
       actions: read
       security-events: write
     uses: $/.github/workflows/weekly-release.yml
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   dependabot-auto-merge:
     if: >
       github.event_name == 'pull_request'
