@@ -1,10 +1,16 @@
 #!/usr/bin/env bats
 
 setup() {
-  export SCRIPT="${BATS_TEST_DIRNAME}/../../actions/weekly-release/weekly-release.sh"
+  # Exercise the actual inline run blocks from the reusable workflow.
+  export WORKFLOW_FILE="${BATS_TEST_DIRNAME}/../../workflows/weekly-release.yml"
+  export PLAN_SCRIPT="${BATS_TEST_TMPDIR}/plan.sh"
+  export PUBLISH_SCRIPT="${BATS_TEST_TMPDIR}/publish.sh"
+  yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${WORKFLOW_FILE}" > "${PLAN_SCRIPT}"
+  yq -r '.jobs.publish.steps[] | select(.id == "publish") | .run' "${WORKFLOW_FILE}" > "${PUBLISH_SCRIPT}"
   export TEST_DIR="${BATS_TEST_TMPDIR}/candidate"
   mkdir -p "${TEST_DIR}/.github/workflows" "${TEST_DIR}/.github/scripts"
   cd "${TEST_DIR}" || exit
+  bash -n "${PLAN_SCRIPT}" "${PUBLISH_SCRIPT}"
   git init -q -b main
   git config user.email ci@example.invalid
   git config user.name 'Release test'
@@ -50,7 +56,7 @@ MOCK
 }
 
 @test 'patch release is planned without requiring an earlier push CI run' {
-  run bash "${SCRIPT}" plan
+  run bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'ready=true' "${GITHUB_OUTPUT}"
   grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
@@ -61,42 +67,42 @@ MOCK
   echo 'documentation' > README.md
   git add .
   git commit -qm 'docs: documentation'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   [ ! -s "${GITHUB_OUTPUT}" ]
 }
 
 @test 'a feature in a squash commit body increments minor' {
   git commit --amend -qm 'fix: bundle changes' -m '* feat(workflows): add a workflow'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
 }
 
 @test 'breaking changes in squash body increment minor' {
   git commit --amend -qm 'fix: bundled change' -m '* feat!: remove input'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
 }
 
 @test 'BREAKING-CHANGE footer increments minor' {
   git commit --amend -qm 'fix: bundled change' -m '  BREAKING-CHANGE: removed inputs'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
 }
 
 @test 'breaking fix commit increments minor instead of patch' {
   git commit --amend -qm 'fix!: change an existing workflow input'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
 }
 
 @test 'BREAKING CHANGE footer increments minor' {
   git commit --amend -qm 'fix: remove old input' -m 'BREAKING CHANGE: removed old input'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
 }
@@ -106,7 +112,7 @@ MOCK
   printf 'on:\n  push:\njobs: {}\n' > .github/workflows/ci.yml
   git add .
   git commit -qm 'ci: update regular workflow'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   [ ! -s "${GITHUB_OUTPUT}" ]
 }
@@ -117,7 +123,7 @@ MOCK
   printf 'name: local\nruns:\n  using: composite\n  steps: []\n' > .github/actions/local/action.yml
   git add .
   git commit -qm 'fix: adjust composite action'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   [ ! -s "${GITHUB_OUTPUT}" ]
 }
@@ -127,7 +133,7 @@ MOCK
   echo '# updated' > .github/scripts/helper.sh
   git add .
   git commit -qm 'fix: adjust helper'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   [ ! -s "${GITHUB_OUTPUT}" ]
 }
@@ -137,7 +143,7 @@ MOCK
   printf 'on:\n  workflow_call:\njobs: {}\n' > .github/workflows/new.yml
   git add .
   git commit -qm 'fix: add reusable workflow'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
 }
@@ -147,7 +153,7 @@ MOCK
   printf 'on:\n  push:\njobs: {}\n' > .github/workflows/reusable.yml
   git add .
   git commit -qm 'fix: drop reusable interface'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
 }
@@ -156,7 +162,7 @@ MOCK
   git reset -q --hard v1.2.3
   git rm -q .github/workflows/reusable.yml
   git commit -qm 'fix: remove reusable workflow'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
 }
@@ -166,7 +172,7 @@ MOCK
   printf 'on:\n  push:\njobs: {}\n' > .github/workflows/other.yaml
   git add .
   git commit -qm 'ci: add push-only workflow'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   [ ! -s "${GITHUB_OUTPUT}" ]
 }
@@ -177,7 +183,7 @@ MOCK
   printf 'on:\n  push:\njobs: {}\n' > .github/workflows/ci.yml
   git add .
   git commit -qm 'fix: retire renamed reusable workflow'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
 }
@@ -187,7 +193,7 @@ MOCK
   echo 'version: locked' > .github/workflows/actions.lock
   git add .
   git commit -qm 'ci: regenerate Actions lockfile'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   [ ! -s "${GITHUB_OUTPUT}" ]
 }
@@ -197,53 +203,53 @@ MOCK
   printf "'on': [workflow_call]\njobs: {}\n" > .github/workflows/inline.yaml
   git add .
   git commit -qm 'fix: add quoted YAML reusable workflow'
-  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
 }
 
 @test 'an existing local tag stops publication planning' {
   git tag v1.2.4
-  run bash "${SCRIPT}" plan
+  run bash "${PLAN_SCRIPT}"
   [ "$status" -ne 0 ]
   [[ "$output" == *'already exists locally'* ]]
 }
 
 @test 'an existing remote tag stops publication planning' {
-  run env FAKE_REMOTE_TAG=refs/tags/v1.2.4 bash "${SCRIPT}" plan
+  run env FAKE_REMOTE_TAG=refs/tags/v1.2.4 bash "${PLAN_SCRIPT}"
   [ "$status" -ne 0 ]
   [[ "$output" == *'already exists remotely'* ]]
 }
 
 @test 'manual dispatch from a non-main ref is rejected' {
   export GITHUB_REF='refs/heads/feature'
-  run bash "${SCRIPT}" plan
+  run bash "${PLAN_SCRIPT}"
   [ "$status" -ne 0 ]
   [[ "$output" == *'refs/heads/main'* ]]
 }
 
 @test 'an advanced main is skipped without a release' {
   export FAKE_HEAD=0000000000000000000000000000000000000000
-  run bash "${SCRIPT}" plan
+  run bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]
   [ ! -s "${GITHUB_OUTPUT}" ]
 }
 
 @test 'GitHub API failures are not treated as missing tags' {
   export FAKE_REMOTE_ERROR=true
-  run bash "${SCRIPT}" plan
+  run bash "${PLAN_SCRIPT}"
   [ "$status" -ne 0 ]
   [[ "$output" == *'GitHub API error'* ]]
 }
 
 @test 'publication rejects an existing remote tag' {
-  run env FAKE_REMOTE_TAG=refs/tags/v1.2.4 RELEASE_TAG=v1.2.4 bash "${SCRIPT}" publish
+  run env FAKE_REMOTE_TAG=refs/tags/v1.2.4 RELEASE_TAG=v1.2.4 bash "${PUBLISH_SCRIPT}"
   [ "$status" -ne 0 ]
   [[ "$output" == *'already exists remotely'* ]]
 }
 
 @test 'publication requires every validation job to succeed' {
-  workflow="${BATS_TEST_DIRNAME}/../../workflows/weekly-release.yml"
+  workflow="${WORKFLOW_FILE}"
   for name in shell-lint markdown-lint github-actions-lint-and-scan bats-tests; do
     run grep -F "&& needs.${name}.result == 'success'" "${workflow}"
     [ "$status" -eq 0 ]
