@@ -4,7 +4,7 @@ setup() {
   export SCRIPT="${BATS_TEST_DIRNAME}/../weekly-release.sh"
   export TEST_DIR="${BATS_TEST_TMPDIR}/candidate"
   mkdir -p "${TEST_DIR}/.github/workflows" "${TEST_DIR}/.github/scripts"
-  cd "${TEST_DIR}"
+  cd "${TEST_DIR}" || exit
   git init -q -b main
   git config user.email ci@example.invalid
   git config user.name 'Release test'
@@ -57,36 +57,28 @@ MOCK
   echo 'documentation' > README.md
   git add .
   git commit -qm 'docs: documentation'
-  export RELEASE_SHA
-  RELEASE_SHA="$(git rev-parse HEAD)"
-  run bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
   [ "$status" -eq 0 ]
   [ ! -s "${GITHUB_OUTPUT}" ]
 }
 
 @test 'a feature in a squash commit body increments minor' {
   git commit --amend -qm 'fix: bundle changes' -m '* feat(workflows): add a workflow'
-  export RELEASE_SHA
-  RELEASE_SHA="$(git rev-parse HEAD)"
-  run bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
   [ "$status" -eq 0 ]
   grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
 }
 
 @test 'breaking changes in squash body abort the automatic release' {
   git commit --amend -qm 'fix: bundled change' -m '* feat!: remove input'
-  export RELEASE_SHA
-  RELEASE_SHA="$(git rev-parse HEAD)"
-  run bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
   [ "$status" -ne 0 ]
   [[ "$output" == *'Breaking changes require'* ]]
 }
 
 @test 'BREAKING-CHANGE footer aborts the automatic release' {
   git commit --amend -qm 'fix: bundled change' -m '  BREAKING-CHANGE: removed inputs'
-  export RELEASE_SHA
-  RELEASE_SHA="$(git rev-parse HEAD)"
-  run bash "${SCRIPT}" plan
+  run env "RELEASE_SHA=$(git rev-parse HEAD)" bash "${SCRIPT}" plan
   [ "$status" -ne 0 ]
 }
 
