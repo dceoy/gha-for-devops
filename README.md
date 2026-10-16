@@ -26,7 +26,6 @@ The [CI workflow](.github/workflows/ci.yml) checks for unpublished changes to `.
 
 For an on-demand run, dispatch **CI/CD** with `workflow: weekly-release`. Weeks with no workflow or shared-script changes are skipped; the existing tag-based manual release remains available.
 
-
 ### Node.js versions with pnpm
 
 The TypeScript and HTML workflows select Node.js from the project's `package.json` when using pnpm, in this order:
