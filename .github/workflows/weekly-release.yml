@@ -31,7 +31,7 @@ jobs:
         run: |
           #!/usr/bin/env bash
           set -euo pipefail
-          
+
           # Release only the main commit whose source is being validated by this run.
           : "${GITHUB_REPOSITORY:?}"
           : "${RELEASE_SHA:?}"
@@ -39,7 +39,7 @@ jobs:
             echo '::error::Weekly releases must run on refs/heads/main.' >&2
             exit 1
           fi
-          
+
           main_is_current() {
             local head_sha
             head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
@@ -48,7 +48,7 @@ jobs:
               return 1
             fi
           }
-          
+
           tag_is_absent() {
             local tag="$1"
             local remote
@@ -64,7 +64,7 @@ jobs:
               return 1
             fi
           }
-          
+
           # Only workflow files with workflow_call are part of the release surface.
           # Inspect both revisions so removals of reusable workflows are included.
           is_reusable_workflow() {
@@ -79,7 +79,7 @@ jobs:
               END { exit(!found) }
             '
           }
-          
+
           reusable_workflows_changed() {
             local path
             while IFS= read -r -d '' path; do
@@ -91,11 +91,11 @@ jobs:
             done < <(git diff --no-renames --name-only -z "${previous_tag}" "${RELEASE_SHA}" -- .github/workflows)
             return 1
           }
-          
+
           if ! main_is_current; then
             exit 0
           fi
-          
+
           previous_tag="$(gh release list --repo "${GITHUB_REPOSITORY}" \
             --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
           if [[ ! "${previous_tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
@@ -109,12 +109,12 @@ jobs:
             echo "::error::Release tag ${previous_tag} is not an ancestor of the release commit." >&2
             exit 1
           fi
-          
+
           if ! reusable_workflows_changed; then
             echo '::notice::No changes to reusable workflows since the latest release.'
             exit 0
           fi
-          
+
           messages="$(git log --first-parent --format=%B "${previous_tag}..${RELEASE_SHA}")"
           # Squash-merge bodies can prefix subjects with "* "; trailers can be indented.
           # Breaking changes intentionally use a minor bump for this workflow library.
@@ -224,7 +224,7 @@ jobs:
         run: |
           #!/usr/bin/env bash
           set -euo pipefail
-          
+
           # Release only the main commit whose source is being validated by this run.
           : "${GITHUB_REPOSITORY:?}"
           : "${RELEASE_SHA:?}"
@@ -232,7 +232,7 @@ jobs:
             echo '::error::Weekly releases must run on refs/heads/main.' >&2
             exit 1
           fi
-          
+
           main_is_current() {
             local head_sha
             head_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
@@ -241,7 +241,7 @@ jobs:
               return 1
             fi
           }
-          
+
           tag_is_absent() {
             local tag="$1"
             local remote
@@ -257,7 +257,7 @@ jobs:
               return 1
             fi
           }
-          
+
           : "${RELEASE_TAG:?}"
           if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Invalid release tag: ${RELEASE_TAG}" >&2
