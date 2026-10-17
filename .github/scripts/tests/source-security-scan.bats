@@ -28,6 +28,8 @@ setup() {
   grep -Fq 'steps.semgrep.outcome' "${WORKFLOW}"
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${WORKFLOW}")" = false ]
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with.format' "${WORKFLOW}")" = sarif ]
+  [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."limit-severities-for-sarif"' "${WORKFLOW}")" = true ]
+  [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with.severity' "${WORKFLOW}")" = '${{ inputs.trivy-severity }}' ]
   [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Upload Trivy SARIF report") | .with."if-no-files-found"' "${WORKFLOW}")" = warn ]
 }
 
@@ -48,13 +50,28 @@ setup() {
   done
 }
 
-@test "OSV scanning is skipped when no supported dependency file exists" {
-  mkdir -p "${BATS_TEST_TMPDIR}/empty"
-  local scan_path="${BATS_TEST_TMPDIR}/empty"
+@test "OSV scans directories regardless of known lockfile names" {
+  local scan_path="${BATS_TEST_TMPDIR}/other-ecosystems"
   local output_file="${BATS_TEST_TMPDIR}/out"
+  mkdir -p "${scan_path}/nested"
+  touch "${scan_path}/pom.xml" "${scan_path}/nested/packages.lock.json" \
+    "${scan_path}/renv.lock" "${scan_path}/nested/bom.cdx.json"
   run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
   [ "${status}" -eq 0 ]
-  [ ! -f "${output_file}" ]
+  grep -Fxq 'scan=true' "${output_file}"
+  grep -Fxq -- '--recursive' "${output_file}"
+  grep -Fxq -- '--include-git-root' "${output_file}"
+  grep -Fxq "${scan_path}" "${output_file}"
+}
+
+@test "OSV delegates the empty-directory case to the upstream scanner Action" {
+  local scan_path="${BATS_TEST_TMPDIR}/empty"
+  local output_file="${BATS_TEST_TMPDIR}/out"
+  mkdir -p "${scan_path}"
+  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
+  [ "${status}" -eq 0 ]
+  grep -Fxq 'scan=true' "${output_file}"
+  grep -Fxq "${scan_path}" "${output_file}"
 }
 
 @test "OSV preparation detects a nested lockfile under a path with spaces" {
