@@ -95,6 +95,12 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
+  osv-scan:
+    if: inputs.use-osv-scanner
+    uses: ./.github/workflows/osv-dependency-scan.yml
+    with:
+      package-path: ${{ inputs.package-path }}
+      requirements-txt: ${{ inputs.requirements-txt }}
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
@@ -106,55 +112,7 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Scan dependencies using OSV-Scanner
-        if: inputs.use-osv-scanner
-        env:
-          SCAN_PATH: ${{ inputs.package-path }}
-          OSV_SCANNER_VERSION: v2.6.0
-          REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
-        run: |
-          case "${RUNNER_OS}-${RUNNER_ARCH}" in
-            Linux-X64) platform=linux_amd64 ;;
-            Linux-ARM64) platform=linux_arm64 ;;
-            macOS-X64) platform=darwin_amd64 ;;
-            macOS-ARM64) platform=darwin_arm64 ;;
-            Windows-X64) platform=windows_amd64 ;;
-            Windows-ARM64) platform=windows_arm64 ;;
-            *) echo "::error::Unsupported OSV-Scanner platform"; exit 1 ;;
-          esac
-          asset="osv-scanner_${platform}"
-          [[ "${RUNNER_OS}" != Windows ]] || asset+=".exe"
-          scan_dir="$(mktemp -d)"
-          trap 'rm -rf "${scan_dir}"' EXIT
-          base_url="https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}"
-          curl -fsSL --retry 3 "${base_url}/${asset}" -o "${scan_dir}/${asset}"
-          curl -fsSL --retry 3 "${base_url}/osv-scanner_SHA256SUMS" -o "${scan_dir}/SHA256SUMS"
-          checksum_cmd=(shasum -a 256 --check)
-          if command -v sha256sum >/dev/null 2>&1; then checksum_cmd=(sha256sum --check); fi
-          (
-            cd "${scan_dir}"
-            grep -E "^[[:xdigit:]]{64} [ *]${asset}$" SHA256SUMS | "${checksum_cmd[@]}" -
-          )
-          chmod +x "${scan_dir}/${asset}"
-          scan_args=(scan source --recursive --include-git-root)
-          if [[ -n "${REQUIREMENTS_TXT_PATH}" && ! -f "${SCAN_PATH%/}/uv.lock" ]]; then
-            requirements_file="${REQUIREMENTS_TXT_PATH}"
-            if [[ "${requirements_file}" != /* && ! "${requirements_file}" =~ ^[A-Za-z]:[\\/] ]]; then
-              requirements_file="${SCAN_PATH%/}/${requirements_file}"
-            fi
-            if [[ ! -f "${requirements_file}" ]]; then
-              echo "::error::Requirements file not found: ${requirements_file}"
-              exit 1
-            fi
-            scan_args+=("--lockfile=requirements.txt:${requirements_file}")
-          fi
-          status=0
-          "${scan_dir}/${asset}" "${scan_args[@]}" "${SCAN_PATH}" || status=$?
-          if [[ "${status}" -eq 128 ]]; then
-            echo "::notice::OSV-Scanner found no extractable dependencies."
-          elif [[ "${status}" -ne 0 ]]; then
-            exit "${status}"
-          fi
+
       - name: Detect uv.lock or poetry.lock
         working-directory: ${{ inputs.package-path }}
         run: |
