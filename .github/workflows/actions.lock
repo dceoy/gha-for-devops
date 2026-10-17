@@ -111,7 +111,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
-        - 'github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d'
+        - 'github/codeql-action@24c54180a607b1449ed407dd24f251e4e9147c8d'
     '.github/workflows/go-package-test.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
