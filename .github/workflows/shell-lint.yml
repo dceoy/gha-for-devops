@@ -46,6 +46,11 @@ on:
         type: string
         description: Runner to use
         default: ubuntu-slim
+      security-runs-on:
+        required: false
+        type: string
+        description: Runner for Docker-free source security scans (Trivy and Semgrep)
+        default: ubuntu-slim
 permissions:
   contents: read
 defaults:
@@ -57,6 +62,7 @@ jobs:
     if: inputs.use-semgrep
     uses: $/.github/workflows/source-security-scan.yml
     with:
+      runs-on: ${{ inputs.security-runs-on }}
       use-osv-scanner: false
       use-trivy: false
       use-semgrep: ${{ inputs.use-semgrep }}
