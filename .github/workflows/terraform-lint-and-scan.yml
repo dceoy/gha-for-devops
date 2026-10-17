@@ -284,17 +284,16 @@ jobs:
           output_file_path: ${{ inputs.checkov-output-file-path }}
           soft_fail: ${{ inputs.checkov-soft-fail }}
           api-key: ${{ secrets.BC_API_KEY }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
-      - name: Set up mise for Semgrep
+      - name: Set up uv for Semgrep
         if: inputs.use-semgrep
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
         with:
-          install: false
-          cache: false
+          enable-cache: auto
       - name: Run Semgrep SAST scan
         if: inputs.use-semgrep
         working-directory: ${{ inputs.search-path }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep latest via mise
-          mise exec uv@latest semgrep@latest -- semgrep scan \
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep latest via uvx
+          uvx semgrep@latest scan \
             --config p/default --metrics off --error \
             --include '*.tf' \
             --include '*.hcl' .

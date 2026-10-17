@@ -242,16 +242,10 @@ jobs:
             poetry) poetry run pyright --threads=0 . ;;
             *)      pyright --threads=0 . ;;
           esac
-      - name: Set up mise for Semgrep
-        if: inputs.use-semgrep
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
-        with:
-          install: false
-          cache: false
       - name: Run Semgrep SAST scan
         if: inputs.use-semgrep
         working-directory: ${{ inputs.package-path }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep latest via mise
-          mise exec uv@latest semgrep@latest -- semgrep scan \
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep latest via uvx
+          uvx semgrep@latest scan \
             --config p/default --metrics off --error \
             --include '*.py' .

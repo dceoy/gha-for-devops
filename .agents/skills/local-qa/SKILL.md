@@ -24,4 +24,4 @@ Run the local QA script `scripts/qa.sh` in this skill.
 
 ## Semgrep
 
-The QA script runs a single repository-wide Semgrep OSS SAST scan when supported files are tracked. It uses mise to run `semgrep@latest` (configured in `mise.toml` and resolved in `mise.lock`) and the public `p/default` rule set without requiring a Semgrep AppSec Platform token. Findings cause QA to fail; Semgrep does not auto-fix them. Rule retrieval requires network access.
+The QA script runs a single repository-wide Semgrep OSS SAST scan when supported files are tracked. It uses `uvx semgrep@latest` to run the latest Semgrep CLI and the public `p/default` rule set without requiring a Semgrep AppSec Platform token. Findings cause QA to fail; Semgrep does not auto-fix them. Rule retrieval requires network access.

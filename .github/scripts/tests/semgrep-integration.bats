@@ -21,15 +21,15 @@ setup() {
     file="${REPO_ROOT}/.github/workflows/${workflow}"
     [[ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${file}")" == true ]]
     grep -Fq 'if: inputs.use-semgrep' "${file}"
-    grep -Fq "semgrep scan \\" "${file}"
+    grep -Fq "uvx semgrep@latest scan \\" "${file}"
     grep -Fq -- '--config p/default --metrics off --error' "${file}"
   done
 }
 
-@test "Local QA runs one mise-managed Semgrep scan with no cloud credentials" {
+@test "Local QA runs one uvx-managed Semgrep scan with no cloud credentials" {
   file="${REPO_ROOT}/.agents/skills/local-qa/scripts/qa.sh"
-  [[ "$(grep -c 'semgrep scan --config p/default' "${file}")" -eq 1 ]]
-  grep -Fq "mise exec uv@latest semgrep@latest -- semgrep scan" "${file}"
+  [[ "$(grep -c 'uvx semgrep@latest scan --config p/default' "${file}")" -eq 1 ]]
+  grep -Fq "uvx semgrep@latest scan" "${file}"
   bash -n "${file}"
 }
 
@@ -40,12 +40,12 @@ prepare_consumer() {
   CONSUMER="${BATS_TEST_TMPDIR}/consumer"
   export SEMGREP_ARGS="${BATS_TEST_TMPDIR}/semgrep-args"
   export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
-  cat > "${BATS_TEST_TMPDIR}/bin/mise" << 'SH'
+  cat > "${BATS_TEST_TMPDIR}/bin/uvx" << 'SH'
 #!/usr/bin/env bash
 printf '%s\0' "$@" > "${SEMGREP_ARGS}"
 exit "${SEMGREP_EXIT_CODE:-0}"
 SH
-  chmod +x "${BATS_TEST_TMPDIR}/bin/mise"
+  chmod +x "${BATS_TEST_TMPDIR}/bin/uvx"
   git -C "${CONSUMER}" init --quiet
   touch "${CONSUMER}/nested/selected file.sh" "${CONSUMER}/nested/unrelated.sh"
   git -C "${CONSUMER}" add .
@@ -68,12 +68,8 @@ run_semgrep_step() {
     run_semgrep_step "${workflow}" "${CONSUMER}" FILE_NAMES='*.sh' SCAN_TARGET=.
     [ "${status}" -eq 0 ]
     mapfile -d '' -t args < "${SEMGREP_ARGS}"
-    [ "${args[0]}" = exec ]
-    [ "${args[1]}" = uv@latest ]
-    [ "${args[2]}" = semgrep@latest ]
-    [ "${args[3]}" = -- ]
-    [ "${args[4]}" = semgrep ]
-    [ "${args[5]}" = scan ]
+    [ "${args[0]}" = semgrep@latest ]
+    [ "${args[1]}" = scan ]
     [[ " ${args[*]} " == *' --config p/default --metrics off --error '* ]]
 
     run_semgrep_step "${workflow}" "${CONSUMER}" FILE_NAMES='*.sh' SCAN_TARGET=. SEMGREP_EXIT_CODE=1
@@ -119,12 +115,14 @@ run_semgrep_step() {
   [ ! -e "${SEMGREP_ARGS}" ]
 }
 
-@test "Semgrep uses mise latest without installing caller project tools" {
-  grep -Fq 'semgrep = "latest"' "${REPO_ROOT}/mise.toml"
+@test "Semgrep uses uvx latest and automatic setup-uv caching" {
+  run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
   for workflow in "${WORKFLOWS[@]}"; do
     file="${REPO_ROOT}/.github/workflows/${workflow}"
-    [ "$(yq -r '.jobs[].steps[] | select(.name == "Set up mise for Semgrep") | .with.install' "${file}")" = false ]
-    [ "$(yq -r '.jobs[].steps[] | select(.name == "Set up mise for Semgrep") | .with.cache' "${file}")" = false ]
-    ! grep -q SEMGREP_VERSION "${file}"
+    grep -Fq 'uvx semgrep@latest scan' "${file}"
+    run ! grep -q SEMGREP_VERSION "${file}"
+    if [[ "${workflow}" != python-package-lint-and-scan.yml ]]; then
+      [ "$(yq -r '.jobs[].steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${file}")" = auto ]
+    fi
   done
 }

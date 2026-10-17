@@ -76,9 +76,9 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         - 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931'
         - 'hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387'
-        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
     '.github/workflows/docker-pull-from-aws.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
@@ -95,7 +95,6 @@ workflows:
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
         - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931'
-        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
         - 'zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482'
     '.github/workflows/github-codeql-analysis.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -112,8 +111,8 @@ workflows:
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d'
-        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
     '.github/workflows/go-package-test.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
@@ -122,7 +121,7 @@ workflows:
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
-        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413'
         - 'pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024'
     '.github/workflows/hugo-deploy-to-gh-pages.yml':
@@ -166,7 +165,6 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
         - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
-        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
     '.github/workflows/python-package-mkdocs-gh-deploy.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
@@ -191,7 +189,7 @@ workflows:
     '.github/workflows/shell-lint.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
     '.github/workflows/terraform-deploy-to-aws.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -214,10 +212,10 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         - 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931'
         - 'dceoy/setup-terragrunt@1cbef4029fa29d03260e3572cd1df1d45fd3f290'
         - 'hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e'
-        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
         - 'terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337'
     '.github/workflows/terraform-lock-files-upgrade-and-pr-merge.yml': []
     '.github/workflows/terraform-lock-files-upgrade.yml':
@@ -246,7 +244,7 @@ workflows:
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
-        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
+        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413'
         - 'pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024'
     '.github/workflows/typescript-package-script.yml':

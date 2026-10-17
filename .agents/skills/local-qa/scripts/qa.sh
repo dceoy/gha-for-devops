@@ -183,5 +183,5 @@ fi
 # Scan supported source files once across the repository.
 N_SEMGREP_FILES=$(git ls-files -- '*.py' '*.go' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.mts' '*.cts' '*.sh' '*.bash' '*.bats' '*.tf' '*.hcl' '*.yml' '*.yaml' '*.html' '*.htm' 'Dockerfile*' '*.dockerfile' | wc -l)
 if [[ "${N_SEMGREP_FILES}" -gt 0 ]]; then
-  env -u UV_EXCLUDE_NEWER mise exec uv@latest semgrep@latest -- semgrep scan --config p/default --metrics off --error .
+  env -u UV_EXCLUDE_NEWER uvx semgrep@latest scan --config p/default --metrics off --error .
 fi

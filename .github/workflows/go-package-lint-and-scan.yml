@@ -118,16 +118,15 @@ jobs:
         uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
         with:
           sarif_file: ${{ inputs.package-path }}/gosec-results.sarif
-      - name: Set up mise for Semgrep
+      - name: Set up uv for Semgrep
         if: inputs.use-semgrep
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
         with:
-          install: false
-          cache: false
+          enable-cache: auto
       - name: Run Semgrep SAST scan
         if: inputs.use-semgrep
         working-directory: ${{ inputs.package-path }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep latest via mise
-          mise exec uv@latest semgrep@latest -- semgrep scan \
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep latest via uvx
+          uvx semgrep@latest scan \
             --config p/default --metrics off --error \
             --include '*.go' .
