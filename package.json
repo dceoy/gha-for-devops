@@ -4,9 +4,15 @@
   "private": true,
   "description": "Local QA tooling for reusable GitHub Actions workflows",
   "type": "module",
-  "packageManager": "pnpm@11.22.0",
   "engines": {
     "node": ">=22"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": ">=12",
+      "onFail": "error"
+    }
   },
   "scripts": {
     "qa": "bash scripts/qa.sh"
