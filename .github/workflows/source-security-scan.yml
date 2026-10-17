@@ -106,19 +106,6 @@ jobs:
               exit 1
             fi
           fi
-          if [[ -z "${requirements_file}" ]] && ! find "${SCAN_PATH}" \
-            \( -type d \( -name .git -o -name node_modules -o -name .venv -o -name vendor \) -prune \) -o \
-            \( -type f \( \
-              -name go.mod -o -name go.sum -o \
-              -name uv.lock -o -name poetry.lock -o -name pdm.lock -o -name Pipfile.lock -o \
-              -name 'requirements*.txt' -o -name pylock.toml -o \
-              -name package-lock.json -o -name npm-shrinkwrap.json -o \
-              -name pnpm-lock.yaml -o -name yarn.lock -o -name bun.lock -o -name bun.lockb -o \
-              -name Gemfile.lock -o -name Cargo.lock -o -name composer.lock -o -name gradle.lockfile \
-            \) -print -quit \) | grep -q .; then
-            echo "::notice::No supported dependency files found; skipping OSV-Scanner."
-            exit 0
-          fi
           {
             echo "scan=true"
             echo "args<<OSV_ARGS"
@@ -159,6 +146,7 @@ jobs:
           ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
           timeout: ${{ inputs.trivy-timeout }}
           format: sarif
+          limit-severities-for-sarif: true
           output: ${{ runner.temp }}/source-security-trivy.sarif
           exit-code: 1
       - name: Upload Trivy SARIF report
