@@ -29,7 +29,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43'
-        - 'pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024'
+        - 'pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
     '.github/workflows/ci.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
@@ -122,7 +122,7 @@ workflows:
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
         - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413'
-        - 'pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024'
+        - 'pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
     '.github/workflows/hugo-deploy-to-gh-pages.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d'
@@ -239,20 +239,20 @@ workflows:
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
         - 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1'
         - 'pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413'
-        - 'pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024'
+        - 'pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
     '.github/workflows/typescript-package-lint-and-scan.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
         - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413'
-        - 'pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024'
+        - 'pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
     '.github/workflows/typescript-package-script.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
         - 'pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413'
-        - 'pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024'
+        - 'pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
     '.github/workflows/web-api-monitoring-with-slack.yml':
         - 'slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d'
     '.github/workflows/weekly-release.yml':
@@ -511,9 +511,9 @@ dependencies:
         commit: 'sha1-ea17c68df8912ef543352723c149a84f56e3d413'
         owner_id: 21320719
         repo_id: 262289747
-    'pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024':
-        ref: 'v3.0.0'
-        commit: 'sha1-fbda4c85fc2e1e08721cd8763afea8f48d60f024'
+    'pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4':
+        ref: 'v3.1.1'
+        commit: 'sha1-a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
         owner_id: 21320719
         repo_id: 1235693694
     'quarto-dev/quarto-actions@8a96df13519ee81fd526f2dfca5962811136661b':
