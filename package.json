@@ -5,14 +5,8 @@
   "description": "Local QA tooling for reusable GitHub Actions workflows",
   "type": "module",
   "engines": {
-    "node": ">=22"
-  },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": ">=12",
-      "onFail": "error"
-    }
+    "node": ">=22",
+    "pnpm": ">=12"
   },
   "scripts": {
     "qa": "bash scripts/qa.sh"
