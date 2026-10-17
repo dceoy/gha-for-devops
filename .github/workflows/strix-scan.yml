@@ -84,7 +84,7 @@ jobs:
           [[ "${EVENT_NAME}" != pull_request_target ]] || fail "pull_request_target is not supported."
           [[ "${IS_FORK}" != true ]] || fail "Fork pull requests must not run Strix with LLM credentials."
           [[ "${CONFIRMED}" == true ]] || fail "Set confirm-authorized: true before running an autonomous pentest."
-          [[ -n "${TARGET_PATH}" && "${TARGET_PATH}" != /* && "${TARGET_PATH}" != -* &&
+          [[ -n "${TARGET_PATH}" && "${TARGET_PATH}" != /* && "${TARGET_PATH}" != -* && "${TARGET_PATH}" != *"://"* &&
             "${TARGET_PATH}" != *$'\n'* ]] || fail "target-path must be a repository-relative directory."
           case "${SCAN_MODE}" in quick | standard | deep) ;; *) fail "Invalid scan-mode." ;; esac
           case "${SCOPE_MODE}" in auto | diff | full) ;; *) fail "Invalid scope-mode." ;; esac
@@ -183,7 +183,11 @@ jobs:
             echo "- Scope: ${scope}"
             echo "- Estimated model spend (USD): ${cost}"
             echo "- Fail threshold: ${FAIL_ON}"
-            echo "- Vulnerabilities at or above threshold: ${status}"
+            if [[ "${status}" == 2 ]]; then
+              echo "- Severity threshold exceeded: yes"
+            else
+              echo "- Severity threshold exceeded: no"
+            fi
           } >> "${GITHUB_STEP_SUMMARY}"
           if [[ "${UPLOAD_SARIF}" == true ]]; then
             sarif="$(dirname "${run_json}")/findings.sarif"
