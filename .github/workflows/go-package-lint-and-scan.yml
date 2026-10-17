@@ -28,6 +28,11 @@ on:
         type: boolean
         description: Scan dependencies using OSV-Scanner
         default: true
+      use-trivy:
+        required: false
+        type: boolean
+        description: Scan dependencies, secrets, and misconfiguration using Trivy
+        default: true
       use-semgrep:
         required: false
         type: boolean
@@ -46,11 +51,13 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  osv-scan:
-    if: inputs.use-osv-scanner
-    uses: ./.github/workflows/osv-dependency-scan.yml
+  security-scan:
+    if: inputs.use-osv-scanner || inputs.use-trivy
+    uses: $/.github/workflows/dependency-security-scan.yml
     with:
       package-path: ${{ inputs.package-path }}
+      use-osv-scanner: ${{ inputs.use-osv-scanner }}
+      use-trivy: ${{ inputs.use-trivy }}
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
