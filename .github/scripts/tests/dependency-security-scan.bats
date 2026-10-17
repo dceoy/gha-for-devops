@@ -13,7 +13,7 @@ setup() {
   [ "$(yq -r '.jobs.scan.runs-on' "${WORKFLOW}")" = ubuntu-latest ]
   [ "$(yq -r '.on.workflow_call.inputs."use-osv-scanner".default' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "${WORKFLOW}")" = true ]
-  grep -Fq 'google/osv-scanner-action/osv-scanner-action@ef6dfdf01765802d5a8dbc3c39852a6128b00af0' "${WORKFLOW}"
+  grep -Fq 'google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36' "${WORKFLOW}"
   grep -Fq 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25' "${WORKFLOW}"
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."scan-type"' "${WORKFLOW}")" = filesystem ]
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."exit-code"' "${WORKFLOW}")" = 1 ]
