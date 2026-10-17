@@ -118,7 +118,6 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-
       - name: Detect the package manager
         env:
           PNPM_VERSION: ${{ inputs.pnpm-version }}
