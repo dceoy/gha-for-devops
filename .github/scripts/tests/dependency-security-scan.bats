@@ -40,46 +40,47 @@ setup() {
 
 @test "OSV scanning is skipped when no supported dependency file exists" {
   mkdir -p "${BATS_TEST_TMPDIR}/empty"
-  export SCAN_PATH="${BATS_TEST_TMPDIR}/empty" REQUIREMENTS_TXT_PATH=""
-  export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/out"
-  run bash "${PREPARE_SCRIPT}"
+  local scan_path="${BATS_TEST_TMPDIR}/empty"
+  local output_file="${BATS_TEST_TMPDIR}/out"
+  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
   [ "${status}" -eq 0 ]
-  [ ! -f "${GITHUB_OUTPUT}" ]
+  [ ! -f "${output_file}" ]
 }
 
 @test "OSV preparation detects a nested lockfile under a path with spaces" {
-  export SCAN_PATH="${BATS_TEST_TMPDIR}/nested package" REQUIREMENTS_TXT_PATH=""
-  export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/out"
-  mkdir -p "${SCAN_PATH}/service"
-  touch "${SCAN_PATH}/service/pnpm-lock.yaml"
-  run bash "${PREPARE_SCRIPT}"
+  local scan_path="${BATS_TEST_TMPDIR}/nested package"
+  local output_file="${BATS_TEST_TMPDIR}/out"
+  mkdir -p "${scan_path}/service"
+  touch "${scan_path}/service/pnpm-lock.yaml"
+  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
   [ "${status}" -eq 0 ]
-  grep -Fxq 'scan=true' "${GITHUB_OUTPUT}"
-  grep -Fxq "${SCAN_PATH}" "${GITHUB_OUTPUT}"
-  grep -Fxq -- '--recursive' "${GITHUB_OUTPUT}"
-  grep -Fxq -- '--include-git-root' "${GITHUB_OUTPUT}"
+  grep -Fxq 'scan=true' "${output_file}"
+  grep -Fxq "${scan_path}" "${output_file}"
+  grep -Fxq -- '--recursive' "${output_file}"
+  grep -Fxq -- '--include-git-root' "${output_file}"
 }
 
 @test "Python requirements override is respected and missing files fail" {
-  export SCAN_PATH="${BATS_TEST_TMPDIR}/python" REQUIREMENTS_TXT_PATH="requirements-dev.txt"
-  export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/out"
-  mkdir -p "${SCAN_PATH}"
-  touch "${SCAN_PATH}/requirements-dev.txt"
-  run bash "${PREPARE_SCRIPT}"
+  local scan_path="${BATS_TEST_TMPDIR}/python"
+  local output_file="${BATS_TEST_TMPDIR}/out"
+  mkdir -p "${scan_path}"
+  touch "${scan_path}/requirements-dev.txt"
+  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="requirements-dev.txt" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
   [ "${status}" -eq 0 ]
-  grep -Fxq -- "--lockfile=requirements.txt:${SCAN_PATH}/requirements-dev.txt" "${GITHUB_OUTPUT}"
-  rm -f "${SCAN_PATH}/requirements-dev.txt" "${GITHUB_OUTPUT}"
-  run bash "${PREPARE_SCRIPT}"
+  grep -Fxq -- "--lockfile=requirements.txt:${scan_path}/requirements-dev.txt" "${output_file}"
+  rm -f "${scan_path}/requirements-dev.txt" "${output_file}"
+  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="requirements-dev.txt" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
   [ "${status}" -eq 1 ]
 }
 
 @test "Python uv.lock takes precedence over an explicit requirements override" {
-  export SCAN_PATH="${BATS_TEST_TMPDIR}/python" REQUIREMENTS_TXT_PATH="missing.txt"
-  export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/out"
-  mkdir -p "${SCAN_PATH}"
-  touch "${SCAN_PATH}/uv.lock"
-  run bash "${PREPARE_SCRIPT}"
+  local scan_path="${BATS_TEST_TMPDIR}/python"
+  local output_file="${BATS_TEST_TMPDIR}/out"
+  mkdir -p "${scan_path}"
+  touch "${scan_path}/uv.lock"
+  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="missing.txt" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
   [ "${status}" -eq 0 ]
-  grep -Fxq 'scan=true' "${GITHUB_OUTPUT}"
-  ! grep -Fq -- '--lockfile=' "${GITHUB_OUTPUT}"
+  grep -Fxq 'scan=true' "${output_file}"
+  run ! grep -Fq -- '--lockfile=' "${output_file}"
+  [ "${status}" -eq 0 ]
 }
