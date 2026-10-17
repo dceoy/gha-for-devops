@@ -6,18 +6,17 @@ setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
   PREPARE_SCRIPT="${BATS_TEST_TMPDIR}/prepare.sh"
-  yq -r '.jobs.scan.steps[] | select(.id == "prepare") | .run' "${WORKFLOW}" > "${PREPARE_SCRIPT}"
+  yq -r '.jobs."osv-scan".steps[] | select(.id == "prepare") | .run' "${WORKFLOW}" > "${PREPARE_SCRIPT}"
 }
 
-@test "Source scanner selects ubuntu-latest only for Docker-based OSV scans" {
-  [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "${WORKFLOW}")" = "" ]
-  local runner_expression validation_expression
+@test "Source scanner isolates Docker OSV on ubuntu-latest from slim filesystem scans" {
+  [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "${WORKFLOW}")" = ubuntu-slim ]
+  [ "$(yq -r '.jobs."osv-scan".runs-on' "${WORKFLOW}")" = ubuntu-latest ]
+  local runner_expression
   runner_expression="$(yq -r '.jobs.scan.runs-on' "${WORKFLOW}")"
-  validation_expression="$(yq -r '.jobs.scan.steps[] | select(.name == "Validate runner for Docker action") | .if' "${WORKFLOW}")"
   [[ "${runner_expression}" == *"inputs.runs-on"* ]]
-  [[ "${runner_expression}" == *"inputs.use-osv-scanner && 'ubuntu-latest' || 'ubuntu-slim'"* ]]
-  [[ "${validation_expression}" == *"inputs.use-osv-scanner"* ]]
-  [[ "${validation_expression}" == *"inputs.runs-on == 'ubuntu-slim'"* ]]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Run OSV-Scanner") | .name' "${WORKFLOW}")" = "Run OSV-Scanner" ]
+  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Run OSV-Scanner") | .name' "${WORKFLOW}")" = "" ]
   [ "$(yq -r '.on.workflow_call.inputs."use-osv-scanner".default' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "${WORKFLOW}")" = true ]
   grep -Fq 'google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36' "${WORKFLOW}"
