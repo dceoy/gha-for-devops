@@ -4,6 +4,7 @@ bats_require_minimum_version 1.5.0
 
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
+  SCAN_WORKFLOW="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
   WORKFLOWS=(
     python-package-lint-and-scan.yml
     typescript-package-lint-and-scan.yml
@@ -16,18 +17,6 @@ setup() {
   )
 }
 
-@test "Supported lint and scan workflows expose optional Semgrep and enforce findings" {
-  for workflow in "${WORKFLOWS[@]}"; do
-    file="${REPO_ROOT}/.github/workflows/${workflow}"
-    [[ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${file}")" == true ]]
-    grep -Fq 'if: inputs.use-semgrep' "${file}"
-    grep -Fq 'uvx semgrep scan' "${file}"
-    grep -Fq -- '--config p/default --metrics off --error' "${file}"
-  done
-}
-
-# Run the actual workflow scripts with a recording CLI so target selection can be
-# checked without downloading Semgrep or fetching registry rules.
 prepare_consumer() {
   mkdir -p "${BATS_TEST_TMPDIR}/bin" "${BATS_TEST_TMPDIR}/consumer/nested"
   CONSUMER="${BATS_TEST_TMPDIR}/consumer"
@@ -45,42 +34,66 @@ SH
 }
 
 run_semgrep_step() {
-  local workflow="$1"
-  local directory="$2"
-  shift 2
+  local directory="$1"
+  shift
   local script="${BATS_TEST_TMPDIR}/semgrep-step.sh"
-  yq -r '.jobs[].steps[] | select(.name == "Run Semgrep SAST scan") | .run' \
-    "${REPO_ROOT}/.github/workflows/${workflow}" > "${script}"
+  yq -r '.jobs.scan.steps[] | select(.name == "Run Semgrep SAST scan") | .run' "${SCAN_WORKFLOW}" > "${script}"
   # shellcheck disable=SC2016
-  run env "$@" bash -c 'cd "$1" && exec bash -euo pipefail "$2"' _ "${directory}" "${script}"
+  run env "SEMGREP_INCLUDES=*.sh" "SEMGREP_TARGET=." "SEMGREP_FILE_NAMES=" \
+    "SEMGREP_RESTRICT_TO_FILES=false" "$@" \
+    bash -c 'cd "$1" && exec bash -euo pipefail "$2"' _ "${directory}" "${script}"
 }
 
-@test "Semgrep steps execute for consumers of all eight workflows and propagate findings" {
-  prepare_consumer
+@test "All eight linters delegate Semgrep to the shared source security workflow" {
   for workflow in "${WORKFLOWS[@]}"; do
-    run_semgrep_step "${workflow}" "${CONSUMER}" FILE_NAMES='*.sh' SCAN_TARGET=.
-    [ "${status}" -eq 0 ]
-    mapfile -d '' -t args < "${SEMGREP_ARGS}"
-    [ "${args[0]}" = semgrep ]
-    [ "${args[1]}" = scan ]
-    [[ " ${args[*]} " == *' --config p/default --metrics off --error '* ]]
-
-    run_semgrep_step "${workflow}" "${CONSUMER}" FILE_NAMES='*.sh' SCAN_TARGET=. SEMGREP_EXIT_CODE=1
-    [ "${status}" -eq 1 ]
+    local path="${REPO_ROOT}/.github/workflows/${workflow}"
+    [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${path}")" = true ]
+    [ "$(yq -r '.jobs."security-scan".uses' "${path}")" = '$/.github/workflows/source-security-scan.yml' ]
+    [ "$(yq -r '.jobs."security-scan".with."use-semgrep"' "${path}")" = '${{ inputs.use-semgrep }}' ]
+    run ! grep -Fq 'uvx semgrep scan' "${path}"
   done
 }
 
-@test "Docker Semgrep accepts single-file and directory scan targets with spaces" {
+@test "Existing language-specific inclusion patterns are preserved" {
+  local workflow path includes
+  for workflow in "${WORKFLOWS[@]}"; do
+    path="${REPO_ROOT}/.github/workflows/${workflow}"
+    includes="$(yq -r '.jobs."security-scan".with."semgrep-includes"' "${path}")"
+    [ -n "${includes}" ]
+    case "${workflow}" in
+      python*) [[ "${includes}" == *'*.py'* ]] ;;
+      go-*) [[ "${includes}" == *'*.go'* ]] ;;
+      typescript*) [[ "${includes}" == *'*.ts'* && "${includes}" == *'*.cjs'* ]] ;;
+      html*) [[ "${includes}" == *'*.html'* && "${includes}" == *'*.htm'* ]] ;;
+      shell*) [[ "${includes}" == *'*.sh'* && "${includes}" == *'*.bats'* ]] ;;
+      terraform*) [[ "${includes}" == *'*.tf'* && "${includes}" == *'*.hcl'* ]] ;;
+      docker*) [[ "${includes}" == *'Dockerfile*'* && "${includes}" == *'*.dockerfile'* ]] ;;
+      github-actions*) [[ "${includes}" == *'*.yml'* && "${includes}" == *'*.yaml'* ]] ;;
+    esac
+  done
+}
+
+@test "Shared Semgrep execution enforces findings and respects include patterns" {
   prepare_consumer
-  workflow=docker-lint-and-scan.yml
-  file="${REPO_ROOT}/.github/workflows/${workflow}"
-  [ "$(yq -r '.jobs[].steps[] | select(.name == "Run Semgrep SAST scan") | .working-directory' "${file}")" = . ]
-  # shellcheck disable=SC2016
-  [ "$(yq -r '.jobs[].steps[] | select(.name == "Run Semgrep SAST scan") | .env.SCAN_TARGET' "${file}")" = '${{ inputs.trivy-scan-ref }}' ]
+  run_semgrep_step "${CONSUMER}" "SEMGREP_INCLUDES=*.sh"$'\n'"*.bats"
+  [ "${status}" -eq 0 ]
+  mapfile -d '' -t args < "${SEMGREP_ARGS}"
+  [ "${args[0]}" = semgrep ]
+  [ "${args[1]}" = scan ]
+  [[ " ${args[*]} " == *' --config p/default --metrics off --error '* ]]
+  [[ " ${args[*]} " == *' --include *.sh --include *.bats '* ]]
+  [ "${args[-2]}" = -- ]
+  [ "${args[-1]}" = . ]
+  run_semgrep_step "${CONSUMER}" SEMGREP_EXIT_CODE=1
+  [ "${status}" -eq 1 ]
+}
+
+@test "Docker Semgrep handles a single file and a directory with spaces" {
+  prepare_consumer
   mkdir -p "${CONSUMER}/docker files"
   touch "${CONSUMER}/docker files/Dockerfile"
   for target in 'docker files/Dockerfile' 'docker files'; do
-    run_semgrep_step "${workflow}" "${CONSUMER}" "SCAN_TARGET=${target}"
+    run_semgrep_step "${CONSUMER}" "SEMGREP_TARGET=${target}"
     [ "${status}" -eq 0 ]
     mapfile -d '' -t args < "${SEMGREP_ARGS}"
     [ "${args[-2]}" = -- ]
@@ -88,9 +101,10 @@ run_semgrep_step() {
   done
 }
 
-@test "Shell Semgrep honors restricted file-names relative to search-path" {
+@test "Shell Semgrep restricts targets to selected tracked files" {
   prepare_consumer
-  run_semgrep_step shell-lint.yml "${CONSUMER}/nested" 'FILE_NAMES=selected file.sh'
+  run_semgrep_step "${CONSUMER}/nested" \
+    "SEMGREP_RESTRICT_TO_FILES=true" "SEMGREP_FILE_NAMES=selected file.sh"
   [ "${status}" -eq 0 ]
   mapfile -d '' -t args < "${SEMGREP_ARGS}"
   [ "${args[-2]}" = -- ]
@@ -98,25 +112,22 @@ run_semgrep_step() {
   [[ " ${args[*]} " != *unrelated.sh* ]]
 }
 
-@test "Shell Semgrep skips unmatched selections and rejects empty file-names" {
+@test "Shell Semgrep skips unmatched selections and rejects an empty file list" {
   prepare_consumer
-  run_semgrep_step shell-lint.yml "${CONSUMER}" FILE_NAMES=missing.sh
+  run_semgrep_step "${CONSUMER}" \
+    "SEMGREP_RESTRICT_TO_FILES=true" "SEMGREP_FILE_NAMES=missing.sh"
   [ "${status}" -eq 0 ]
   [ ! -e "${SEMGREP_ARGS}" ]
-  run_semgrep_step shell-lint.yml "${CONSUMER}" FILE_NAMES=
+  run_semgrep_step "${CONSUMER}" \
+    "SEMGREP_RESTRICT_TO_FILES=true" "SEMGREP_FILE_NAMES="
   [ "${status}" -eq 1 ]
   [ ! -e "${SEMGREP_ARGS}" ]
 }
 
-@test "Semgrep uses uvx with seven-day cooldown and automatic setup-uv caching" {
+@test "Shared Semgrep uses uvx with seven-day cooldown and setup-uv caching" {
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
-  for workflow in "${WORKFLOWS[@]}"; do
-    file="${REPO_ROOT}/.github/workflows/${workflow}"
-    grep -Fq 'uvx semgrep scan' "${file}"
-    [ "$(yq -r '.jobs[] | select(.env.UV_EXCLUDE_NEWER != null) | .env.UV_EXCLUDE_NEWER' "${file}")" = "7 days" ]
-    run ! grep -q SEMGREP_VERSION "${file}"
-    if [[ "${workflow}" != python-package-lint-and-scan.yml ]]; then
-      [ "$(yq -r '.jobs[].steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${file}")" = auto ]
-    fi
-  done
+  grep -Fq 'uvx "${args[@]}"' "${SCAN_WORKFLOW}"
+  [ "$(yq -r '.jobs.scan.env.UV_EXCLUDE_NEWER' "${SCAN_WORKFLOW}")" = "7 days" ]
+  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${SCAN_WORKFLOW}")" = auto ]
+  run ! grep -Fq SEMGREP_VERSION "${SCAN_WORKFLOW}"
 }
