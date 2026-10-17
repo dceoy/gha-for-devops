@@ -65,22 +65,15 @@ on:
         description: Artifact name for Trivy SARIF output; empty disables upload
       runs-on:
         type: string
-        default: ""
-        description: Runner label; auto selects ubuntu-latest for OSV-Scanner, ubuntu-slim otherwise
+        default: ubuntu-slim
+        description: Runner label for Docker-free Trivy and Semgrep scans
 permissions:
   contents: read
 jobs:
-  scan:
-    if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
-    runs-on: ${{ inputs.runs-on || (inputs.use-osv-scanner && 'ubuntu-latest' || 'ubuntu-slim') }}
-    env:
-      UV_EXCLUDE_NEWER: 7 days
+  osv-scan:
+    if: inputs.use-osv-scanner
+    runs-on: ubuntu-latest
     steps:
-      - name: Validate runner for Docker action
-        if: ${{ inputs.use-osv-scanner && inputs.runs-on == 'ubuntu-slim' }}
-        run: |
-          echo "::error::OSV-Scanner requires a Docker-capable runner, not ubuntu-slim."
-          exit 1
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -141,9 +134,18 @@ jobs:
         id: osv
         if: steps.prepare.outputs.scan == 'true'
         uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36  # v2.7.0
-        continue-on-error: true
         with:
           scan-args: ${{ steps.prepare.outputs.args }}
+  scan:
+    if: inputs.use-trivy || inputs.use-semgrep
+    runs-on: ${{ inputs.runs-on }}
+    env:
+      UV_EXCLUDE_NEWER: 7 days
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
       - name: Run Trivy filesystem scan
         id: trivy
         if: ${{ !cancelled() && inputs.use-trivy }}
@@ -211,5 +213,5 @@ jobs:
             uvx "${args[@]}" -- "${SEMGREP_TARGET}"
           fi
       - name: Enforce security scan results
-        if: ${{ !cancelled() && (steps.osv.outcome == 'failure' || steps.trivy.outcome == 'failure' || steps.semgrep.outcome == 'failure') }}
+        if: ${{ !cancelled() && (steps.trivy.outcome == 'failure' || steps.semgrep.outcome == 'failure') }}
         run: exit 1
