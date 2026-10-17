@@ -21,7 +21,3 @@ Run the local QA script `scripts/qa.sh` in this skill.
 - If multiple tools are missing, repeat install -> rerun until QA completes or you hit a blocker.
 - If installation fails or requires unavailable privileges, report what was attempted, the exact failure, and stop.
 - Do not run unrelated commands; only run commands needed for QA and missing-tool installation.
-
-## Semgrep
-
-The QA script runs a single repository-wide Semgrep OSS SAST scan when supported files are tracked. It uses `uvx semgrep@latest` to run the latest Semgrep CLI and the public `p/default` rule set without requiring a Semgrep AppSec Platform token. Findings cause QA to fail; Semgrep does not auto-fix them. Rule retrieval requires network access.

@@ -26,13 +26,6 @@ setup() {
   done
 }
 
-@test "Local QA runs one uvx-managed Semgrep scan with no cloud credentials" {
-  file="${REPO_ROOT}/.agents/skills/local-qa/scripts/qa.sh"
-  [[ "$(grep -c 'uvx semgrep@latest scan --config p/default' "${file}")" -eq 1 ]]
-  grep -Fq "uvx semgrep@latest scan" "${file}"
-  bash -n "${file}"
-}
-
 # Run the actual workflow scripts with a recording CLI so target selection can be
 # checked without downloading Semgrep or fetching registry rules.
 prepare_consumer() {
