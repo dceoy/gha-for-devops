@@ -1,0 +1,201 @@
+---
+name: Source security scan
+on:
+  workflow_call:
+    inputs:
+      package-path:
+        type: string
+        default: .
+        description: Directory to scan
+      requirements-txt:
+        type: string
+        default: ""
+        description: Optional Python requirements file relative to package-path
+      use-osv-scanner:
+        type: boolean
+        default: true
+        description: Scan dependency lockfiles with OSV-Scanner
+      use-trivy:
+        type: boolean
+        default: true
+        description: Scan the filesystem with Trivy
+      trivy-scanners:
+        type: string
+        default: vuln,secret,misconfig
+        description: Trivy scanners to run
+      trivy-severity:
+        type: string
+        default: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+        description: Trivy severity levels to report
+      trivy-ignore-unfixed:
+        type: boolean
+        default: true
+        description: Ignore unpatched vulnerabilities in Trivy
+      trivy-timeout:
+        type: string
+        default: 5m0s
+        description: Trivy scan timeout
+      use-semgrep:
+        type: boolean
+        default: false
+        description: Run Semgrep OSS SAST
+      semgrep-working-directory:
+        type: string
+        default: .
+        description: Directory in which to execute Semgrep
+      semgrep-target:
+        type: string
+        default: .
+        description: Semgrep target relative to the working directory
+      semgrep-includes:
+        type: string
+        default: ""
+        description: Newline-separated Semgrep include patterns
+      semgrep-file-names:
+        type: string
+        default: ""
+        description: Newline-separated tracked file patterns (for Shell scans)
+      semgrep-restrict-to-files:
+        type: boolean
+        default: false
+        description: Restrict Semgrep targets to git-tracked files matching semgrep-file-names
+      trivy-report-artifact-name:
+        type: string
+        default: ""
+        description: Artifact name for Trivy SARIF output; empty disables upload
+      runs-on:
+        type: string
+        default: ubuntu-slim
+        description: Runner label for Docker-free Trivy and Semgrep scans
+permissions:
+  contents: read
+jobs:
+  osv-scan:
+    if: inputs.use-osv-scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run OSV-Scanner
+        id: osv
+        env:
+          OSV_IMAGE: ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0
+          SCAN_PATH: ${{ inputs.package-path }}
+          REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -d "${SCAN_PATH}" ]]; then
+            echo "::error::Scan directory not found: ${SCAN_PATH}"
+            exit 1
+          fi
+          if [[ "${SCAN_PATH}" == *$'\n'* || "${REQUIREMENTS_TXT_PATH}" == *$'\n'* ]]; then
+            echo "::error::Newlines are not allowed in scan paths."
+            exit 1
+          fi
+          args=(scan source --recursive --include-git-root)
+          if [[ -n "${REQUIREMENTS_TXT_PATH}" && ! -f "${SCAN_PATH%/}/uv.lock" ]]; then
+            requirements_file="${REQUIREMENTS_TXT_PATH}"
+            if [[ "${requirements_file}" != /* ]]; then
+              requirements_file="${SCAN_PATH%/}/${requirements_file}"
+            fi
+            if [[ ! -f "${requirements_file}" ]]; then
+              echo "::error::Requirements file not found: ${requirements_file}"
+              exit 1
+            fi
+            args+=("--lockfile=requirements.txt:${requirements_file}")
+          fi
+          args+=("${SCAN_PATH}")
+          status=0
+          docker run --rm \
+            --mount "type=bind,source=${GITHUB_WORKSPACE},target=${GITHUB_WORKSPACE},readonly" \
+            --workdir "${GITHUB_WORKSPACE}" \
+            --env CI=true \
+            "${OSV_IMAGE}" "${args[@]}" || status=$?
+          if [[ "${status}" -eq 128 ]]; then
+            echo "::notice::OSV-Scanner found no dependencies."
+            exit 0
+          fi
+          exit "${status}"
+  scan:
+    if: inputs.use-trivy || inputs.use-semgrep
+    runs-on: ${{ inputs.runs-on }}
+    env:
+      UV_EXCLUDE_NEWER: 7 days
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run Trivy filesystem scan
+        id: trivy
+        if: ${{ !cancelled() && inputs.use-trivy }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        continue-on-error: true
+        with:
+          scan-type: filesystem
+          scan-ref: ${{ inputs.package-path }}
+          scanners: ${{ inputs.trivy-scanners }}
+          severity: ${{ inputs.trivy-severity }}
+          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+          timeout: ${{ inputs.trivy-timeout }}
+          format: sarif
+          limit-severities-for-sarif: true
+          output: ${{ runner.temp }}/source-security-trivy.sarif
+          exit-code: 1
+      - name: Upload Trivy SARIF report
+        if: ${{ !cancelled() && inputs.use-trivy && inputs.trivy-report-artifact-name != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: ${{ inputs.trivy-report-artifact-name }}
+          path: ${{ runner.temp }}/source-security-trivy.sarif
+          if-no-files-found: warn
+      - name: Set up uv for Semgrep
+        if: ${{ !cancelled() && inputs.use-semgrep }}
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: auto
+      - name: Run Semgrep SAST scan
+        id: semgrep
+        if: ${{ !cancelled() && inputs.use-semgrep }}
+        continue-on-error: true
+        working-directory: ${{ inputs.semgrep-working-directory }}
+        env:
+          SEMGREP_INCLUDES: ${{ inputs.semgrep-includes }}
+          SEMGREP_TARGET: ${{ inputs.semgrep-target }}
+          SEMGREP_FILE_NAMES: ${{ inputs.semgrep-file-names }}
+          SEMGREP_RESTRICT_TO_FILES: ${{ inputs.semgrep-restrict-to-files }}
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
+          set -euo pipefail
+          args=(semgrep scan --config p/default --metrics off --error)
+          while IFS= read -r pattern; do
+            if [[ -n "${pattern}" ]]; then
+              args+=(--include "${pattern}")
+            fi
+          done <<< "${SEMGREP_INCLUDES}"
+          if [[ "${SEMGREP_RESTRICT_TO_FILES}" == true ]]; then
+            files=()
+            while IFS= read -r f; do
+              [[ -n "${f}" ]] && files+=("${f}")
+            done <<< "${SEMGREP_FILE_NAMES}"
+            if (( ${#files[@]} == 0 )); then
+              echo "::error::semgrep-file-names input produced no entries"
+              exit 1
+            fi
+            targets=()
+            while IFS= read -r -d '' f; do
+              targets+=("${f}")
+            done < <(git ls-files -z -- "${files[@]}")
+            if (( ${#targets[@]} == 0 )); then
+              echo "No tracked files matched semgrep-file-names; skipping Semgrep."
+              exit 0
+            fi
+            uvx "${args[@]}" -- "${targets[@]}"
+          else
+            uvx "${args[@]}" -- "${SEMGREP_TARGET}"
+          fi
+      - name: Enforce security scan results
+        if: ${{ !cancelled() && (steps.trivy.outcome == 'failure' || steps.semgrep.outcome == 'failure') }}
+        run: exit 1

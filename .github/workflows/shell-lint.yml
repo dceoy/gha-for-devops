@@ -46,6 +46,11 @@ on:
         type: string
         description: Runner to use
         default: ubuntu-slim
+      security-runs-on:
+        required: false
+        type: string
+        description: Runner for Docker-free source security scans (Trivy and Semgrep)
+        default: ubuntu-slim
 permissions:
   contents: read
 defaults:
@@ -53,6 +58,21 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
+  security-scan:
+    if: inputs.use-semgrep
+    uses: $/.github/workflows/source-security-scan.yml
+    with:
+      runs-on: ${{ inputs.security-runs-on }}
+      use-osv-scanner: false
+      use-trivy: false
+      use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-working-directory: ${{ inputs.search-path }}
+      semgrep-restrict-to-files: true
+      semgrep-file-names: ${{ inputs.file-names }}
+      semgrep-includes: |
+        *.sh
+        *.bash
+        *.bats
   lint:
     runs-on: ${{ inputs.runs-on }}
     env:
@@ -145,32 +165,3 @@ jobs:
             git ls-files -z -- "${files[@]}" \
               | xargs -0 -r -t shfmt --apply-ignore "${shfmt_args[@]}" -d
           fi
-      - name: Set up uv for Semgrep
-        if: inputs.use-semgrep
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
-        with:
-          enable-cache: auto
-      - name: Run Semgrep SAST scan
-        if: inputs.use-semgrep
-        working-directory: ${{ inputs.search-path }}
-        env:
-          FILE_NAMES: ${{ inputs.file-names }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          files=()
-          while IFS= read -r f; do
-            [[ -n "${f}" ]] && files+=("${f}")
-          done <<< "${FILE_NAMES}"
-          [[ ${#files[@]} -eq 0 ]] && { echo "::error::file-names input produced no entries"; exit 1; }
-          targets=()
-          while IFS= read -r -d '' f; do
-            targets+=("${f}")
-          done < <(git ls-files -z -- "${files[@]}")
-          if [[ ${#targets[@]} -eq 0 ]]; then
-            echo "No tracked files matched file-names; skipping Semgrep."
-            exit 0
-          fi
-          uvx semgrep scan \
-            --config p/default --metrics off --error \
-            --include '*.sh' \
-            --include '*.bash' \
-            --include '*.bats' -- "${targets[@]}"

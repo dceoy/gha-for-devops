@@ -123,6 +123,11 @@ on:
         type: string
         description: GitHub Actions runner to use
         default: ubuntu-latest
+      security-runs-on:
+        required: false
+        type: string
+        description: Runner for Docker-free source security scans (Trivy and Semgrep)
+        default: ubuntu-slim
     secrets:
       GH_TOKEN:
         required: false
@@ -137,6 +142,18 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
+  security-scan:
+    if: inputs.use-semgrep
+    uses: $/.github/workflows/source-security-scan.yml
+    with:
+      runs-on: ${{ inputs.security-runs-on }}
+      use-osv-scanner: false
+      use-trivy: false
+      use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-working-directory: ${{ inputs.search-path }}
+      semgrep-includes: |
+        *.tf
+        *.hcl
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
@@ -285,16 +302,3 @@ jobs:
           output_file_path: ${{ inputs.checkov-output-file-path }}
           soft_fail: ${{ inputs.checkov-soft-fail }}
           api-key: ${{ secrets.BC_API_KEY }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
-      - name: Set up uv for Semgrep
-        if: inputs.use-semgrep
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
-        with:
-          enable-cache: auto
-      - name: Run Semgrep SAST scan
-        if: inputs.use-semgrep
-        working-directory: ${{ inputs.search-path }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          uvx semgrep scan \
-            --config p/default --metrics off --error \
-            --include '*.tf' \
-            --include '*.hcl' .

@@ -78,6 +78,21 @@ on:
         type: string
         description: Additional NPM packages to install
         default: null
+      use-osv-scanner:
+        required: false
+        type: boolean
+        description: Scan dependencies using OSV-Scanner
+        default: true
+      use-trivy:
+        required: false
+        type: boolean
+        description: Scan dependencies, secrets, and misconfiguration using Trivy
+        default: true
+      trivy-report-artifact-name:
+        required: false
+        type: string
+        description: Optional artifact name for the Trivy SARIF report
+        default: ""
       use-semgrep:
         required: false
         type: boolean
@@ -88,6 +103,11 @@ on:
         type: string
         description: GitHub Actions runner to use
         default: ubuntu-slim
+      security-runs-on:
+        required: false
+        type: string
+        description: Runner for Docker-free source security scans (Trivy and Semgrep)
+        default: ubuntu-slim
 permissions:
   contents: read
 defaults:
@@ -95,6 +115,26 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
+  security-scan:
+    if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
+    uses: $/.github/workflows/source-security-scan.yml
+    with:
+      runs-on: ${{ inputs.security-runs-on }}
+      package-path: ${{ inputs.package-path }}
+      use-osv-scanner: ${{ inputs.use-osv-scanner }}
+      use-trivy: ${{ inputs.use-trivy }}
+      trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
+      use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-working-directory: ${{ inputs.package-path }}
+      semgrep-includes: |
+        *.ts
+        *.tsx
+        *.mts
+        *.cts
+        *.js
+        *.jsx
+        *.mjs
+        *.cjs
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
@@ -361,22 +401,3 @@ jobs:
               npm audit
               ;;
           esac
-      - name: Set up uv for Semgrep
-        if: inputs.use-semgrep
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
-        with:
-          enable-cache: auto
-      - name: Run Semgrep SAST scan
-        if: inputs.use-semgrep
-        working-directory: ${{ inputs.package-path }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          uvx semgrep scan \
-            --config p/default --metrics off --error \
-            --include '*.ts' \
-            --include '*.tsx' \
-            --include '*.mts' \
-            --include '*.cts' \
-            --include '*.js' \
-            --include '*.jsx' \
-            --include '*.mjs' \
-            --include '*.cjs' .
