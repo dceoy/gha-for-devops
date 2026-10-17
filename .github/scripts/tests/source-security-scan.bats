@@ -5,8 +5,30 @@ bats_require_minimum_version 1.5.0
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
-  PREPARE_SCRIPT="${BATS_TEST_TMPDIR}/prepare.sh"
-  yq -r '.jobs."osv-scan".steps[] | select(.id == "prepare") | .run' "${WORKFLOW}" > "${PREPARE_SCRIPT}"
+  OSV_SCRIPT="${BATS_TEST_TMPDIR}/osv.sh"
+  yq -r '.jobs."osv-scan".steps[] | select(.id == "osv") | .run' "${WORKFLOW}" > "${OSV_SCRIPT}"
+}
+
+prepare_osv_stub() {
+  mkdir -p "${BATS_TEST_TMPDIR}/bin"
+  export DOCKER_ARGS="${BATS_TEST_TMPDIR}/docker-args"
+  export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
+  cat > "${BATS_TEST_TMPDIR}/bin/docker" << 'SH'
+#!/usr/bin/env bash
+printf '%s\\0' "$@" > "${DOCKER_ARGS}"
+exit "${DOCKER_EXIT_CODE:-0}"
+SH
+  chmod +x "${BATS_TEST_TMPDIR}/bin/docker"
+}
+
+run_osv_scan() {
+  local target="$1"
+  local requirements="${2:-}"
+  shift 2 || :
+  run env "SCAN_PATH=${target}" "REQUIREMENTS_TXT_PATH=${requirements}" \\
+    "GITHUB_WORKSPACE=${BATS_TEST_TMPDIR}" \\
+    "OSV_IMAGE=ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0" \\
+    "$@" bash "${OSV_SCRIPT}"
 }
 
 @test "Source scanner isolates Docker OSV on ubuntu-latest from slim filesystem scans" {
@@ -19,11 +41,11 @@ setup() {
   [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Run OSV-Scanner") | .name' "${WORKFLOW}")" = "" ]
   [ "$(yq -r '.on.workflow_call.inputs."use-osv-scanner".default' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "${WORKFLOW}")" = true ]
-  grep -Fq 'google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36' "${WORKFLOW}"
+  grep -Fq 'ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0' "${WORKFLOW}"
   grep -Fq 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25' "${WORKFLOW}"
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."scan-type"' "${WORKFLOW}")" = filesystem ]
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."exit-code"' "${WORKFLOW}")" = 1 ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.id == "osv") | ."continue-on-error"' "${WORKFLOW}")" = null ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.id == "osv") | .shell' "${WORKFLOW}")" = bash ]
   grep -Fq 'steps.trivy.outcome' "${WORKFLOW}"
   grep -Fq 'steps.semgrep.outcome' "${WORKFLOW}"
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${WORKFLOW}")" = false ]
@@ -51,63 +73,74 @@ setup() {
   done
 }
 
-@test "OSV scans directories regardless of known lockfile names" {
-  local scan_path="${BATS_TEST_TMPDIR}/other-ecosystems"
-  local output_file="${BATS_TEST_TMPDIR}/out"
-  mkdir -p "${scan_path}/nested"
-  touch "${scan_path}/pom.xml" "${scan_path}/nested/packages.lock.json" \
-    "${scan_path}/renv.lock" "${scan_path}/nested/bom.cdx.json"
-  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
+@test "OSV scans arbitrary ecosystems and preserves the target as one argument" {
+  prepare_osv_stub
+  local target="${BATS_TEST_TMPDIR}/other ecosystems"
+  mkdir -p "${target}/nested"
+  touch "${target}/pom.xml" "${target}/nested/packages.lock.json" \\
+    "${target}/renv.lock" "${target}/nested/bom.cdx.json"
+  run_osv_scan "${target}" ""
   [ "${status}" -eq 0 ]
-  grep -Fxq 'scan=true' "${output_file}"
-  grep -Fxq -- '--recursive' "${output_file}"
-  grep -Fxq -- '--include-git-root' "${output_file}"
-  grep -Fxq "${scan_path}" "${output_file}"
+  mapfile -d '' -t args < "${DOCKER_ARGS}"
+  [ "${args[-1]}" = "${target}" ]
+  [ "${args[-2]}" = --include-git-root ]
+  [ "${args[-3]}" = --recursive ]
+  [ "${args[-4]}" = source ]
+  [ "${args[-5]}" = scan ]
 }
 
-@test "OSV delegates the empty-directory case to the upstream scanner Action" {
-  local scan_path="${BATS_TEST_TMPDIR}/empty"
-  local output_file="${BATS_TEST_TMPDIR}/out"
-  mkdir -p "${scan_path}"
-  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
+@test "OSV handles an empty directory without failing on no dependencies" {
+  prepare_osv_stub
+  local target="${BATS_TEST_TMPDIR}/empty"
+  mkdir -p "${target}"
+  run_osv_scan "${target}" "" DOCKER_EXIT_CODE=128
   [ "${status}" -eq 0 ]
-  grep -Fxq 'scan=true' "${output_file}"
-  grep -Fxq "${scan_path}" "${output_file}"
+  [[ "${output}" == *"no dependencies"* ]]
+  mapfile -d '' -t args < "${DOCKER_ARGS}"
+  [ "${args[-1]}" = "${target}" ]
 }
 
-@test "OSV preparation detects a nested lockfile under a path with spaces" {
-  local scan_path="${BATS_TEST_TMPDIR}/nested package"
-  local output_file="${BATS_TEST_TMPDIR}/out"
-  mkdir -p "${scan_path}/service"
-  touch "${scan_path}/service/pnpm-lock.yaml"
-  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
+@test "OSV preserves nested custom requirements paths containing spaces" {
+  prepare_osv_stub
+  local target="${BATS_TEST_TMPDIR}/nested package"
+  local file="requirements/prod requirements.txt"
+  mkdir -p "${target}/requirements"
+  touch "${target}/${file}"
+  run_osv_scan "${target}" "${file}"
   [ "${status}" -eq 0 ]
-  grep -Fxq 'scan=true' "${output_file}"
-  grep -Fxq "${scan_path}" "${output_file}"
-  grep -Fxq -- '--recursive' "${output_file}"
-  grep -Fxq -- '--include-git-root' "${output_file}"
+  mapfile -d '' -t args < "${DOCKER_ARGS}"
+  [ "${args[-1]}" = "${target}" ]
+  [ "${args[-2]}" = "--lockfile=requirements.txt:${target}/${file}" ]
+  [ "${args[-3]}" = --include-git-root ]
 }
 
-@test "Python requirements override is respected and missing files fail" {
-  local scan_path="${BATS_TEST_TMPDIR}/python"
-  local output_file="${BATS_TEST_TMPDIR}/out"
-  mkdir -p "${scan_path}"
-  touch "${scan_path}/requirements-dev.txt"
-  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="requirements-dev.txt" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
-  [ "${status}" -eq 0 ]
-  grep -Fxq -- "--lockfile=requirements.txt:${scan_path}/requirements-dev.txt" "${output_file}"
-  rm -f "${scan_path}/requirements-dev.txt" "${output_file}"
-  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="requirements-dev.txt" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
+@test "OSV rejects nonexistent custom requirements" {
+  prepare_osv_stub
+  local target="${BATS_TEST_TMPDIR}/python"
+  mkdir -p "${target}"
+  run_osv_scan "${target}" "missing requirements.txt"
   [ "${status}" -eq 1 ]
+  [ ! -f "${DOCKER_ARGS}" ]
 }
 
-@test "Python uv.lock takes precedence over an explicit requirements override" {
-  local scan_path="${BATS_TEST_TMPDIR}/python"
-  local output_file="${BATS_TEST_TMPDIR}/out"
-  mkdir -p "${scan_path}"
-  touch "${scan_path}/uv.lock"
-  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="missing.txt" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
+@test "OSV defers a requirements override to a present uv.lock" {
+  prepare_osv_stub
+  local target="${BATS_TEST_TMPDIR}/python"
+  mkdir -p "${target}"
+  touch "${target}/uv.lock"
+  run_osv_scan "${target}" "missing requirements.txt"
   [ "${status}" -eq 0 ]
-  grep -Fxq 'scan=true' "${output_file}"
-  run ! grep -Fq -- '--lockfile=' "${output_file}"
+  mapfile -d '' -t args < "${DOCKER_ARGS}"
+  [ "${args[-1]}" = "${target}" ]
+  [ "${args[-2]}" = --include-git-root ]
+}
+
+@test "OSV preserves vulnerability and execution failure exit codes" {
+  prepare_osv_stub
+  local target="${BATS_TEST_TMPDIR}/python"
+  mkdir -p "${target}"
+  run_osv_scan "${target}" "" DOCKER_EXIT_CODE=1
+  [ "${status}" -eq 1 ]
+  run_osv_scan "${target}" "" DOCKER_EXIT_CODE=2
+  [ "${status}" -eq 2 ]
 }
