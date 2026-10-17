@@ -29,6 +29,7 @@ setup() {
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${WORKFLOW}")" = false ]
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with.format' "${WORKFLOW}")" = sarif ]
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."limit-severities-for-sarif"' "${WORKFLOW}")" = true ]
+  # shellcheck disable=SC2016
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with.severity' "${WORKFLOW}")" = '${{ inputs.trivy-severity }}' ]
   [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Upload Trivy SARIF report") | .with."if-no-files-found"' "${WORKFLOW}")" = warn ]
 }
