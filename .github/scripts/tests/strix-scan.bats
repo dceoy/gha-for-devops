@@ -76,7 +76,7 @@ scan() {
   validate TARGET_PATH=/tmp
   [ "${status}" -eq 1 ]
   validate TARGET_PATH=https://example.test
-  [ "${status}" -eq 0 ]  # rejected later because no matching local directory
+  [ "${status}" -eq 1 ]
   validate TARGET_PATH=-delete
   [ "${status}" -eq 1 ]
   validate SCAN_MODE=anything
