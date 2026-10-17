@@ -23,7 +23,7 @@ setup() {
   grep -Fq 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25' "${WORKFLOW}"
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."scan-type"' "${WORKFLOW}")" = filesystem ]
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."exit-code"' "${WORKFLOW}")" = 1 ]
-  grep -Fq 'steps.osv.outcome' "${WORKFLOW}"
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.id == "osv") | ."continue-on-error"' "${WORKFLOW}")" = null ]
   grep -Fq 'steps.trivy.outcome' "${WORKFLOW}"
   grep -Fq 'steps.semgrep.outcome' "${WORKFLOW}"
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${WORKFLOW}")" = false ]
