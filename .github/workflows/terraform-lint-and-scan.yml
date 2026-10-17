@@ -113,6 +113,11 @@ on:
         type: boolean
         description: Always return exit code 0 from Checkov
         default: false
+      use-semgrep:
+        required: false
+        type: boolean
+        description: Run Semgrep OSS SAST scan using p/default rules
+        default: true
       runs-on:
         required: false
         type: string
@@ -135,6 +140,7 @@ jobs:
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
+      UV_EXCLUDE_NEWER: 7 days
       TF_IN_AUTOMATION: "1"
       TF_INPUT: "0"
     steps:
@@ -279,3 +285,16 @@ jobs:
           output_file_path: ${{ inputs.checkov-output-file-path }}
           soft_fail: ${{ inputs.checkov-soft-fail }}
           api-key: ${{ secrets.BC_API_KEY }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+      - name: Set up uv for Semgrep
+        if: inputs.use-semgrep
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: auto
+      - name: Run Semgrep SAST scan
+        if: inputs.use-semgrep
+        working-directory: ${{ inputs.search-path }}
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
+          uvx semgrep scan \
+            --config p/default --metrics off --error \
+            --include '*.tf' \
+            --include '*.hcl' .

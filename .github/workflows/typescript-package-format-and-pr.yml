@@ -274,17 +274,21 @@ jobs:
       - name: Install dependencies
         env:
           ADDITIONAL_NPM_PACKAGES: ${{ inputs.additional-npm-packages }}
+          USE_OXLINT: ${{ inputs.use-oxlint }}
+          USE_BIOME: ${{ inputs.use-biome }}
+          USE_ESLINT: ${{ inputs.use-eslint }}
+          USE_PRETTIER: ${{ inputs.use-prettier }}
         working-directory: ${{ inputs.package-path }}
         run: | # zizmor: ignore[adhoc-packages] installs workflow-selected and caller-selected packages
+          packages=(typescript)
+          if [[ "${USE_OXLINT}" == 'true' ]]; then packages+=(oxlint); fi
+          if [[ "${USE_BIOME}" == 'true' ]]; then packages+=(biome); fi
+          if [[ "${USE_ESLINT}" == 'true' ]]; then packages+=(eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser); fi
+          if [[ "${USE_PRETTIER}" == 'true' ]]; then packages+=(prettier eslint-config-prettier); fi
           case "${PACKAGE_MANAGER:-}" in
             pnpm )
               pnpm install --frozen-lockfile
-              pnpm add --save-dev \
-                typescript \
-                ${{ inputs.use-oxlint && 'oxlint' || '' }} \
-                ${{ inputs.use-biome && 'biome' || '' }} \
-                ${{ inputs.use-eslint && 'eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser' || '' }} \
-                ${{ inputs.use-prettier && 'prettier eslint-config-prettier' || '' }}
+              pnpm add --save-dev "${packages[@]}"
               ;;
             * )
               if [[ -f package-lock.json ]]; then
@@ -292,12 +296,7 @@ jobs:
               else
                 npm install
               fi
-              npm install --save-dev \
-                typescript \
-                ${{ inputs.use-oxlint && 'oxlint' || '' }} \
-                ${{ inputs.use-biome && 'biome' || '' }} \
-                ${{ inputs.use-eslint && 'eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser' || '' }} \
-                ${{ inputs.use-prettier && 'prettier eslint-config-prettier' || '' }}
+              npm install --save-dev "${packages[@]}"
               ;;
           esac
           for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
@@ -362,6 +361,7 @@ jobs:
           USE_PRETTIER: ${{ inputs.use-prettier }}
           USE_ESLINT: ${{ inputs.use-eslint }}
           PR_BASE: ${{ github.head_ref || github.ref_name }}
+          AUDIT: ${{ inputs.audit }}
           TARGET_PATH: ${{ inputs.package-path }}
         run: |
           formatters=()
@@ -389,7 +389,7 @@ jobs:
           fi
           target_id="${target_slug}-${target_hash}"
           {
-            if [[ "${{ inputs.audit }}" == 'true' ]]; then
+            if [[ "${AUDIT}" == 'true' ]]; then
               echo "commit_message=Reformat TypeScript code using ${formatter_text} and fix security vulnerabilities"
             else
               echo "commit_message=Reformat TypeScript code using ${formatter_text}"

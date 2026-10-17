@@ -78,6 +78,11 @@ on:
         type: string
         description: Additional NPM packages to install
         default: null
+      use-semgrep:
+        required: false
+        type: boolean
+        description: Run Semgrep OSS SAST scan using p/default rules
+        default: true
       runs-on:
         required: false
         type: string
@@ -93,6 +98,7 @@ jobs:
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
+      UV_EXCLUDE_NEWER: 7 days
       npm_config_min_release_age: '7'
       NPM_CONFIG_MINIMUM_RELEASE_AGE: '10080'
       PNPM_CONFIG_MINIMUM_RELEASE_AGE: '10080'
@@ -270,18 +276,23 @@ jobs:
       - name: Install dependencies
         env:
           ADDITIONAL_NPM_PACKAGES: ${{ inputs.additional-npm-packages }}
+          USE_OXLINT: ${{ inputs.use-oxlint }}
+          USE_BIOME: ${{ inputs.use-biome }}
+          USE_ESLINT: ${{ inputs.use-eslint }}
+          USE_REACT: ${{ inputs.use-react }}
+          USE_PRETTIER: ${{ inputs.use-prettier }}
         working-directory: ${{ inputs.package-path }}
         run: | # zizmor: ignore[adhoc-packages] installs workflow-selected and caller-selected packages
+          packages=(typescript)
+          if [[ "${USE_OXLINT}" == 'true' ]]; then packages+=(oxlint); fi
+          if [[ "${USE_BIOME}" == 'true' ]]; then packages+=(biome); fi
+          if [[ "${USE_ESLINT}" == 'true' ]]; then packages+=(eslint eslint-plugin-security @typescript-eslint/eslint-plugin @typescript-eslint/parser); fi
+          if [[ "${USE_REACT}" == 'true' && "${USE_ESLINT}" == 'true' ]]; then packages+=(eslint-plugin-react eslint-plugin-react-hooks); fi
+          if [[ "${USE_PRETTIER}" == 'true' ]]; then packages+=(prettier eslint-config-prettier eslint-plugin-prettier); fi
           case "${PACKAGE_MANAGER:-}" in
             pnpm )
               pnpm install --frozen-lockfile
-              pnpm add --save-dev \
-                typescript \
-                ${{ inputs.use-oxlint && 'oxlint' || '' }} \
-                ${{ inputs.use-biome && 'biome' || '' }} \
-                ${{ inputs.use-eslint && 'eslint eslint-plugin-security @typescript-eslint/eslint-plugin @typescript-eslint/parser' || '' }} \
-                ${{ inputs.use-react && inputs.use-eslint && 'eslint-plugin-react eslint-plugin-react-hooks' || '' }} \
-                ${{ inputs.use-prettier && 'prettier eslint-config-prettier eslint-plugin-prettier' || '' }}
+              pnpm add --save-dev "${packages[@]}"
               ;;
             * )
               if [[ -f package-lock.json ]]; then
@@ -289,13 +300,7 @@ jobs:
               else
                 npm install
               fi
-              npm install --save-dev \
-                typescript \
-                ${{ inputs.use-oxlint && 'oxlint' || '' }} \
-                ${{ inputs.use-biome && 'biome' || '' }} \
-                ${{ inputs.use-eslint && 'eslint eslint-plugin-security @typescript-eslint/eslint-plugin @typescript-eslint/parser' || '' }} \
-                ${{ inputs.use-react && inputs.use-eslint && 'eslint-plugin-react eslint-plugin-react-hooks' || '' }} \
-                ${{ inputs.use-prettier && 'prettier eslint-config-prettier eslint-plugin-prettier' || '' }}
+              npm install --save-dev "${packages[@]}"
               ;;
           esac
           for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
@@ -356,3 +361,22 @@ jobs:
               npm audit
               ;;
           esac
+      - name: Set up uv for Semgrep
+        if: inputs.use-semgrep
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: auto
+      - name: Run Semgrep SAST scan
+        if: inputs.use-semgrep
+        working-directory: ${{ inputs.package-path }}
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
+          uvx semgrep scan \
+            --config p/default --metrics off --error \
+            --include '*.ts' \
+            --include '*.tsx' \
+            --include '*.mts' \
+            --include '*.cts' \
+            --include '*.js' \
+            --include '*.jsx' \
+            --include '*.mjs' \
+            --include '*.cjs' .

@@ -73,6 +73,11 @@ on:
         type: string
         description: Path to the requirements.txt file (not applicable if uv.lock is present)
         default: null
+      use-semgrep:
+        required: false
+        type: boolean
+        description: Run Semgrep OSS SAST scan using p/default rules
+        default: true
       runs-on:
         required: false
         type: string
@@ -237,3 +242,10 @@ jobs:
             poetry) poetry run pyright --threads=0 . ;;
             *)      pyright --threads=0 . ;;
           esac
+      - name: Run Semgrep SAST scan
+        if: inputs.use-semgrep
+        working-directory: ${{ inputs.package-path }}
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
+          uvx semgrep scan \
+            --config p/default --metrics off --error \
+            --include '*.py' .
