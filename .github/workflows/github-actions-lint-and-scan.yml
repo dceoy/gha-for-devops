@@ -163,6 +163,11 @@ on:
         type: string
         description: Runner to use
         default: ubuntu-latest
+      security-runs-on:
+        required: false
+        type: string
+        description: Runner for Docker-free source security scans (Trivy and Semgrep)
+        default: ubuntu-slim
     secrets:
       GH_TOKEN:
         required: false
@@ -183,6 +188,7 @@ jobs:
     if: inputs.use-semgrep
     uses: $/.github/workflows/source-security-scan.yml
     with:
+      runs-on: ${{ inputs.security-runs-on }}
       use-osv-scanner: false
       use-trivy: false
       use-semgrep: ${{ inputs.use-semgrep }}
