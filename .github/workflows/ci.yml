@@ -157,6 +157,7 @@ jobs:
       - shell-lint
       - markdown-lint
       - readme-generator-test
+      - readme-sync-check
       - github-actions-lint-and-scan
     permissions:
       contents: write
@@ -178,14 +179,14 @@ jobs:
       contents: write
       pull-requests: write
     uses: $/.github/workflows/markdown-format-and-pr.yml
+    with:
+      update-readme: ${{ github.event_name == 'workflow_dispatch' && inputs.workflow == 'update' }}
     secrets:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  update-readme-md:
-    if: >
-      github.event_name == 'push'
-      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'update')
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  readme-sync-check:
+    if: github.event_name == 'pull_request'
     permissions:
-      contents: write
+      contents: read
     runs-on: ubuntu-slim
     env:
       npm_config_min_release_age: '7'
@@ -196,8 +197,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 1
-          ref: ${{ github.head_ref || github.ref_name }}
-          persist-credentials: true
+          persist-credentials: false
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
@@ -219,13 +219,12 @@ jobs:
           EOF
           chmod 0755 "${HOME}/.local/bin/prettier"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
-      - name: Update README.md
+      - name: Regenerate README.md
+        run: ./.github/scripts/update-readme.sh
+      - name: Verify README.md is up to date
         run: |
-          ./.github/scripts/update-readme.sh
-      - name: Commit and push the changes
-        uses: EndBug/add-and-commit@cc9c08ba6c8df3b93a8f2db63e89b98368ae2ae8  # v11.1.1
-        with:
-          add: ./README.md
-          message: Update README.md
-          push: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          if ! git diff --quiet -- README.md; then
+            echo '::error::README.md is out of date. Run ./.github/scripts/update-readme.sh and commit the generated result.'
+            git --no-pager diff -- README.md
+            exit 1
+          fi
