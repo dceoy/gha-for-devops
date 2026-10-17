@@ -154,7 +154,7 @@ jobs:
         working-directory: ${{ inputs.search-path }}
         env:
           FILE_NAMES: ${{ inputs.file-names }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep latest via uvx
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
           files=()
           while IFS= read -r f; do
             [[ -n "${f}" ]] && files+=("${f}")
@@ -168,7 +168,7 @@ jobs:
             echo "No tracked files matched file-names; skipping Semgrep."
             exit 0
           fi
-          uvx semgrep@latest scan \
+          uvx semgrep scan \
             --config p/default --metrics off --error \
             --include '*.sh' \
             --include '*.bash' \

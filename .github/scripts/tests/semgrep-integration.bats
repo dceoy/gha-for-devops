@@ -21,7 +21,7 @@ setup() {
     file="${REPO_ROOT}/.github/workflows/${workflow}"
     [[ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${file}")" == true ]]
     grep -Fq 'if: inputs.use-semgrep' "${file}"
-    grep -Fq "uvx semgrep@latest scan \\" "${file}"
+    grep -Fq "uvx semgrep scan \\" "${file}"
     grep -Fq -- '--config p/default --metrics off --error' "${file}"
   done
 }
@@ -61,7 +61,7 @@ run_semgrep_step() {
     run_semgrep_step "${workflow}" "${CONSUMER}" FILE_NAMES='*.sh' SCAN_TARGET=.
     [ "${status}" -eq 0 ]
     mapfile -d '' -t args < "${SEMGREP_ARGS}"
-    [ "${args[0]}" = semgrep@latest ]
+    [ "${args[0]}" = semgrep ]
     [ "${args[1]}" = scan ]
     [[ " ${args[*]} " == *' --config p/default --metrics off --error '* ]]
 
@@ -108,11 +108,11 @@ run_semgrep_step() {
   [ ! -e "${SEMGREP_ARGS}" ]
 }
 
-@test "Semgrep uses uvx latest and automatic setup-uv caching" {
+@test "Semgrep uses uvx and automatic setup-uv caching" {
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
   for workflow in "${WORKFLOWS[@]}"; do
     file="${REPO_ROOT}/.github/workflows/${workflow}"
-    grep -Fq 'uvx semgrep@latest scan' "${file}"
+    grep -Fq 'uvx semgrep scan' "${file}"
     run ! grep -q SEMGREP_VERSION "${file}"
     if [[ "${workflow}" != python-package-lint-and-scan.yml ]]; then
       [ "$(yq -r '.jobs[].steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${file}")" = auto ]

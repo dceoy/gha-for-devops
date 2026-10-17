@@ -368,8 +368,8 @@ jobs:
       - name: Run Semgrep SAST scan
         if: inputs.use-semgrep
         working-directory: ${{ inputs.package-path }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep latest via uvx
-          uvx semgrep@latest scan \
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
+          uvx semgrep scan \
             --config p/default --metrics off --error \
             --include '*.ts' \
             --include '*.tsx' \

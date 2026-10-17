@@ -239,8 +239,8 @@ jobs:
         working-directory: .
         env:
           SCAN_TARGET: ${{ inputs.trivy-scan-ref }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep latest via uvx
-          uvx semgrep@latest scan \
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
+          uvx semgrep scan \
             --config p/default --metrics off --error \
             --include 'Dockerfile*' \
             --include '*.dockerfile' -- "${SCAN_TARGET}"
