@@ -1,0 +1,253 @@
+---
+# Web/API dynamic application security testing with OWASP ZAP.
+#
+# Caller responsibilities:
+# - Only scan environments you are authorized to test (staging or ephemeral post-deploy environments).
+#   `confirm-authorized: true` is required for every run, and active API testing additionally needs
+#   `active-scan: true`. Active scans are refused when the `environment` input looks like production.
+#   Use the `environment` input with required reviewers to gate runs on a GitHub Environment.
+# - Isolate the target: ZAP runs with host networking so it can reach services started on the runner.
+#   Do not point it at shared or production systems. No credentials are accepted by this workflow, so
+#   scans are unauthenticated; do not embed tokens in the target URL or API definition.
+# - Call from trusted events only. Fork pull requests and pull_request_target are rejected.
+#
+# The official ZAP Actions expose raw HTTP evidence in reports. Run the digest-pinned ZAP image
+# directly and publish only allowlisted numeric metadata (rule ID, risk, instance count), never URLs,
+# headers, evidence, or raw HTML. SOAP is deliberately unsupported because imported WSDL endpoints
+# cannot be constrained to the authorized target. Issue creation is never performed.
+name: Web DAST scan
+on:
+  workflow_call:
+    inputs:
+      target-url:
+        type: string
+        required: true
+        description: http(s) URL of the authorized staging or ephemeral target
+      confirm-authorized:
+        type: boolean
+        default: false
+        description: Must be true; confirms you are authorized to scan the target
+      scan-mode:
+        type: string
+        default: baseline
+        description: baseline (passive web checks) or api (API scan, needs api-definition)
+      api-definition:
+        type: string
+        default: ""
+        description: OpenAPI or GraphQL definition as an https URL or a repository path (SOAP is not safely scoped)
+      api-format:
+        type: string
+        default: openapi
+        description: API definition format (openapi or graphql)
+      active-scan:
+        type: boolean
+        default: false
+        description: Opt in to active attack testing in api mode; otherwise the API scan stays passive
+      environment:
+        type: string
+        default: ""
+        description: Optional GitHub Environment name to gate the run; production-looking names are refused for active scans
+      spider-minutes:
+        type: number
+        default: 1
+        description: Minutes ZAP may spend spidering (baseline mode)
+      scan-timeout-minutes:
+        type: number
+        default: 10
+        description: ZAP scan timeout in minutes
+      fail-on-risk:
+        type: string
+        default: high
+        description: Fail when alerts at or above this risk exist (none, low, medium, or high)
+      report-artifact-name:
+        type: string
+        default: web-dast-report
+        description: Artifact name for the metadata-only ZAP report
+      report-retention-days:
+        type: number
+        default: 7
+        description: Report artifact retention in days
+      timeout-minutes:
+        type: number
+        default: 30
+        description: Job timeout in minutes
+permissions:
+  contents: read
+jobs:
+  zap:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    environment: ${{ inputs.environment != '' && inputs.environment || null }}
+    env:
+      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:stable@sha256:5ccfff9a411743ab2615136a2edd7416bec9ce41572fa94e935df38c14adb2b6
+    steps:
+      - name: Validate scan request
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          TARGET_URL: ${{ inputs.target-url }}
+          CONFIRMED: ${{ inputs.confirm-authorized }}
+          SCAN_MODE: ${{ inputs.scan-mode }}
+          API_DEFINITION: ${{ inputs.api-definition }}
+          API_FORMAT: ${{ inputs.api-format }}
+          ACTIVE_SCAN: ${{ inputs.active-scan }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          FAIL_ON_RISK: ${{ inputs.fail-on-risk }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          [[ "${EVENT_NAME}" != pull_request_target ]] || fail "pull_request_target is not supported."
+          [[ "${IS_FORK}" != true ]] || fail "Fork pull requests must not trigger dynamic scans."
+          [[ "${CONFIRMED}" == true ]] || fail "Set confirm-authorized: true to confirm you are authorized to scan the target."
+          [[ "${TARGET_URL}" =~ ^https?://[^/@[:space:]]+(/[^[:space:]]*)?$ ]] || fail "target-url must be an http(s) URL without credentials or whitespace."
+          [[ ! "${TARGET_URL}" =~ ^https?://(169\.254\.|metadata\.google\.internal) ]] || fail "target-url points at a cloud metadata endpoint."
+          case "${SCAN_MODE}" in
+            baseline) ;;
+            api)
+              [[ -n "${API_DEFINITION}" ]] || fail "api mode requires api-definition."
+              case "${API_FORMAT}" in openapi | graphql) ;; *) fail "api-format must be openapi or graphql (SOAP is not safely scoped)." ;; esac
+              if [[ "${API_DEFINITION}" =~ ^[a-z]+:// ]]; then
+                [[ "${API_DEFINITION}" =~ ^https://[^@[:space:]]+$ ]] || fail "api-definition URLs must be https without credentials."
+              else
+                [[ "${API_DEFINITION}" != /* && "${API_DEFINITION}" != *..* ]] || fail "api-definition must be a repository-relative path."
+              fi
+              ;;
+            *) fail "scan-mode must be baseline or api." ;;
+          esac
+          # Only OpenAPI supports ZAP's host override. Bound remote GraphQL schemas to the authorized origin.
+          if [[ "${SCAN_MODE}" == api && "${API_FORMAT}" != openapi && "${API_DEFINITION}" =~ ^https:// ]]; then
+            origin() {
+              python3 -c 'import sys; from urllib.parse import urlsplit; u=urlsplit(sys.argv[1]); print((u.scheme, u.netloc))' "$1"
+            }
+            [[ "$(origin "${API_DEFINITION}")" == "$(origin "${TARGET_URL}")" ]] ||
+              fail "Non-OpenAPI API definitions must use the authorized target origin."
+          fi
+          if [[ "${ACTIVE_SCAN}" == true ]]; then
+            [[ "${SCAN_MODE}" == api ]] || fail "active-scan is only supported in api mode."
+            [[ ! "${ENVIRONMENT,,}" =~ prod|live ]] || fail "Active scans are refused for production-looking environments."
+          fi
+          case "${FAIL_ON_RISK}" in none | low | medium | high) ;; *) fail "fail-on-risk must be none, low, medium, or high." ;; esac
+      - name: Checkout repository
+        if: inputs.scan-mode == 'api'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run ZAP scan
+        id: zap
+        env:
+          TARGET_URL: ${{ inputs.target-url }}
+          SCAN_MODE: ${{ inputs.scan-mode }}
+          API_DEFINITION: ${{ inputs.api-definition }}
+          API_FORMAT: ${{ inputs.api-format }}
+          ACTIVE_SCAN: ${{ inputs.active-scan }}
+          SPIDER_MINUTES: ${{ inputs.spider-minutes }}
+          SCAN_TIMEOUT: ${{ inputs.scan-timeout-minutes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="${RUNNER_TEMP}/zap-wrk"
+          rm -rf "${workdir}"
+          mkdir -p "${workdir}"
+          chmod 777 "${workdir}"
+          if [[ "${SCAN_MODE}" == baseline ]]; then
+            script=(zap-baseline.py -t "${TARGET_URL}" -m "${SPIDER_MINUTES}" -T "${SCAN_TIMEOUT}")
+          else
+            if [[ "${API_DEFINITION}" =~ ^https:// ]]; then
+              definition="${API_DEFINITION}"
+            else
+              [[ -f "${API_DEFINITION}" ]] || { echo "::error::api-definition not found: ${API_DEFINITION}"; exit 1; }
+              cp -- "${API_DEFINITION}" "${workdir}/api-definition"
+              definition=/zap/wrk/api-definition
+            fi
+            if [[ "${API_FORMAT}" == graphql ]]; then
+              script=(zap-api-scan.py -t "${TARGET_URL}" -f graphql --schema "${definition}")
+            else
+              script=(zap-api-scan.py -t "${definition}" -f "${API_FORMAT}")
+            fi
+            if [[ "${API_FORMAT}" == openapi ]]; then
+              # Preserve the authorized scheme, port, and path for remote and local specs.
+              script+=(-O "${TARGET_URL}")
+            fi
+            script+=(-T "${SCAN_TIMEOUT}")
+            if [[ "${ACTIVE_SCAN}" != true ]]; then
+              script+=(-S)
+            fi
+          fi
+          # -s hides example URLs; no raw scanner output is forwarded to GitHub Actions logs.
+          # -I: alert-based exit codes are replaced by the fail-on-risk policy below.
+          script+=(-s -J report.json -I)
+          log="${RUNNER_TEMP}/zap-scan.log"
+          (umask 077 && : > "${log}")
+          status=0
+          docker run --rm --network host --volume "${workdir}:/zap/wrk:rw" "${ZAP_IMAGE}" "${script[@]}" > "${log}" 2>&1 || status=$?
+          # ZAP exit codes: 0 clean, 1 failures, 2 warnings, 3 scan error.
+          if [[ "${status}" -ge 3 || ! -s "${workdir}/report.json" ]]; then
+            echo "::error::ZAP scan failed (exit code ${status}); raw scanner output is withheld."
+            exit 1
+          fi
+          echo "workdir=${workdir}" >> "${GITHUB_OUTPUT}"
+      - name: Prepare metadata-only report
+        id: redact
+        env:
+          WORKDIR: ${{ steps.zap.outputs.workdir }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          outdir="${RUNNER_TEMP}/zap-report"
+          mkdir -p "${outdir}"
+          chmod 700 "${outdir}"
+          # Never serialize untrusted titles, URLs, evidence, paths or request/response bodies.
+          # The raw scan report is used only inside this runner and is removed after extraction.
+          jq -e '
+            if (.site | type) != "array" then error("Invalid ZAP report: missing site array")
+            else {
+              alerts: [.site[]?.alerts[]? |
+                {
+                  rule: ((.pluginid // "") | tostring |
+                    if test("^[0-9]{1,8}$") then . else "unknown" end),
+                  risk: (.riskcode | tonumber),
+                  instances: ((.count // "0") | tonumber)
+                }
+              ]
+            } end
+          ' "${WORKDIR}/report.json" > "${outdir}/report.json"
+          rm -rf "${WORKDIR}"
+          echo "report=${outdir}/report.json" >> "${GITHUB_OUTPUT}"
+          echo "dir=${outdir}" >> "${GITHUB_OUTPUT}"
+      - name: Upload metadata-only ZAP report
+        if: ${{ !cancelled() && inputs.report-artifact-name != '' && steps.redact.outputs.dir != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: ${{ inputs.report-artifact-name }}
+          path: ${{ steps.redact.outputs.dir }}
+          retention-days: ${{ inputs.report-retention-days }}
+          if-no-files-found: error
+      - name: Enforce fail policy
+        env:
+          REPORT: ${{ steps.redact.outputs.report }}
+          FAIL_ON_RISK: ${{ inputs.fail-on-risk }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${FAIL_ON_RISK}" in
+            none) threshold=4 ;;
+            low) threshold=1 ;;
+            medium) threshold=2 ;;
+            high) threshold=3 ;;
+          esac
+          {
+            echo "## ZAP scan"
+            echo
+            echo "| Risk | Rule ID | Instances |"
+            echo "| --- | --- | --- |"
+            jq -r '[.alerts[]] | sort_by(-.risk) | .[] | "| \(if .risk == 3 then "High" elif .risk == 2 then "Medium" elif .risk == 1 then "Low" else "Info" end) | \(.rule) | \(.instances) |"' "${REPORT}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+          blocking="$(jq --argjson t "${threshold}" '[.alerts[] | select(.risk >= $t)] | length' "${REPORT}")"
+          if (( blocking > 0 )); then
+            echo "::error::${blocking} ZAP alert type(s) at or above '${FAIL_ON_RISK}' risk."
+            exit 1
+          fi

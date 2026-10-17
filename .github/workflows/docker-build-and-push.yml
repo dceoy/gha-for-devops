@@ -61,12 +61,12 @@ on:
       provenance:
         required: false
         type: boolean
-        description: Generate provenance attestation for the build
+        description: Generate a BuildKit provenance attestation for the build (not by itself SLSA compliance)
         default: false
       cosign:
         required: false
         type: boolean
-        description: Sign the image with cosign
+        description: Keyless-sign the pushed image digest with cosign (needs push true and caller id-token write; verify with docker-image-verify.yml before deploying)
         default: false
       scan-before-build:
         required: false

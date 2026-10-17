@@ -11,6 +11,8 @@ export UV_EXCLUDE_NEWER="${COOLDOWN_DAYS} days"
 export NPM_CONFIG_MIN_RELEASE_AGE="${COOLDOWN_DAYS}"
 export PNPM_CONFIG_MINIMUM_RELEASE_AGE=$((COOLDOWN_DAYS * 24 * 60))
 
+bash scripts/check-qa-dependencies.sh
+
 # Scan dependency manifests and lockfiles before running QA tools.
 osv_status=0
 osv-scanner scan source --recursive --include-git-root . || osv_status=$?
@@ -31,20 +33,20 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
     PACKAGE_DIRECTORY=''
   fi
   if [[ -n "${PACKAGE_DIRECTORY}" ]] && [[ -f "${PACKAGE_DIRECTORY}/uv.lock" ]]; then
-    uv run --directory "${PACKAGE_DIRECTORY}" ruff format .
-    uv run --directory "${PACKAGE_DIRECTORY}" ruff check --fix .
-    uv run --directory "${PACKAGE_DIRECTORY}" pyright .
+    uv run --locked --directory "${PACKAGE_DIRECTORY}" ruff format .
+    uv run --locked --directory "${PACKAGE_DIRECTORY}" ruff check --fix .
+    uv run --locked --directory "${PACKAGE_DIRECTORY}" pyright .
   elif [[ -n "${PACKAGE_DIRECTORY}" ]] && [[ -f "${PACKAGE_DIRECTORY}/poetry.lock" ]]; then
     poetry -C "${PACKAGE_DIRECTORY}" run ruff format .
     poetry -C "${PACKAGE_DIRECTORY}" run ruff check --fix .
     poetry -C "${PACKAGE_DIRECTORY}" run pyright .
   elif [[ -n "${PACKAGE_DIRECTORY}" ]]; then
-    uvx ruff format "${PACKAGE_DIRECTORY}"
-    uvx ruff check --fix "${PACKAGE_DIRECTORY}"
-    uvx pyright "${PACKAGE_DIRECTORY}"
+    uv run --locked ruff format "${PACKAGE_DIRECTORY}"
+    uv run --locked ruff check --fix "${PACKAGE_DIRECTORY}"
+    uv run --locked pyright "${PACKAGE_DIRECTORY}"
   else
-    uvx ruff format --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
-    uvx ruff check --fix --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --select="${RUFF_LINT_SELECT}" --ignore="${RUFF_LINT_IGNORE}" --config "${RUFF_LINT_PER_FILE_IGNORES}" --config "lint.pydocstyle.convention = 'google'" --config 'lint.pylint.max-args = 10' --config 'lint.pylint.max-public-methods = 40' .
+    uv run --locked ruff format --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
+    uv run --locked ruff check --fix --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --select="${RUFF_LINT_SELECT}" --ignore="${RUFF_LINT_IGNORE}" --config "${RUFF_LINT_PER_FILE_IGNORES}" --config "lint.pydocstyle.convention = 'google'" --config 'lint.pylint.max-args = 10' --config 'lint.pylint.max-public-methods = 40' .
 
     (
       PYRIGHT_CONFIG_FILE="${REPO_ROOT}/.pyrightconfig.local-qa.$$.json"
@@ -54,7 +56,7 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
       else
         printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
       fi
-      uvx pyright --threads=0 --project "${PYRIGHT_CONFIG_FILE}"
+      uv run --locked pyright --threads=0 --project "${PYRIGHT_CONFIG_FILE}"
     )
   fi
 fi
@@ -84,46 +86,47 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
   fi
 
   if command -v biome > /dev/null 2>&1; then
-    pnpm dlx @biomejs/biome check --write "${PACKAGE_DIRECTORY}"
+    pnpm exec biome check --write "${PACKAGE_DIRECTORY}"
   fi
   if command -v prettier > /dev/null 2>&1 && ! command -v biome > /dev/null 2>&1; then
-    pnpm dlx prettier --write "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss,md,mdx,html,htm}"
+    pnpm exec prettier --write "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss,md,mdx,html,htm}"
   fi
   if command -v oxlint > /dev/null 2>&1; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
-      pnpm dlx oxlint --fix --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
+      pnpm exec oxlint --fix --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
     else
-      pnpm dlx oxlint --fix "${PACKAGE_DIRECTORY}"
+      pnpm exec oxlint --fix "${PACKAGE_DIRECTORY}"
     fi
   fi
   if command -v eslint > /dev/null 2>&1; then
-    pnpm dlx eslint --fix --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
+    pnpm exec eslint --fix --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
   fi
 
   if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]]; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
-      pnpm --package=typescript dlx tsc --noEmit --project "${TSCONFIG_JSON_FILE}"
+      pnpm exec tsc --noEmit --project "${TSCONFIG_JSON_FILE}"
     else
-      pnpm --package=typescript dlx tsc --noEmit
+      pnpm exec tsc --noEmit
     fi
   fi
 else
   if [[ "${N_HTML_FILES}" -gt 0 ]]; then
-    pnpm dlx prettier --write './**/*.{html,htm}'
+    pnpm exec prettier --write './**/*.{html,htm}'
   fi
   if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
-    pnpm dlx prettier --write './**/*.{md,mdx}'
+    pnpm exec prettier --write './**/*.{md,mdx}'
   fi
 fi
 
 if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
-  if [[ -f .markdownlint-cli2.jsonc ]]; then
-    git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t pnpm dlx markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
+  if [[ -f .markdownlint.jsonc ]]; then
+    git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t pnpm exec markdownlint --fix --config .markdownlint.jsonc
   else
     (
-      trap 'rm -f .markdownlint-cli2.jsonc' EXIT
-      printf '%s\n' '{"config":{"MD013":false,"MD033":false,"MD041":false}}' > .markdownlint-cli2.jsonc
-      git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t pnpm dlx markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
+      MARKDOWNLINT_CONFIG="$(mktemp)"
+      trap 'rm -f "${MARKDOWNLINT_CONFIG}"' EXIT
+      printf '%s\n' '{"MD013":false,"MD033":false,"MD041":false}' > "${MARKDOWNLINT_CONFIG}"
+      git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t pnpm exec markdownlint --fix --config "${MARKDOWNLINT_CONFIG}"
     )
   fi
 fi
@@ -161,13 +164,13 @@ done < <(git ls-files -- 'go.mod' '*/go.mod')
 if [[ -d '.github/workflows' ]]; then
   ZIZMOR_PATHS=('.github/workflows')
   [[ -d '.github/actions' ]] && ZIZMOR_PATHS+=('.github/actions')
-  uvx zizmor --fix=safe "${ZIZMOR_PATHS[@]}"
+  uv run --locked zizmor --fix=safe "${ZIZMOR_PATHS[@]}"
   N_WORKFLOW_YAML_FILES=$(git ls-files -- '.github/workflows/**.yml' '.github/workflows/**.yaml' | wc -l)
   if [[ "${N_WORKFLOW_YAML_FILES}" -gt 0 ]]; then
     git ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml' \
       | xargs -0 -t actionlint
     git ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml' \
-      | xargs -0 -t uvx yamllint -d '{"extends": "relaxed", "rules": {"line-length": "disable"}}'
+      | xargs -0 -t uv run --locked yamllint -d '{"extends": "relaxed", "rules": {"line-length": "disable"}}'
   fi
 fi
 
@@ -180,7 +183,7 @@ fi
 
 N_DOCKER_FILES=$(git ls-files -- 'Dockerfile' '*/Dockerfile' | wc -l)
 if [[ -d '.github/workflows' ]] || [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N_DOCKER_FILES}" -gt 0 ]]; then
-  uvx checkov --framework=all --output=github_failed_only --directory=.
+  uv run --locked checkov --framework=all --output=github_failed_only --directory=.
 fi
 if [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N_DOCKER_FILES}" -gt 0 ]]; then
   trivy filesystem --scanners vuln,secret,misconfig --skip-dirs .venv --skip-dirs .terraform --skip-dirs .terragrunt-cache --skip-dirs node_modules --skip-dirs .git .
@@ -188,5 +191,5 @@ fi
 
 N_SEMGREP_FILES=$(git ls-files -- '*.py' '*.go' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.mts' '*.cts' '*.sh' '*.bash' '*.bats' '*.tf' '*.hcl' '*.yml' '*.yaml' '*.html' '*.htm' 'Dockerfile*' '*.dockerfile' | wc -l)
 if [[ "${N_SEMGREP_FILES}" -gt 0 ]]; then
-  uvx semgrep scan --config p/default --metrics off --error .
+  uv run --locked semgrep scan --config p/default --metrics off --error .
 fi

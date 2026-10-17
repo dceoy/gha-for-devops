@@ -39,10 +39,12 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [docker-build-with-multi-targets.yml](.github/workflows/docker-build-with-multi-targets.yml)                     | Docker image build and save for multiple build targets            |
 | [docker-buildx-bake.yml](.github/workflows/docker-buildx-bake.yml)                                               | Docker image build from a bake definition file                    |
 | [docker-image-scan.yml](.github/workflows/docker-image-scan.yml)                                                 | Security scan for Docker images                                   |
+| [docker-image-verify.yml](.github/workflows/docker-image-verify.yml)                                             | Docker image signature verification                               |
 | [docker-lint-and-scan.yml](.github/workflows/docker-lint-and-scan.yml)                                           | Lint and security scan for Dockerfile                             |
 | [docker-pull-from-aws.yml](.github/workflows/docker-pull-from-aws.yml)                                           | Docker image pull from AWS                                        |
 | [docker-save-and-terraform-deploy-to-aws.yml](.github/workflows/docker-save-and-terraform-deploy-to-aws.yml)     | Docker image save and resource deployment to AWS using Terraform  |
 | [gcloud-infra-manager-deployments.yml](.github/workflows/gcloud-infra-manager-deployments.yml)                   | Deployment of Google Cloud resources using Infrastructure Manager |
+| [git-secret-scan.yml](.github/workflows/git-secret-scan.yml)                                                     | Git history secret scan                                           |
 | [github-actions-lint-and-scan.yml](.github/workflows/github-actions-lint-and-scan.yml)                           | Lint and security scan for GitHub Actions workflows and actions   |
 | [github-codeql-analysis.yml](.github/workflows/github-codeql-analysis.yml)                                       | GitHub CodeQL Analysis                                            |
 | [github-major-version-tag.yml](.github/workflows/github-major-version-tag.yml)                                   | Major version tag on GitHub                                       |
@@ -68,8 +70,10 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [python-pyinstaller.yml](.github/workflows/python-pyinstaller.yml)                                               | Build using PyInstaller                                           |
 | [r-package-format-and-pr.yml](.github/workflows/r-package-format-and-pr.yml)                                     | Formatting for R                                                  |
 | [r-package-lint.yml](.github/workflows/r-package-lint.yml)                                                       | Lint for R                                                        |
+| [scorecard-assessment.yml](.github/workflows/scorecard-assessment.yml)                                           | OpenSSF Scorecard assessment                                      |
 | [shell-lint.yml](.github/workflows/shell-lint.yml)                                                               | Lint for Shell                                                    |
 | [source-security-scan.yml](.github/workflows/source-security-scan.yml)                                           | Source security scan                                              |
+| [strix-scan.yml](.github/workflows/strix-scan.yml)                                                               | AI penetration test with Strix                                    |
 | [terraform-deploy-to-aws.yml](.github/workflows/terraform-deploy-to-aws.yml)                                     | Deployment of AWS resources using Terraform                       |
 | [terraform-format-and-pr.yml](.github/workflows/terraform-format-and-pr.yml)                                     | Formatting for Terraform                                          |
 | [terraform-lint-and-scan.yml](.github/workflows/terraform-lint-and-scan.yml)                                     | Lint and security scan for Terraform                              |
@@ -81,8 +85,24 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [typescript-package-lint-and-scan.yml](.github/workflows/typescript-package-lint-and-scan.yml)                   | Lint and security scan for TypeScript                             |
 | [typescript-package-script.yml](.github/workflows/typescript-package-script.yml)                                 | Package script run for a TypeScript project                       |
 | [web-api-monitoring-with-slack.yml](.github/workflows/web-api-monitoring-with-slack.yml)                         | Synthetic web API monitoring with Slack notification              |
+| [web-dast-scan.yml](.github/workflows/web-dast-scan.yml)                                                         | Web DAST scan                                                     |
 | [weekly-release.yml](.github/workflows/weekly-release.yml)                                                       | Weekly release                                                    |
 | [yaml-lint.yml](.github/workflows/yaml-lint.yml)                                                                 | Lint for YAML                                                     |
+
+## Security Workflows
+
+Security scanners are separate workflows because their targets, permissions, and execution conditions differ.
+
+| Capability                                | Workflow                                                                                                                          | Trust boundary                                                    |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Source tree (OSV-Scanner, Trivy, Semgrep) | `source-security-scan.yml`                                                                                                        | Checked-out files, read-only                                      |
+| Git-history secrets (TruffleHog)          | `git-secret-scan.yml`                                                                                                             | Commit history, read-only; secret values never logged or uploaded |
+| Repository posture (OpenSSF Scorecard)    | `scorecard-assessment.yml` (private, unpublished) or a dedicated `scorecard.yml` in the scanned repository for public publication | Repository settings and workflows                                 |
+| Web/API DAST (OWASP ZAP)                  | `web-dast-scan.yml`                                                                                                               | Authorized staging or ephemeral deployments only                  |
+| AI penetration testing (Strix)            | `strix-scan.yml`                                                                                                                  | Authorized local source; opt-in LLM credentials and SARIF         |
+| Image signing and verification (Cosign)   | `docker-build-and-push.yml` (`push: true`, `cosign: true`), then `docker-image-verify.yml`                                        | Immutable image digest, expected signer identity and issuer       |
+
+Cosign signatures and BuildKit `provenance` do not by themselves establish SLSA compliance.
 
 ## License
 
