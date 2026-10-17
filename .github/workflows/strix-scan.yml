@@ -1,0 +1,206 @@
+---
+# AI penetration testing is intentionally opt-in: agents can execute code and
+# modify the local source mount. Run only against authorized, isolated targets.
+name: AI penetration test with Strix
+on:
+  workflow_call:
+    inputs:
+      target-path:
+        type: string
+        default: .
+        description: Local repository directory to scan; remote URLs are not accepted
+      confirm-authorized:
+        type: boolean
+        default: false
+        description: Explicitly authorize autonomous testing of the selected source and its test environment
+      scan-mode:
+        type: string
+        default: quick
+        description: Strix scan depth (quick, standard, or deep)
+      scope-mode:
+        type: string
+        default: auto
+        description: auto (PR diff or otherwise full), diff (PR only), or full
+      max-budget:
+        type: number
+        default: 10
+        description: Estimated USD LLM budget (may slightly overshoot in-flight requests)
+      fail-on:
+        type: string
+        default: high
+        description: Minimum severity that fails the job (critical, high, medium, low, or info)
+      timeout-minutes:
+        type: number
+        default: 90
+        description: Overall job timeout
+      environment:
+        type: string
+        default: ""
+        description: Optional protected GitHub Environment; production-like names are rejected
+      upload-sarif:
+        type: boolean
+        default: false
+        description: Opt in to publishing potentially sensitive findings to GitHub Code Scanning
+    secrets:
+      STRIX_LLM:
+        required: true
+        description: LiteLLM model identifier, for example openrouter/z-ai/glm-5.3
+      LLM_API_KEY:
+        required: true
+        description: Model provider API key
+permissions:
+  contents: read
+jobs:
+  strix:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    environment: ${{ inputs.environment != '' && inputs.environment || null }}
+    permissions:
+      contents: read
+      security-events: write  # Needed only when the caller opts in to upload-sarif
+    env:
+      UV_EXCLUDE_NEWER: 7 days
+      # renovate: datasource=pypi depName=strix-agent
+      STRIX_VERSION: 1.7.0
+    steps:
+      - name: Validate scan request
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          CONFIRMED: ${{ inputs.confirm-authorized }}
+          TARGET_PATH: ${{ inputs.target-path }}
+          SCAN_MODE: ${{ inputs.scan-mode }}
+          SCOPE_MODE: ${{ inputs.scope-mode }}
+          MAX_BUDGET: ${{ inputs.max-budget }}
+          FAIL_ON: ${{ inputs.fail-on }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          [[ "${EVENT_NAME}" != pull_request_target ]] || fail "pull_request_target is not supported."
+          [[ "${IS_FORK}" != true ]] || fail "Fork pull requests must not run Strix with LLM credentials."
+          [[ "${CONFIRMED}" == true ]] || fail "Set confirm-authorized: true before running an autonomous pentest."
+          [[ -n "${TARGET_PATH}" && "${TARGET_PATH}" != /* && "${TARGET_PATH}" != -* &&
+            "${TARGET_PATH}" != *$'\n'* ]] || fail "target-path must be a repository-relative directory."
+          case "${SCAN_MODE}" in quick | standard | deep) ;; *) fail "Invalid scan-mode." ;; esac
+          case "${SCOPE_MODE}" in auto | diff | full) ;; *) fail "Invalid scope-mode." ;; esac
+          [[ "${SCOPE_MODE}" != diff || "${EVENT_NAME}" == pull_request ]] ||
+            fail "diff scope requires a pull_request event."
+          case "${FAIL_ON}" in critical | high | medium | low | info) ;; *) fail "Invalid fail-on severity." ;; esac
+          [[ "${MAX_BUDGET}" =~ ^[0-9]+([.][0-9]+)?$ ]] &&
+            awk -v b="${MAX_BUDGET}" 'BEGIN { exit !(b > 0) }' ||
+            fail "max-budget must be positive."
+          [[ ! "${ENVIRONMENT,,}" =~ prod|live ]] || fail "Production environments are not supported."
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+      - name: Run Strix
+        id: scan
+        env:
+          STRIX_LLM: ${{ secrets.STRIX_LLM }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          TARGET_PATH: ${{ inputs.target-path }}
+          SCAN_MODE: ${{ inputs.scan-mode }}
+          SCOPE_MODE: ${{ inputs.scope-mode }}
+          MAX_BUDGET: ${{ inputs.max-budget }}
+          FAIL_ON: ${{ inputs.fail-on }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          UPLOAD_SARIF: ${{ inputs.upload-sarif }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${STRIX_LLM}" && -n "${LLM_API_KEY}" ]] || {
+            echo "::error::STRIX_LLM and LLM_API_KEY secrets must be set."
+            exit 1
+          }
+          workspace="$(realpath -e -- "${GITHUB_WORKSPACE}")"
+          target="$(realpath -e -- "${workspace}/${TARGET_PATH}")" || {
+            echo "::error::target-path does not exist."
+            exit 1
+          }
+          case "${target}" in "${workspace}" | "${workspace}"/*) ;; *)
+            echo "::error::target-path escapes the repository."
+            exit 1
+          esac
+          [[ -d "${target}" ]] || { echo "::error::target-path must be a directory."; exit 1; }
+
+          scope="${SCOPE_MODE}"
+          if [[ "${scope}" == auto ]]; then
+            if [[ "${EVENT_NAME}" == pull_request ]]; then scope=diff; else scope=full; fi
+          fi
+          args=(-n -t "${target}" --scan-mode "${SCAN_MODE}" --max-budget "${MAX_BUDGET}"
+            --fail-on "${FAIL_ON}" --scope-mode "${scope}")
+          if [[ "${scope}" == diff ]]; then
+            [[ -n "${PR_BASE_SHA}" ]] || { echo "::error::Cannot resolve pull request base."; exit 1; }
+            git -C "${target}" cat-file -e "${PR_BASE_SHA}^{commit}" || {
+              echo "::error::Pull request base is not available in checkout history."
+              exit 1
+            }
+            args+=(--diff-base "${PR_BASE_SHA}")
+          fi
+          workdir="${RUNNER_TEMP}/strix-work"
+          mkdir -p "${workdir}"
+          chmod 700 "${workdir}"
+          cd "${workdir}"
+          (umask 077 && : > scan.log)
+          status=0
+          uvx --python 3.13 --from "strix-agent==${STRIX_VERSION}" strix "${args[@]}" > scan.log 2>&1 || status=$?
+          case "${status}" in
+            0 | 2) ;;
+            *) echo "::error::Strix execution failed (exit code ${status}); private scanner log was not uploaded."; exit 1 ;;
+          esac
+          shopt -s nullglob
+          runs=(strix_runs/*/run.json)
+          [[ "${#runs[@]}" -eq 1 ]] || {
+            echo "::error::Expected exactly one Strix run.json; the scan is not verifiably complete."
+            exit 1
+          }
+          run_json="${runs[0]}"
+          run_status="$(jq -er '.status' "${run_json}")"
+          [[ "${run_status}" == completed ]] || {
+            echo "::error::Strix finished with status '${run_status}', not completed."
+            exit 1
+          }
+          cost="$(jq -er '(.llm_usage.cost // 0) | numbers' "${run_json}")"
+          if awk -v c="${cost}" -v b="${MAX_BUDGET}" 'BEGIN { exit !(c >= b * 0.9) }'; then
+            echo "::error::Strix used at least 90% of the budget; coverage may be truncated."
+            exit 1
+          fi
+          {
+            echo "## Strix pentest"
+            echo
+            echo "- Scan status: completed"
+            echo "- Scan mode: ${SCAN_MODE}"
+            echo "- Scope: ${scope}"
+            echo "- Estimated model spend (USD): ${cost}"
+            echo "- Fail threshold: ${FAIL_ON}"
+            echo "- Vulnerabilities at or above threshold: ${status}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+          if [[ "${UPLOAD_SARIF}" == true ]]; then
+            sarif="$(dirname "${run_json}")/findings.sarif"
+            [[ -f "${sarif}" ]] && jq -e '.version == "2.1.0" and (.runs | type == "array")' "${sarif}" > /dev/null || {
+              echo "::error::Strix SARIF is missing or invalid."
+              exit 1
+            }
+            cp -- "${sarif}" "${RUNNER_TEMP}/strix-findings.sarif"
+          fi
+          echo "exit_code=${status}" >> "${GITHUB_OUTPUT}"
+      - name: Publish Strix findings to code scanning
+        if: ${{ !cancelled() && inputs.upload-sarif && steps.scan.outcome == 'success' }}
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
+        with:
+          sarif_file: ${{ runner.temp }}/strix-findings.sarif
+      - name: Enforce severity threshold
+        if: ${{ !cancelled() && steps.scan.outputs.exit_code == '2' }}
+        run: |
+          echo "::error::Strix found at least one vulnerability at or above the requested severity."
+          exit 1
