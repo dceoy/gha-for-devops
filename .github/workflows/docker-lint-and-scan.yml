@@ -233,11 +233,12 @@ jobs:
         if: inputs.use-semgrep
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
         with:
-          enable-cache: true
+          enable-cache: auto
       - name: Run Semgrep SAST scan
         if: inputs.use-semgrep
-        working-directory: ${{ inputs.trivy-scan-ref }}
+        working-directory: .
         env:
+          SCAN_TARGET: ${{ inputs.trivy-scan-ref }}
           UV_EXCLUDE_NEWER: 7 days
           # renovate: datasource=pypi depName=semgrep versioning=pep440
           SEMGREP_VERSION: 1.180.0
@@ -245,4 +246,4 @@ jobs:
           uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan \
             --config p/default --metrics off --error \
             --include 'Dockerfile*' \
-            --include '*.dockerfile' .
+            --include '*.dockerfile' -- "${SCAN_TARGET}"
