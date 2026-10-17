@@ -63,15 +63,24 @@ on:
         type: string
         default: ""
         description: Artifact name for Trivy SARIF output; empty disables upload
+      runs-on:
+        type: string
+        default: ""
+        description: Runner label; auto selects ubuntu-latest for OSV-Scanner, ubuntu-slim otherwise
 permissions:
   contents: read
 jobs:
   scan:
     if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on || (inputs.use-osv-scanner && 'ubuntu-latest' || 'ubuntu-slim') }}
     env:
       UV_EXCLUDE_NEWER: 7 days
     steps:
+      - name: Validate runner for Docker action
+        if: ${{ inputs.use-osv-scanner && inputs.runs-on == 'ubuntu-slim' }}
+        run: |
+          echo "::error::OSV-Scanner requires a Docker-capable runner, not ubuntu-slim."
+          exit 1
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
