@@ -5,7 +5,7 @@ bats_require_minimum_version 1.5.0
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/git-secret-scan.yml"
-  for id in plan range trufflehog; do
+  for id in range trufflehog; do
     yq -r ".jobs.trufflehog.steps[] | select(.id == \"${id}\") | .run" "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/${id}.sh"
   done
   yq -r '.jobs.trufflehog.steps[] | select(.name == "Report and enforce results") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/report.sh"
@@ -65,17 +65,28 @@ step_output() {
   [ "$(yq -r '.permissions | keys | join(",")' "${src}")" = contents ]
 }
 
-@test "Plan rejects pull_request_target and sizes PR checkout depth" {
-  run env EVENT_NAME=pull_request_target SCAN_MODE=range PR_COMMITS=3 bash "${BATS_TEST_TMPDIR}/plan.sh"
+@test "Checkout fetches full history and rejects pull_request_target" {
+  [ "$(yq -r '.jobs.trufflehog.steps[] | select(.name == "Checkout repository") | .with."fetch-depth"' "${WORKFLOW}")" = 0 ]
+  [ "$(yq -r '.jobs.trufflehog.steps[0].if' "${WORKFLOW}")" = "github.event_name == 'pull_request_target'" ]
+  run bash -c "$(yq -r '.jobs.trufflehog.steps[0].run' "${WORKFLOW}")"
   [ "${status}" -eq 1 ]
   [[ "${output}" == *"pull_request_target is not supported"* ]]
-  run env EVENT_NAME=pull_request SCAN_MODE=range PR_COMMITS=3 bash "${BATS_TEST_TMPDIR}/plan.sh"
+}
+
+@test "Range base that is not an ancestor of head is still resolved" {
+  make_repo
+  cd "${REPO}"
+  git checkout -q -b feature "${BASE}"
+  git commit -q --allow-empty -m feature
+  FEATURE="$(git rev-parse HEAD)"
+  git checkout -q main
+  git commit -q --allow-empty -m "main moves on"
+  MAIN_TIP="$(git rev-parse HEAD)"
+  git checkout -q "${FEATURE}"
+  run env SCAN_MODE=range BASE_INPUT= PR_BASE="${MAIN_TIP}" PUSH_BEFORE= bash "${BATS_TEST_TMPDIR}/range.sh"
   [ "${status}" -eq 0 ]
-  [ "$(step_output fetch-depth)" = 4 ]
-  run env EVENT_NAME=pull_request SCAN_MODE=full PR_COMMITS=3 bash "${BATS_TEST_TMPDIR}/plan.sh"
-  [ "$(step_output fetch-depth)" = 0 ]
-  run env EVENT_NAME=schedule SCAN_MODE=range PR_COMMITS= bash "${BATS_TEST_TMPDIR}/plan.sh"
-  [ "$(step_output fetch-depth)" = 0 ]
+  [ "$(step_output base)" = "${MAIN_TIP}" ]
+  [ "$(step_output skip)" = false ]
 }
 
 @test "Range resolution handles commit ranges, empty ranges, and bad input" {

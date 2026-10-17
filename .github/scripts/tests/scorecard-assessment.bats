@@ -31,6 +31,11 @@ run_summary() {
   [ "$(yq -r '.on.workflow_call.secrets.SCORECARD_TOKEN.required' "${REUSABLE}")" = false ]
 }
 
+@test "Result upload is not gated on hashFiles outside the workspace" {
+  ! grep -Fq 'hashFiles' "${REUSABLE}"
+  [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard result") | .if' "${REUSABLE}")" != "" ]
+}
+
 @test "Dedicated Scorecard workflow follows the official publishing constraints" {
   [ "$(yq -r '.permissions' "${DEDICATED}")" = read-all ]
   [ "$(yq -r '.on | has("workflow_call")' "${DEDICATED}")" = false ]
