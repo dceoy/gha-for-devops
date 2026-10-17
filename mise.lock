@@ -46,6 +46,127 @@ url = "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_
 url_api = "https://api.github.com/repos/rhysd/actionlint/releases/assets/384924919"
 provenance = "github-attestations"
 
+[[tools."github:securego/gosec"]]
+version = "2.29.0"
+backend = "github:securego/gosec"
+
+[tools."github:securego/gosec"."platforms.linux-arm64"]
+checksum = "sha256:c71244ec8d37488fd479d0d26990968fee03ece48b305d8224ac0c1ebd66e87c"
+url = "https://github.com/securego/gosec/releases/download/v2.29.0/gosec_2.29.0_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/securego/gosec/releases/assets/530520762"
+provenance = "github-attestations"
+
+[tools."github:securego/gosec"."platforms.linux-arm64-musl"]
+checksum = "sha256:c71244ec8d37488fd479d0d26990968fee03ece48b305d8224ac0c1ebd66e87c"
+url = "https://github.com/securego/gosec/releases/download/v2.29.0/gosec_2.29.0_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/securego/gosec/releases/assets/530520762"
+provenance = "github-attestations"
+
+[tools."github:securego/gosec"."platforms.linux-x64"]
+checksum = "sha256:6431b119741c1f4a50fdfcf94e782e16b9e642afc8c7fa9b5d39d48bf3003095"
+url = "https://github.com/securego/gosec/releases/download/v2.29.0/gosec_2.29.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/securego/gosec/releases/assets/530520801"
+provenance = "github-attestations"
+
+[tools."github:securego/gosec"."platforms.linux-x64-musl"]
+checksum = "sha256:6431b119741c1f4a50fdfcf94e782e16b9e642afc8c7fa9b5d39d48bf3003095"
+url = "https://github.com/securego/gosec/releases/download/v2.29.0/gosec_2.29.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/securego/gosec/releases/assets/530520801"
+provenance = "github-attestations"
+
+[tools."github:securego/gosec"."platforms.macos-arm64"]
+checksum = "sha256:7ab6a92c1983b7cb9df12b3ac20fb270afa43cfa12a143c354edae3109c763e5"
+url = "https://github.com/securego/gosec/releases/download/v2.29.0/gosec_2.29.0_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/securego/gosec/releases/assets/530520761"
+provenance = "github-attestations"
+
+[tools."github:securego/gosec"."platforms.macos-x64"]
+checksum = "sha256:a48152c3c009988f1750b6508316339c8b55076d24b1a958789e30ea2a21794c"
+url = "https://github.com/securego/gosec/releases/download/v2.29.0/gosec_2.29.0_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/securego/gosec/releases/assets/530520763"
+provenance = "github-attestations"
+
+[tools."github:securego/gosec"."platforms.windows-x64"]
+checksum = "sha256:67cd5ca3a80280b27102a8d6482e7124e8a47bda240412a0fcd1bb7f1be96faf"
+url = "https://github.com/securego/gosec/releases/download/v2.29.0/gosec_2.29.0_windows_amd64.tar.gz"
+url_api = "https://api.github.com/repos/securego/gosec/releases/assets/530520799"
+provenance = "github-attestations"
+
+[[tools.go]]
+version = "1.27.2"
+backend = "core:go"
+
+[tools.go."platforms.linux-arm64"]
+checksum = "sha256:94f3e30b8e374bc285e7dadc11e0865726b9bc6e85b841ccceaabc0214c6b7c8"
+url = "https://dl.google.com/go/go1.27.2.linux-arm64.tar.gz"
+
+[tools.go."platforms.linux-arm64-musl"]
+checksum = "sha256:94f3e30b8e374bc285e7dadc11e0865726b9bc6e85b841ccceaabc0214c6b7c8"
+url = "https://dl.google.com/go/go1.27.2.linux-arm64.tar.gz"
+
+[tools.go."platforms.linux-x64"]
+checksum = "sha256:ecbadb99091a3f46e31f5f934b068b1864eafa7995211b39eaddf76996045fe5"
+url = "https://dl.google.com/go/go1.27.2.linux-amd64.tar.gz"
+
+[tools.go."platforms.linux-x64-musl"]
+checksum = "sha256:ecbadb99091a3f46e31f5f934b068b1864eafa7995211b39eaddf76996045fe5"
+url = "https://dl.google.com/go/go1.27.2.linux-amd64.tar.gz"
+
+[tools.go."platforms.macos-arm64"]
+checksum = "sha256:76812b213b1b2302c978d28fa52fa92d541704b9e7d9d5db8002c50e4018c4c5"
+url = "https://dl.google.com/go/go1.27.2.darwin-arm64.tar.gz"
+
+[tools.go."platforms.macos-x64"]
+checksum = "sha256:587b59182488b23aa6e5fc25110405a3e0e5b38ed2f5b2f46ed13c32aee356fe"
+url = "https://dl.google.com/go/go1.27.2.darwin-amd64.tar.gz"
+
+[tools.go."platforms.windows-x64"]
+checksum = "sha256:1314008898bd40df77af4b014f777f08873dbdfbcd3d92308728ee03304fe04f"
+url = "https://dl.google.com/go/go1.27.2.windows-amd64.zip"
+
+[[tools."go:golang.org/x/vuln/cmd/govulncheck"]]
+version = "1.9.0"
+backend = "go:golang.org/x/vuln/cmd/govulncheck"
+
+[[tools.golangci-lint]]
+version = "2.15.0"
+backend = "aqua:golangci/golangci-lint"
+
+[tools.golangci-lint."platforms.linux-arm64"]
+checksum = "sha256:b4d8f17068b35ee6060cc2f69a16fb48740d706fbba81661c318649c114a6998"
+url = "https://github.com/golangci/golangci-lint/releases/download/v2.15.0/golangci-lint-2.15.0-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/647132775"
+
+[tools.golangci-lint."platforms.linux-arm64-musl"]
+checksum = "sha256:b4d8f17068b35ee6060cc2f69a16fb48740d706fbba81661c318649c114a6998"
+url = "https://github.com/golangci/golangci-lint/releases/download/v2.15.0/golangci-lint-2.15.0-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/647132775"
+
+[tools.golangci-lint."platforms.linux-x64"]
+checksum = "sha256:9b7fe6a6bf6334b98decf8d86b11415ea7889afdabdd1959fdce23af2a9ebcea"
+url = "https://github.com/golangci/golangci-lint/releases/download/v2.15.0/golangci-lint-2.15.0-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/647132535"
+
+[tools.golangci-lint."platforms.linux-x64-musl"]
+checksum = "sha256:9b7fe6a6bf6334b98decf8d86b11415ea7889afdabdd1959fdce23af2a9ebcea"
+url = "https://github.com/golangci/golangci-lint/releases/download/v2.15.0/golangci-lint-2.15.0-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/647132535"
+
+[tools.golangci-lint."platforms.macos-arm64"]
+checksum = "sha256:d1e409481a8ca846c4bc97e781eb5cb1bd5c23353a0b3977a1cbda1b1b6447d5"
+url = "https://github.com/golangci/golangci-lint/releases/download/v2.15.0/golangci-lint-2.15.0-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/647132534"
+
+[tools.golangci-lint."platforms.macos-x64"]
+checksum = "sha256:767b899a28285e88ded2823d5dcc4bc5ef681173eb2d80f029a7b17ee4ece3b8"
+url = "https://github.com/golangci/golangci-lint/releases/download/v2.15.0/golangci-lint-2.15.0-darwin-amd64.tar.gz"
+url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/647132753"
+
+[tools.golangci-lint."platforms.windows-x64"]
+checksum = "sha256:cd7ea6063c95de245e17e5246e42bdc14bb221792c429dbd239ab3a6ade6ca6a"
+url = "https://github.com/golangci/golangci-lint/releases/download/v2.15.0/golangci-lint-2.15.0-windows-amd64.zip"
+url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/647132900"
+
 [[tools.gomplate]]
 version = "5.2.0"
 backend = "aqua:hairyhenderson/gomplate"
@@ -240,6 +361,162 @@ url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/390322886"
 checksum = "sha256:60cd368533d0ad73fa86d93d5bbf95ef40587245ce684ed138c1b31557b5fe97"
 url = "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_windows_amd64.exe"
 url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/390322844"
+
+[[tools.terraform]]
+version = "1.16.6"
+backend = "aqua:hashicorp/terraform"
+
+[tools.terraform."platforms.linux-arm64"]
+checksum = "sha256:a750b5a11038f165846b2658c40c88cd7070aa67a61bab431a14ba27928ea9ea"
+url = "https://releases.hashicorp.com/terraform/1.16.6/terraform_1.16.6_linux_arm64.zip"
+
+[tools.terraform."platforms.linux-arm64-musl"]
+checksum = "sha256:a750b5a11038f165846b2658c40c88cd7070aa67a61bab431a14ba27928ea9ea"
+url = "https://releases.hashicorp.com/terraform/1.16.6/terraform_1.16.6_linux_arm64.zip"
+
+[tools.terraform."platforms.linux-x64"]
+checksum = "sha256:38034b38d03096399a7a1264a14561a8029b2b496fd1f169452656e53968f1b7"
+url = "https://releases.hashicorp.com/terraform/1.16.6/terraform_1.16.6_linux_amd64.zip"
+
+[tools.terraform."platforms.linux-x64-musl"]
+checksum = "sha256:38034b38d03096399a7a1264a14561a8029b2b496fd1f169452656e53968f1b7"
+url = "https://releases.hashicorp.com/terraform/1.16.6/terraform_1.16.6_linux_amd64.zip"
+
+[tools.terraform."platforms.macos-arm64"]
+checksum = "sha256:85e1bc78ab45bdc5f82a7bac3929e37d072834a584d22583a2498dc67bb624cd"
+url = "https://releases.hashicorp.com/terraform/1.16.6/terraform_1.16.6_darwin_arm64.zip"
+
+[tools.terraform."platforms.macos-x64"]
+checksum = "sha256:794a36c3f7ebf6c58f2089c226068a539d1705ba358a5679b51671c8dc7ebc7b"
+url = "https://releases.hashicorp.com/terraform/1.16.6/terraform_1.16.6_darwin_amd64.zip"
+
+[tools.terraform."platforms.windows-x64"]
+checksum = "sha256:6ea2c186e0e76a113af30fbcdcf7a4b4c70756317994a04929e5c90b9e94b1df"
+url = "https://releases.hashicorp.com/terraform/1.16.6/terraform_1.16.6_windows_amd64.zip"
+
+[[tools.terragrunt]]
+version = "1.1.6"
+backend = "aqua:gruntwork-io/terragrunt"
+
+[tools.terragrunt."platforms.linux-arm64"]
+checksum = "sha256:6f26b85e0befe77ac5f6777f810d8560e56a55cf87d9980fc2b9e29b2d347377"
+url = "https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.6/terragrunt_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/gruntwork-io/terragrunt/releases/assets/579002232"
+
+[tools.terragrunt."platforms.linux-arm64-musl"]
+checksum = "sha256:6f26b85e0befe77ac5f6777f810d8560e56a55cf87d9980fc2b9e29b2d347377"
+url = "https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.6/terragrunt_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/gruntwork-io/terragrunt/releases/assets/579002232"
+
+[tools.terragrunt."platforms.linux-x64"]
+checksum = "sha256:5dca0e3518445199ecfd8c356532e3f134bf3082b092cd2fd61f143ab9ea7a06"
+url = "https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.6/terragrunt_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/gruntwork-io/terragrunt/releases/assets/579002043"
+
+[tools.terragrunt."platforms.linux-x64-musl"]
+checksum = "sha256:5dca0e3518445199ecfd8c356532e3f134bf3082b092cd2fd61f143ab9ea7a06"
+url = "https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.6/terragrunt_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/gruntwork-io/terragrunt/releases/assets/579002043"
+
+[tools.terragrunt."platforms.macos-arm64"]
+checksum = "sha256:c801b7c085a893ccbc5b9844522415e7bf1486d0a11341db793e76e61dc4c5f5"
+url = "https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.6/terragrunt_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/gruntwork-io/terragrunt/releases/assets/579001652"
+
+[tools.terragrunt."platforms.macos-x64"]
+checksum = "sha256:bcf9f95a8ff2af20998a7baca477a5ea2b2869c86ca4d4d787c619612b00d257"
+url = "https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.6/terragrunt_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/gruntwork-io/terragrunt/releases/assets/579001440"
+
+[tools.terragrunt."platforms.windows-x64"]
+checksum = "sha256:0f71dae898d43e50a5935c4e74062c53253c0c8e4aded0ccb302a7ae6fdceaa3"
+url = "https://github.com/gruntwork-io/terragrunt/releases/download/v1.1.6/terragrunt_windows_amd64.exe.tar.gz"
+url_api = "https://api.github.com/repos/gruntwork-io/terragrunt/releases/assets/579002572"
+
+[[tools.tflint]]
+version = "0.64.0"
+backend = "aqua:terraform-linters/tflint"
+
+[tools.tflint."platforms.linux-arm64"]
+checksum = "sha256:560da89aacf59389d4eb029730dd5b109b7288096c32f2726a0d9e783a5ea8eb"
+url = "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_linux_arm64.zip"
+url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/480528325"
+
+[tools.tflint."platforms.linux-arm64-musl"]
+checksum = "sha256:560da89aacf59389d4eb029730dd5b109b7288096c32f2726a0d9e783a5ea8eb"
+url = "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_linux_arm64.zip"
+url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/480528325"
+
+[tools.tflint."platforms.linux-x64"]
+checksum = "sha256:cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537"
+url = "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_linux_amd64.zip"
+url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/480528344"
+
+[tools.tflint."platforms.linux-x64-musl"]
+checksum = "sha256:cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537"
+url = "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_linux_amd64.zip"
+url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/480528344"
+
+[tools.tflint."platforms.macos-arm64"]
+checksum = "sha256:2496e9cb3d24992d553b45e7c87a0fdc9449ca975233876247a9bfeda857e6c0"
+url = "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_darwin_arm64.zip"
+url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/480528349"
+
+[tools.tflint."platforms.macos-x64"]
+checksum = "sha256:0f3a9fd17526014646a2dfc3f9122f7b4161abe3d6b0f0f03f9014483ddf4d19"
+url = "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_darwin_amd64.zip"
+url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/480528324"
+
+[tools.tflint."platforms.windows-x64"]
+checksum = "sha256:fb42fb859d844b156a8ea9d3363078c4d8b85ca78782e60876b08c9b8e59f303"
+url = "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_windows_amd64.zip"
+url_api = "https://api.github.com/repos/terraform-linters/tflint/releases/assets/480528323"
+
+[[tools.trivy]]
+version = "0.76.0"
+backend = "aqua:aquasecurity/trivy"
+
+[tools.trivy."platforms.linux-arm64"]
+checksum = "sha256:aab21e677a7b7071fc79f1711480840754c18a1b9d9cefa7ccd06af63a0e8f4c"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.0/trivy_0.76.0_Linux-ARM64.tar.gz"
+url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/640213448"
+provenance = "cosign"
+
+[tools.trivy."platforms.linux-arm64-musl"]
+checksum = "sha256:aab21e677a7b7071fc79f1711480840754c18a1b9d9cefa7ccd06af63a0e8f4c"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.0/trivy_0.76.0_Linux-ARM64.tar.gz"
+url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/640213448"
+provenance = "cosign"
+
+[tools.trivy."platforms.linux-x64"]
+checksum = "sha256:e24b1c51293c1b15e4ba8d45bbc7891ba053f90278ec2698f3562c993e145fe7"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.0/trivy_0.76.0_Linux-64bit.tar.gz"
+url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/640213415"
+provenance = "cosign"
+
+[tools.trivy."platforms.linux-x64-musl"]
+checksum = "sha256:e24b1c51293c1b15e4ba8d45bbc7891ba053f90278ec2698f3562c993e145fe7"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.0/trivy_0.76.0_Linux-64bit.tar.gz"
+url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/640213415"
+provenance = "cosign"
+
+[tools.trivy."platforms.macos-arm64"]
+checksum = "sha256:e7ec0d21fe842553f59af99aba2efbcc822369fbaed27019c575408b6d135fce"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.0/trivy_0.76.0_macOS-ARM64.tar.gz"
+url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/640213409"
+provenance = "cosign"
+
+[tools.trivy."platforms.macos-x64"]
+checksum = "sha256:89563d4d495cf4ef06a0d1950f8710b124e9f7bd2615ec6c47b03673f4ad45a2"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.0/trivy_0.76.0_macOS-64bit.tar.gz"
+url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/640213124"
+provenance = "cosign"
+
+[tools.trivy."platforms.windows-x64"]
+checksum = "sha256:7b4762a5a5326cb4b83dfd2bb5d9aaf15a1ed867c75cad7dd8b38840a28e7be6"
+url = "https://github.com/aquasecurity/trivy/releases/download/v0.76.0/trivy_0.76.0_windows-64bit.zip"
+url_api = "https://api.github.com/repos/aquasecurity/trivy/releases/assets/640213125"
+provenance = "cosign"
 
 [[tools.uv]]
 version = "0.13.1"
