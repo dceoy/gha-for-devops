@@ -49,7 +49,7 @@ workflows:
     '.github/workflows/dependency-security-scan.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25'
-        - 'google/osv-scanner-action/osv-scanner-action@ef6dfdf01765802d5a8dbc3c39852a6128b00af0'
+        - 'google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36'
     '.github/workflows/docker-build-and-push.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
@@ -470,9 +470,9 @@ dependencies:
         commit: 'sha1-aa5489c8933f4cc7a4f7d45035b3b1440c9c10db'
         owner_id: 71461757
         repo_id: 219865964
-    'google/osv-scanner-action/osv-scanner-action@ef6dfdf01765802d5a8dbc3c39852a6128b00af0':
+    'google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36':
         ref: 'v2.7.0'
-        commit: 'sha1-ef6dfdf01765802d5a8dbc3c39852a6128b00af0'
+        commit: 'sha1-b1d267aea5211fa648d9d442fa64b90dbdcbdd36'
         owner_id: 1342004
         repo_id: 736073144
     'hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387':
