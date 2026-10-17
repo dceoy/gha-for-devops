@@ -176,7 +176,9 @@ jobs:
           set -euo pipefail
           args=(semgrep scan --config p/default --metrics off --error)
           while IFS= read -r pattern; do
-            [[ -n "${pattern}" ]] && args+=(--include "${pattern}")
+            if [[ -n "${pattern}" ]]; then
+              args+=(--include "${pattern}")
+            fi
           done <<< "${SEMGREP_INCLUDES}"
           if [[ "${SEMGREP_RESTRICT_TO_FILES}" == true ]]; then
             files=()
