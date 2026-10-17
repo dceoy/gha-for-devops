@@ -78,12 +78,8 @@ setup() {
   local output_file="${BATS_TEST_TMPDIR}/out"
   mkdir -p "${scan_path}"
   touch "${scan_path}/uv.lock"
-  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="missing.txt" GITHUB_OUTPUT="${output_file}" bash -x "${PREPARE_SCRIPT}"
-  if [ "${status}" -ne 0 ]; then
-    printf '%s\n' "${output}"
-    return 1
-  fi
+  run env SCAN_PATH="${scan_path}" REQUIREMENTS_TXT_PATH="missing.txt" GITHUB_OUTPUT="${output_file}" bash "${PREPARE_SCRIPT}"
+  [ "${status}" -eq 0 ]
   grep -Fxq 'scan=true' "${output_file}"
   run ! grep -Fq -- '--lockfile=' "${output_file}"
-  [ "${status}" -eq 0 ]
 }
