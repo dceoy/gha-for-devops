@@ -101,13 +101,17 @@ defaults:
     working-directory: .
 jobs:
   security-scan:
-    if: inputs.use-osv-scanner || inputs.use-trivy
-    uses: $/.github/workflows/dependency-security-scan.yml
+    if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
+    uses: $/.github/workflows/source-security-scan.yml
     with:
       package-path: ${{ inputs.package-path }}
       requirements-txt: ${{ inputs.requirements-txt }}
       use-osv-scanner: ${{ inputs.use-osv-scanner }}
       use-trivy: ${{ inputs.use-trivy }}
+      use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-working-directory: ${{ inputs.package-path }}
+      semgrep-includes: |
+        *.py
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
@@ -260,10 +264,3 @@ jobs:
             poetry) poetry run pyright --threads=0 . ;;
             *)      pyright --threads=0 . ;;
           esac
-      - name: Run Semgrep SAST scan
-        if: inputs.use-semgrep
-        working-directory: ${{ inputs.package-path }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          uvx semgrep scan \
-            --config p/default --metrics off --error \
-            --include '*.py' .
