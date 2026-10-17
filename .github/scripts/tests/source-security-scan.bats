@@ -15,7 +15,7 @@ prepare_osv_stub() {
   export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
   cat > "${BATS_TEST_TMPDIR}/bin/docker" << 'SH'
 #!/usr/bin/env bash
-printf '%s\\0' "$@" > "${DOCKER_ARGS}"
+printf '%s\0' "$@" > "${DOCKER_ARGS}"
 exit "${DOCKER_EXIT_CODE:-0}"
 SH
   chmod +x "${BATS_TEST_TMPDIR}/bin/docker"
@@ -25,9 +25,9 @@ run_osv_scan() {
   local target="$1"
   local requirements="${2:-}"
   shift 2 || :
-  run env "SCAN_PATH=${target}" "REQUIREMENTS_TXT_PATH=${requirements}" \\
-    "GITHUB_WORKSPACE=${BATS_TEST_TMPDIR}" \\
-    "OSV_IMAGE=ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0" \\
+  run env "SCAN_PATH=${target}" "REQUIREMENTS_TXT_PATH=${requirements}" \
+    "GITHUB_WORKSPACE=${BATS_TEST_TMPDIR}" \
+    "OSV_IMAGE=ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0" \
     "$@" bash "${OSV_SCRIPT}"
 }
 
@@ -77,7 +77,7 @@ run_osv_scan() {
   prepare_osv_stub
   local target="${BATS_TEST_TMPDIR}/other ecosystems"
   mkdir -p "${target}/nested"
-  touch "${target}/pom.xml" "${target}/nested/packages.lock.json" \\
+  touch "${target}/pom.xml" "${target}/nested/packages.lock.json" \
     "${target}/renv.lock" "${target}/nested/bom.cdx.json"
   run_osv_scan "${target}" ""
   [ "${status}" -eq 0 ]
