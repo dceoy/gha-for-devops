@@ -113,7 +113,7 @@ run_semgrep_step() {
   for workflow in "${WORKFLOWS[@]}"; do
     file="${REPO_ROOT}/.github/workflows/${workflow}"
     grep -Fq 'uvx semgrep scan' "${file}"
-    [ "$(yq -r '.jobs[].env.UV_EXCLUDE_NEWER' "${file}")" = "7 days" ]
+    [ "$(yq -r '.jobs[] | select(.env.UV_EXCLUDE_NEWER != null) | .env.UV_EXCLUDE_NEWER' "${file}")" = "7 days" ]
     run ! grep -q SEMGREP_VERSION "${file}"
     if [[ "${workflow}" != python-package-lint-and-scan.yml ]]; then
       [ "$(yq -r '.jobs[].steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${file}")" = auto ]
