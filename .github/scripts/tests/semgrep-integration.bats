@@ -21,6 +21,7 @@ setup() {
     file="${REPO_ROOT}/.github/workflows/${workflow}"
     [[ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${file}")" == true ]]
     grep -Fq 'if: inputs.use-semgrep' "${file}"
+    # shellcheck disable=SC2016  # literal workflow template expression
     grep -Fq 'uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan' "${file}"
     grep -Fq -- '--config p/default --metrics off --error' "${file}"
   done
@@ -118,6 +119,7 @@ run_semgrep_step() {
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
   for workflow in "${WORKFLOWS[@]}"; do
     file="${REPO_ROOT}/.github/workflows/${workflow}"
+    # shellcheck disable=SC2016  # literal workflow template expression
     grep -Fq 'uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan' "${file}"
     grep -Fq '# renovate: datasource=pypi depName=semgrep versioning=pep440' "${file}"
     version="$(yq -r '.jobs[].env.SEMGREP_VERSION' "${file}")"
