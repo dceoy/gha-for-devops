@@ -78,10 +78,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: Prepare dependency scan
-        id: prepare
-        if: inputs.use-osv-scanner
+      - name: Run OSV-Scanner
+        id: osv
         env:
+          OSV_IMAGE: ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0
           SCAN_PATH: ${{ inputs.package-path }}
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
         shell: bash
@@ -95,7 +95,7 @@ jobs:
             echo "::error::Newlines are not allowed in scan paths."
             exit 1
           fi
-          requirements_file=""
+          args=(scan source --recursive --include-git-root)
           if [[ -n "${REQUIREMENTS_TXT_PATH}" && ! -f "${SCAN_PATH%/}/uv.lock" ]]; then
             requirements_file="${REQUIREMENTS_TXT_PATH}"
             if [[ "${requirements_file}" != /* ]]; then
@@ -105,24 +105,20 @@ jobs:
               echo "::error::Requirements file not found: ${requirements_file}"
               exit 1
             fi
+            args+=("--lockfile=requirements.txt:${requirements_file}")
           fi
-          {
-            echo "scan=true"
-            echo "args<<OSV_ARGS"
-            echo "--recursive"
-            echo "--include-git-root"
-            if [[ -n "${requirements_file}" ]]; then
-              echo "--lockfile=requirements.txt:${requirements_file}"
-            fi
-            echo "${SCAN_PATH}"
-            echo "OSV_ARGS"
-          } >> "${GITHUB_OUTPUT}"
-      - name: Run OSV-Scanner
-        id: osv
-        if: steps.prepare.outputs.scan == 'true'
-        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36  # v2.7.0
-        with:
-          scan-args: ${{ steps.prepare.outputs.args }}
+          args+=("${SCAN_PATH}")
+          status=0
+          docker run --rm \
+            --mount "type=bind,source=${GITHUB_WORKSPACE},target=${GITHUB_WORKSPACE},readonly" \
+            --workdir "${GITHUB_WORKSPACE}" \
+            --env CI=true \
+            "${OSV_IMAGE}" "${args[@]}" || status=$?
+          if [[ "${status}" -eq 128 ]]; then
+            echo "::notice::OSV-Scanner found no dependencies."
+            exit 0
+          fi
+          exit "${status}"
   scan:
     if: inputs.use-trivy || inputs.use-semgrep
     runs-on: ${{ inputs.runs-on }}
