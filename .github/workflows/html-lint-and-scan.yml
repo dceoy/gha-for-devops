@@ -78,6 +78,11 @@ on:
         type: string
         description: Additional NPM packages to install when package.json is present
         default: null
+      use-osv-scanner:
+        required: false
+        type: boolean
+        description: Scan dependencies using OSV-Scanner
+        default: true
       use-semgrep:
         required: false
         type: boolean
@@ -108,6 +113,43 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
+      - name: Scan dependencies using OSV-Scanner
+        if: inputs.use-osv-scanner
+        env:
+          SCAN_PATH: ${{ inputs.package-path }}
+          OSV_SCANNER_VERSION: v2.6.0
+        run: |
+          case "${RUNNER_OS}-${RUNNER_ARCH}" in
+            Linux-X64) platform=linux_amd64 ;;
+            Linux-ARM64) platform=linux_arm64 ;;
+            macOS-X64) platform=darwin_amd64 ;;
+            macOS-ARM64) platform=darwin_arm64 ;;
+            Windows-X64) platform=windows_amd64 ;;
+            Windows-ARM64) platform=windows_arm64 ;;
+            *) echo "::error::Unsupported OSV-Scanner platform"; exit 1 ;;
+          esac
+          asset="osv-scanner_${platform}"
+          [[ "${RUNNER_OS}" != Windows ]] || asset+=".exe"
+          scan_dir="$(mktemp -d)"
+          trap 'rm -rf "${scan_dir}"' EXIT
+          base_url="https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}"
+          curl -fsSL --retry 3 "${base_url}/${asset}" -o "${scan_dir}/${asset}"
+          curl -fsSL --retry 3 "${base_url}/osv-scanner_SHA256SUMS" -o "${scan_dir}/SHA256SUMS"
+          checksum_cmd=(shasum -a 256 --check)
+          if command -v sha256sum >/dev/null 2>&1; then checksum_cmd=(sha256sum --check); fi
+          (
+            cd "${scan_dir}"
+            grep -E "^[[:xdigit:]]{64} [ *]${asset}$" SHA256SUMS | "${checksum_cmd[@]}" -
+          )
+          chmod +x "${scan_dir}/${asset}"
+          scan_args=(scan source --recursive --include-git-root)
+          status=0
+          "${scan_dir}/${asset}" "${scan_args[@]}" "${SCAN_PATH}" || status=$?
+          if [[ "${status}" -eq 128 ]]; then
+            echo "::notice::OSV-Scanner found no extractable dependencies."
+          elif [[ "${status}" -ne 0 ]]; then
+            exit "${status}"
+          fi
       - name: Detect the package manager
         env:
           PNPM_VERSION: ${{ inputs.pnpm-version }}

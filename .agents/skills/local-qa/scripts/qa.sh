@@ -11,6 +11,12 @@ export UV_EXCLUDE_NEWER="${COOLDOWN_DAYS} days"
 export NPM_CONFIG_MIN_RELEASE_AGE="${COOLDOWN_DAYS}"
 export PNPM_CONFIG_MINIMUM_RELEASE_AGE=$((COOLDOWN_DAYS * 24 * 60))
 
+# Scan dependency manifests and lockfiles before running QA tools.
+osv_status=0
+osv-scanner scan source --recursive --include-git-root . || osv_status=$?
+if [[ "${osv_status}" -ne 0 && "${osv_status}" -ne 128 ]]; then
+  exit "${osv_status}"
+fi
 PYTHON_LINE_LENGTH=88
 RUFF_LINT_SELECT='F,E,W,C90,I,N,D,UP,S,B,C4,SIM,ARG,PD,PLC,PLE,PLR,PLW,FLY,NPY,PERF,FURB,RUF,YTT,ANN,ASYNC,BLE,FBT,A,COM,DTZ,T10,DJ,EM,EXE,FA,ISC,ICN,LOG,G,INP,PIE,T20,PYI,PT,Q,RSE,SLF,SLOT,TID,TCH,INT,PTH,TD,FIX,ERA,PGH,TRY,FAST,AIR,DOC'
 RUFF_LINT_IGNORE='COM812,FBT001,FBT002'
