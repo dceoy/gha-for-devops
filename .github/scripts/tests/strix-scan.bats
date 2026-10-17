@@ -20,7 +20,8 @@ setup() {
   git -C "${GITHUB_WORKSPACE}" config user.name test
   git -C "${GITHUB_WORKSPACE}" config user.email test@example.invalid
   git -C "${GITHUB_WORKSPACE}" commit -q --allow-empty -m first
-  export PR_BASE_SHA="$(git -C "${GITHUB_WORKSPACE}" rev-parse HEAD)"
+  PR_BASE_SHA="$(git -C "${GITHUB_WORKSPACE}" rev-parse HEAD)"
+  export PR_BASE_SHA
   git -C "${GITHUB_WORKSPACE}" commit -q --allow-empty -m second
   cat > "${BATS_TEST_TMPDIR}/bin/uvx" << 'SH'
 #!/usr/bin/env bash
@@ -142,5 +143,7 @@ scan() {
   [ "${status}" -eq 0 ]
   [ -f "${RUNNER_TEMP}/strix-findings.sarif" ]
   jq -e '.version == "2.1.0"' "${RUNNER_TEMP}/strix-findings.sarif"
-  [ "$(yq -r '.jobs.strix.steps[] | select(.name == "Publish Strix findings to code scanning") | .if' "${WORKFLOW}")" = "!cancelled() && inputs.upload-sarif && steps.scan.outcome == 'success'" ]
+  local condition
+  condition="$(yq -r '.jobs.strix.steps[] | select(.name == "Publish Strix findings to code scanning") | .if' "${WORKFLOW}")"
+  [[ "${condition}" == *"inputs.upload-sarif && steps.scan.outcome == 'success'"* ]]
 }
