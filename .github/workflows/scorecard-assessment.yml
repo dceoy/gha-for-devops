@@ -1,0 +1,90 @@
+---
+# Private/internal OpenSSF Scorecard assessment profile (publication disabled).
+#
+# Differences from the official public flow (see .github/workflows/scorecard.yml):
+# - Results are NEVER published to the OpenSSF API or scorecard.dev: `publish_results` is false and
+#   `id-token: write` is not requested. The official publishing flow forbids reusable workflows,
+#   so public publication must live in a dedicated workflow in the scanned repository.
+# - The JSON result is kept as a workflow artifact (visible to anyone who can read the run; for
+#   public repositories that includes the public) and failing checks are listed in the job summary.
+# - Private repositories: the default GITHUB_TOKEN cannot read everything Scorecard needs (for example
+#   branch protection). Pass a fine-grained token with read access as the SCORECARD_TOKEN secret;
+#   checks that cannot be evaluated are reported as inconclusive rather than as vulnerabilities.
+# - The aggregate score is not a vulnerability count; `min-score` is an optional gate and is off by default.
+name: OpenSSF Scorecard assessment
+on:
+  workflow_call:
+    inputs:
+      results-artifact-name:
+        type: string
+        default: scorecard-results
+        description: Artifact name for the Scorecard JSON result; empty disables the upload
+      retention-days:
+        type: number
+        default: 30
+        description: Artifact retention in days
+      min-score:
+        type: string
+        default: ""
+        description: Optional minimum aggregate score (0-10) below which the job fails; empty never fails on score
+    secrets:
+      SCORECARD_TOKEN:
+        required: false
+        description: Optional token with read access for checks the default token cannot evaluate
+permissions:
+  contents: read
+  actions: read
+jobs:
+  scorecard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate inputs
+        env:
+          MIN_SCORE: ${{ inputs.min-score }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${MIN_SCORE}" ]] && ! [[ "${MIN_SCORE}" =~ ^([0-9]|10)(\.[0-9]+)?$ ]]; then
+            echo "::error::min-score must be a number between 0 and 10."
+            exit 1
+          fi
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run OpenSSF Scorecard
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e  # v2.5.0
+        with:
+          results_file: ${{ runner.temp }}/scorecard.json
+          results_format: json
+          publish_results: false
+          repo_token: ${{ secrets.SCORECARD_TOKEN || github.token }}
+      - name: Upload Scorecard result
+        if: ${{ !cancelled() && inputs.results-artifact-name != '' && hashFiles(format('{0}/scorecard.json', runner.temp)) != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: ${{ inputs.results-artifact-name }}
+          path: ${{ runner.temp }}/scorecard.json
+          retention-days: ${{ inputs.retention-days }}
+          if-no-files-found: error
+      - name: Summarize findings
+        id: summary
+        env:
+          RESULT_FILE: ${{ runner.temp }}/scorecard.json
+          MIN_SCORE: ${{ inputs.min-score }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          score="$(jq -r '.score' "${RESULT_FILE}")"
+          {
+            echo "## OpenSSF Scorecard (private assessment, not published)"
+            echo
+            echo "Aggregate score: ${score} / 10 (a posture indicator, not a vulnerability count)."
+            echo
+            echo "| Check | Score | Reason |"
+            echo "| --- | --- | --- |"
+            jq -r '.checks | sort_by(.score) | map(select(.score < 10)) | .[] | "| [\(.name)](\(.documentation.url)) | \(if .score < 0 then "inconclusive" else (.score | tostring) end) | \(.reason | gsub("\\|"; "/") | gsub("\n"; " ")) |"' "${RESULT_FILE}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+          if [[ -n "${MIN_SCORE}" ]] && awk -v s="${score}" -v m="${MIN_SCORE}" 'BEGIN { exit !(s < m) }'; then
+            echo "::error::Scorecard score ${score} is below min-score ${MIN_SCORE}."
+            exit 1
+          fi
