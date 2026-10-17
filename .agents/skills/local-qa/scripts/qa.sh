@@ -5,6 +5,9 @@ set -euox pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "${REPO_ROOT}"
 
+# renovate: datasource=pypi depName=semgrep versioning=pep440
+SEMGREP_VERSION=1.180.0
+
 # Supply-chain cooldown: avoid resolving/installing packages published within the last N days.
 COOLDOWN_DAYS=7
 export UV_EXCLUDE_NEWER="${COOLDOWN_DAYS} days"
@@ -178,4 +181,10 @@ if [[ -d '.github/workflows' ]] || [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N
 fi
 if [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N_DOCKER_FILES}" -gt 0 ]]; then
   trivy filesystem --scanners vuln,secret,misconfig --skip-dirs .venv --skip-dirs .terraform --skip-dirs .terragrunt-cache --skip-dirs node_modules --skip-dirs .git .
+fi
+
+# Scan supported source files once across the repository.
+N_SEMGREP_FILES=$(git ls-files -- '*.py' '*.go' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.mts' '*.cts' '*.sh' '*.bash' '*.bats' '*.tf' '*.hcl' '*.yml' '*.yaml' '*.html' '*.htm' 'Dockerfile*' '*.dockerfile' | wc -l)
+if [[ "${N_SEMGREP_FILES}" -gt 0 ]]; then
+  uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan --config p/default --metrics off --error .
 fi
