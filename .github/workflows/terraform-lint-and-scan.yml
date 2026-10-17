@@ -142,6 +142,7 @@ jobs:
     env:
       # renovate: datasource=pypi depName=semgrep versioning=pep440
       SEMGREP_VERSION: 1.180.0
+      UV_EXCLUDE_NEWER: 7 days
       TF_IN_AUTOMATION: "1"
       TF_INPUT: "0"
     steps:

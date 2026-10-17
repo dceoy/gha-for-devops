@@ -46,6 +46,7 @@ jobs:
     env:
       # renovate: datasource=pypi depName=semgrep versioning=pep440
       SEMGREP_VERSION: 1.180.0
+      UV_EXCLUDE_NEWER: 7 days
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

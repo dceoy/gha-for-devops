@@ -68,7 +68,6 @@ run_semgrep_step() {
     [ "${args[1]}" = "semgrep==$(yq -r '.jobs[].env.SEMGREP_VERSION' "${REPO_ROOT}/.github/workflows/${workflow}")" ]
     [ "${args[2]}" = semgrep ]
     [ "${args[3]}" = scan ]
-    [ "${args[1]}" = scan ]
     [[ " ${args[*]} " == *' --config p/default --metrics off --error '* ]]
 
     run_semgrep_step "${workflow}" "${CONSUMER}" FILE_NAMES='*.sh' SCAN_TARGET=. SEMGREP_EXIT_CODE=1

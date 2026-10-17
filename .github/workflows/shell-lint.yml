@@ -58,6 +58,7 @@ jobs:
     env:
       # renovate: datasource=pypi depName=semgrep versioning=pep440
       SEMGREP_VERSION: 1.180.0
+      UV_EXCLUDE_NEWER: 7 days
       # renovate: datasource=github-releases depName=koalaman/shellcheck
       SHELLCHECK_VERSION: v0.11.0
       # renovate: datasource=github-releases depName=mvdan/sh
