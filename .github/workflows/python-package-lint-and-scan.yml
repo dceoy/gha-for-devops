@@ -112,7 +112,6 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-
       - name: Detect uv.lock or poetry.lock
         working-directory: ${{ inputs.package-path }}
         run: |
