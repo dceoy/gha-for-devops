@@ -120,7 +120,7 @@ run_zap() {
   run_zap SCAN_MODE=api API_DEFINITION=openapi.yaml
   [ "${status}" -eq 0 ]
   mapfile -t args < "${DOCKER_ARGS}"
-  [[ " ${args[*]} " == *" zap-api-scan.py -t /zap/wrk/api-definition -f openapi -O staging.example.test -T 7 -S "* ]]
+  [[ " ${args[*]} " == *" zap-api-scan.py -t /zap/wrk/api-definition -f openapi -O https://staging.example.test -T 7 -S "* ]]
   [ -f "${RUNNER_TEMP}/zap-wrk/api-definition" ]
 
   run_zap SCAN_MODE=api API_DEFINITION=openapi.yaml ACTIVE_SCAN=true
@@ -129,12 +129,29 @@ run_zap() {
   [[ " ${args[*]} " != *" -S "* ]]
 }
 
-@test "Remote OpenAPI definitions override servers with the authorized target" {
-  run_zap SCAN_MODE=api API_DEFINITION=https://docs.example.test/openapi.json ACTIVE_SCAN=true
+@test "OpenAPI definitions preserve the authorized scheme, port, and path" {
+  cd "${BATS_TEST_TMPDIR}"
+  printf 'openapi: 3.0.0\n' > openapi.yaml
+  local definition target
+  for definition in openapi.yaml https://docs.example.test/openapi.json; do
+    for target in http://localhost:3000/api https://staging.example.test:8443/api; do
+      run_zap SCAN_MODE=api API_DEFINITION="${definition}" TARGET_URL="${target}" ACTIVE_SCAN=true
+      [ "${status}" -eq 0 ]
+      mapfile -t args < "${DOCKER_ARGS}"
+      [[ " ${args[*]} " == *" -f openapi -O ${target} -T 7 "* ]]
+      [[ " ${args[*]} " != *" -S "* ]]
+    done
+  done
+}
+
+@test "Local GraphQL schemas use the authorized endpoint and a schema file" {
+  cd "${BATS_TEST_TMPDIR}"
+  printf 'type Query { hello: String }\n' > schema.graphql
+  run_zap SCAN_MODE=api API_DEFINITION=schema.graphql API_FORMAT=graphql TARGET_URL=http://localhost:3000/graphql
   [ "${status}" -eq 0 ]
   mapfile -t args < "${DOCKER_ARGS}"
-  [[ " ${args[*]} " == *" zap-api-scan.py -t https://docs.example.test/openapi.json -f openapi -O staging.example.test -T 7 "* ]]
-  [[ " ${args[*]} " != *" -S "* ]]
+  [[ " ${args[*]} " == *" zap-api-scan.py -t http://localhost:3000/graphql -f graphql --schema /zap/wrk/api-definition -T 7 -S "* ]]
+  cmp schema.graphql "${RUNNER_TEMP}/zap-wrk/api-definition"
 }
 
 @test "Scanner output stays in a private log, not GitHub Actions output" {

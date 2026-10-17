@@ -91,9 +91,10 @@ jobs:
           [[ "${SCOPE_MODE}" != diff || "${EVENT_NAME}" == pull_request ]] ||
             fail "diff scope requires a pull_request event."
           case "${FAIL_ON}" in critical | high | medium | low | info) ;; *) fail "Invalid fail-on severity." ;; esac
-          [[ "${MAX_BUDGET}" =~ ^[0-9]+([.][0-9]+)?$ ]] &&
-            awk -v b="${MAX_BUDGET}" 'BEGIN { exit !(b > 0) }' ||
+          if [[ ! "${MAX_BUDGET}" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
+            ! awk -v b="${MAX_BUDGET}" 'BEGIN { exit !(b > 0) }'; then
             fail "max-budget must be positive."
+          fi
           [[ ! "${ENVIRONMENT,,}" =~ prod|live ]] || fail "Production environments are not supported."
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -135,7 +136,7 @@ jobs:
 
           scope="${SCOPE_MODE}"
           if [[ "${scope}" == auto ]]; then
-            if [[ "${EVENT_NAME}" == pull_request ]]; then scope=diff; else scope=full; fi
+            if [[ "${EVENT_NAME}" == pull_request ]]; then scope="diff"; else scope="full"; fi
           fi
           args=(-n -t "${target}" --scan-mode "${SCAN_MODE}" --max-budget "${MAX_BUDGET}"
             --fail-on "${FAIL_ON}" --scope-mode "${scope}")
@@ -191,10 +192,10 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
           if [[ "${UPLOAD_SARIF}" == true ]]; then
             sarif="$(dirname "${run_json}")/findings.sarif"
-            [[ -f "${sarif}" ]] && jq -e '.version == "2.1.0" and (.runs | type == "array")' "${sarif}" > /dev/null || {
+            if [[ ! -f "${sarif}" ]] || ! jq -e '.version == "2.1.0" and (.runs | type == "array")' "${sarif}" > /dev/null; then
               echo "::error::Strix SARIF is missing or invalid."
               exit 1
-            }
+            fi
             cp -- "${sarif}" "${RUNNER_TEMP}/strix-findings.sarif"
           fi
           echo "exit_code=${status}" >> "${GITHUB_OUTPUT}"
