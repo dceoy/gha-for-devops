@@ -1,0 +1,26 @@
+{
+  "name": "gha-for-devops",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local QA tooling for reusable GitHub Actions workflows",
+  "type": "module",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=12"
+  },
+  "scripts": {
+    "qa": "bash scripts/qa.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dceoy/gha-for-devops.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "latest",
+    "markdownlint-cli2": "latest",
+    "oxlint": "latest",
+    "prettier": "latest",
+    "typescript": "latest"
+  }
+}
