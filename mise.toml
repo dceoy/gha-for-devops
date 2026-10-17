@@ -1,7 +1,9 @@
 [tools]
 actionlint = "latest"
 gomplate = "latest"
+pnpm = "latest"
 osv-scanner = "latest"
 shellcheck = "latest"
 shfmt = "latest"
+uv = "latest"
 yq = "latest"
