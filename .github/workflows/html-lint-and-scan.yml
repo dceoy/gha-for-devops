@@ -274,16 +274,23 @@ jobs:
       - name: Install dependencies or provide standalone wrappers
         env:
           ADDITIONAL_NPM_PACKAGES: ${{ inputs.additional-npm-packages }}
+          USE_PRETTIER: ${{ inputs.use-prettier }}
+          USE_HTMLHINT: ${{ inputs.use-htmlhint }}
+          USE_STYLELINT: ${{ inputs.use-stylelint }}
+          LINT_HTML_EMBEDDED_CSS: ${{ inputs.lint-html-embedded-css }}
         working-directory: ${{ inputs.package-path }}
         run: | # zizmor: ignore[adhoc-packages] installs project packages or provides npm-exec wrappers
+          packages=()
+          if [[ "${USE_PRETTIER}" == 'true' ]]; then packages+=(prettier); fi
+          if [[ "${USE_HTMLHINT}" == 'true' ]]; then packages+=(htmlhint); fi
+          if [[ "${USE_STYLELINT}" == 'true' ]]; then packages+=(stylelint stylelint-config-standard); fi
+          if [[ "${LINT_HTML_EMBEDDED_CSS}" == 'true' ]]; then packages+=(postcss-html); fi
           case "${PACKAGE_MANAGER}" in
             pnpm )
               pnpm install --frozen-lockfile
-              pnpm add --save-dev \
-                ${{ inputs.use-prettier && 'prettier' || '' }} \
-                ${{ inputs.use-htmlhint && 'htmlhint' || '' }} \
-                ${{ inputs.use-stylelint && 'stylelint stylelint-config-standard' || '' }} \
-                ${{ inputs.lint-html-embedded-css && 'postcss-html' || '' }}
+              if [[ "${#packages[@]}" -gt 0 ]]; then
+                pnpm add --save-dev "${packages[@]}"
+              fi
               ;;
             npm )
               if [[ -f package-lock.json ]]; then
@@ -291,11 +298,9 @@ jobs:
               else
                 npm install
               fi
-              npm install --save-dev \
-                ${{ inputs.use-prettier && 'prettier' || '' }} \
-                ${{ inputs.use-htmlhint && 'htmlhint' || '' }} \
-                ${{ inputs.use-stylelint && 'stylelint stylelint-config-standard' || '' }} \
-                ${{ inputs.lint-html-embedded-css && 'postcss-html' || '' }}
+              if [[ "${#packages[@]}" -gt 0 ]]; then
+                npm install --save-dev "${packages[@]}"
+              fi
               ;;
             standalone )
               if [[ -n "${ADDITIONAL_NPM_PACKAGES}" ]]; then
@@ -303,11 +308,6 @@ jobs:
                 exit 1
               fi
               NPM_PREFIX="${RUNNER_TEMP}/html-lint"
-              packages=()
-              [[ "${{ inputs.use-prettier }}" == 'true' ]] && packages+=(prettier)
-              [[ "${{ inputs.use-htmlhint }}" == 'true' ]] && packages+=(htmlhint)
-              [[ "${{ inputs.use-stylelint }}" == 'true' ]] && packages+=(stylelint stylelint-config-standard)
-              [[ "${{ inputs.lint-html-embedded-css }}" == 'true' ]] && packages+=(postcss-html)
               if [[ "${#packages[@]}" -gt 0 ]]; then
                 npm install --prefix "${NPM_PREFIX}" --no-package-lock --no-save "${packages[@]}"
               fi
