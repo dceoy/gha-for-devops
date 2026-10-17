@@ -106,12 +106,23 @@ defaults:
     working-directory: .
 jobs:
   security-scan:
-    if: inputs.use-osv-scanner || inputs.use-trivy
-    uses: $/.github/workflows/dependency-security-scan.yml
+    if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
+    uses: $/.github/workflows/source-security-scan.yml
     with:
       package-path: ${{ inputs.package-path }}
       use-osv-scanner: ${{ inputs.use-osv-scanner }}
       use-trivy: ${{ inputs.use-trivy }}
+      use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-working-directory: ${{ inputs.package-path }}
+      semgrep-includes: |
+        *.ts
+        *.tsx
+        *.mts
+        *.cts
+        *.js
+        *.jsx
+        *.mjs
+        *.cjs
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
@@ -378,22 +389,3 @@ jobs:
               npm audit
               ;;
           esac
-      - name: Set up uv for Semgrep
-        if: inputs.use-semgrep
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
-        with:
-          enable-cache: auto
-      - name: Run Semgrep SAST scan
-        if: inputs.use-semgrep
-        working-directory: ${{ inputs.package-path }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          uvx semgrep scan \
-            --config p/default --metrics off --error \
-            --include '*.ts' \
-            --include '*.tsx' \
-            --include '*.mts' \
-            --include '*.cts' \
-            --include '*.js' \
-            --include '*.jsx' \
-            --include '*.mjs' \
-            --include '*.cjs' .
