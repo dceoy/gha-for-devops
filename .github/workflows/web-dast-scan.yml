@@ -117,8 +117,18 @@ jobs:
               ;;
             *) fail "scan-mode must be baseline or api." ;;
           esac
+          # Only OpenAPI supports ZAP's host override. Bound remote GraphQL/SOAP URLs to the authorized origin.
+          if [[ "${SCAN_MODE}" == api && "${API_FORMAT}" != openapi && "${API_DEFINITION}" =~ ^https:// ]]; then
+            origin() {
+              python3 -c 'import sys; from urllib.parse import urlsplit; u=urlsplit(sys.argv[1]); print((u.scheme, u.netloc))' "$1"
+            }
+            [[ "$(origin "${API_DEFINITION}")" == "$(origin "${TARGET_URL}")" ]] ||
+              fail "Non-OpenAPI API definitions must use the authorized target origin."
+          fi
           if [[ "${ACTIVE_SCAN}" == true ]]; then
             [[ "${SCAN_MODE}" == api ]] || fail "active-scan is only supported in api mode."
+            [[ ! ( "${SCAN_MODE}" == api && "${API_FORMAT}" == soap ) ]] ||
+              fail "Active SOAP scans cannot safely constrain WSDL endpoints to target-url."
             [[ ! "${ENVIRONMENT,,}" =~ prod|live ]] || fail "Active scans are refused for production-looking environments."
           fi
           case "${FAIL_ON_RISK}" in none | low | medium | high) ;; *) fail "fail-on-risk must be none, low, medium, or high." ;; esac
@@ -149,23 +159,33 @@ jobs:
           else
             if [[ "${API_DEFINITION}" =~ ^https:// ]]; then
               definition="${API_DEFINITION}"
-              script=(zap-api-scan.py -t "${definition}" -f "${API_FORMAT}" -T "${SCAN_TIMEOUT}")
             else
               [[ -f "${API_DEFINITION}" ]] || { echo "::error::api-definition not found: ${API_DEFINITION}"; exit 1; }
               cp -- "${API_DEFINITION}" "${workdir}/api-definition"
-              script=(zap-api-scan.py -t /zap/wrk/api-definition -f "${API_FORMAT}" -O "${TARGET_URL}" -T "${SCAN_TIMEOUT}")
+              definition=/zap/wrk/api-definition
             fi
+            script=(zap-api-scan.py -t "${definition}" -f "${API_FORMAT}")
+            if [[ "${API_FORMAT}" == openapi ]]; then
+              # -O expects a hostname, not a URL; apply it to both remote and local OpenAPI specs.
+              target_host="$(python3 -c 'import sys; from urllib.parse import urlsplit; print(urlsplit(sys.argv[1]).hostname or "")' "${TARGET_URL}")"
+              [[ -n "${target_host}" ]] || { echo "::error::Invalid target hostname."; exit 1; }
+              script+=(-O "${target_host}")
+            fi
+            script+=(-T "${SCAN_TIMEOUT}")
             if [[ "${ACTIVE_SCAN}" != true ]]; then
               script+=(-S)
             fi
           fi
+          # -s hides example URLs; no raw scanner output is forwarded to GitHub Actions logs.
           # -I: alert-based exit codes are replaced by the fail-on-risk policy below.
-          script+=(-J report.json -r report.html -I)
+          script+=(-s -J report.json -r report.html -I)
+          log="${RUNNER_TEMP}/zap-scan.log"
+          (umask 077 && : > "${log}")
           status=0
-          docker run --rm --network host --volume "${workdir}:/zap/wrk:rw" "${ZAP_IMAGE}" "${script[@]}" || status=$?
+          docker run --rm --network host --volume "${workdir}:/zap/wrk:rw" "${ZAP_IMAGE}" "${script[@]}" > "${log}" 2>&1 || status=$?
           # ZAP exit codes: 0 clean, 1 failures, 2 warnings, 3 scan error.
           if [[ "${status}" -ge 3 || ! -s "${workdir}/report.json" ]]; then
-            echo "::error::ZAP scan failed (exit code ${status})."
+            echo "::error::ZAP scan failed (exit code ${status}); raw scanner output is withheld."
             exit 1
           fi
           echo "workdir=${workdir}" >> "${GITHUB_OUTPUT}"

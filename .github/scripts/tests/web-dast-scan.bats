@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+bats_require_minimum_version 1.5.0
+
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/web-dast-scan.yml"
@@ -21,6 +23,7 @@ printf '%s\n' "$@" > "${DOCKER_ARGS}"
 if [[ "${DOCKER_WRITE_REPORT:-true}" == true ]]; then
   printf '{"site":[]}' > "${RUNNER_TEMP}/zap-wrk/report.json"
 fi
+printf '%s' "${DOCKER_STDOUT:-}"
 exit "${DOCKER_EXIT_CODE:-0}"
 SH
   chmod +x "${BATS_TEST_TMPDIR}/bin/docker"
@@ -42,8 +45,8 @@ validate() {
   [ "$(yq -r '.jobs.zap.runs-on' "${WORKFLOW}")" = ubuntu-latest ]
   grep -Eq 'ghcr.io/zaproxy/zaproxy:stable@sha256:[0-9a-f]{64}' "${WORKFLOW}"
   grep -Fq 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9' "${WORKFLOW}"
-  ! grep -Eq '^\s*uses: .*@(v[0-9]|main|master)' "${WORKFLOW}"
-  ! grep -Eq 'issues: write|allow_issue_writing: true|gh issue' "${WORKFLOW}"
+  run ! grep -Eq '^\s*uses: .*@(v[0-9]|main|master)' "${WORKFLOW}"
+  run ! grep -Eq 'issues: write|allow_issue_writing: true|gh issue' "${WORKFLOW}"
   [ "$(yq -r '.on.workflow_call.secrets // "none"' "${WORKFLOW}")" = none ]
 }
 
@@ -87,6 +90,10 @@ validate() {
   validate ACTIVE_SCAN=true
   [ "${status}" -eq 1 ]
   [[ "${output}" == *"only supported in api mode"* ]]
+  validate SCAN_MODE=api API_DEFINITION=https://different.example.test/graphql API_FORMAT=graphql
+  [ "${status}" -eq 1 ]
+  validate SCAN_MODE=api API_DEFINITION=https://staging.example.test/service.wsdl API_FORMAT=soap ACTIVE_SCAN=true
+  [ "${status}" -eq 1 ]
   validate SCAN_MODE=api API_DEFINITION=openapi.yaml ACTIVE_SCAN=true ENVIRONMENT=Production
   [ "${status}" -eq 1 ]
   [[ "${output}" == *"production-looking"* ]]
@@ -113,13 +120,32 @@ run_zap() {
   run_zap SCAN_MODE=api API_DEFINITION=openapi.yaml
   [ "${status}" -eq 0 ]
   mapfile -t args < "${DOCKER_ARGS}"
-  [[ " ${args[*]} " == *" zap-api-scan.py -t /zap/wrk/api-definition -f openapi -O https://staging.example.test -T 7 -S "* ]]
+  [[ " ${args[*]} " == *" zap-api-scan.py -t /zap/wrk/api-definition -f openapi -O staging.example.test -T 7 -S "* ]]
   [ -f "${RUNNER_TEMP}/zap-wrk/api-definition" ]
 
   run_zap SCAN_MODE=api API_DEFINITION=openapi.yaml ACTIVE_SCAN=true
   [ "${status}" -eq 0 ]
   mapfile -t args < "${DOCKER_ARGS}"
   [[ " ${args[*]} " != *" -S "* ]]
+}
+
+@test "Remote OpenAPI definitions override servers with the authorized target" {
+  run_zap SCAN_MODE=api API_DEFINITION=https://docs.example.test/openapi.json ACTIVE_SCAN=true
+  [ "${status}" -eq 0 ]
+  mapfile -t args < "${DOCKER_ARGS}"
+  [[ " ${args[*]} " == *" zap-api-scan.py -t https://docs.example.test/openapi.json -f openapi -O staging.example.test -T 7 "* ]]
+  [[ " ${args[*]} " != *" -S "* ]]
+}
+
+@test "Scanner output stays in a private log, not GitHub Actions output" {
+  run_zap DOCKER_STDOUT='SENSITIVE-ZAP-EXAMPLE-URL'
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *"SENSITIVE-ZAP-EXAMPLE-URL"* ]]
+  grep -Fq 'SENSITIVE-ZAP-EXAMPLE-URL' "${RUNNER_TEMP}/zap-scan.log"
+  [ "$(stat -c %a "${RUNNER_TEMP}/zap-scan.log")" = 600 ]
+  run_zap DOCKER_EXIT_CODE=3 DOCKER_STDOUT='SENSITIVE-ZAP-EXAMPLE-URL'
+  [ "${status}" -eq 1 ]
+  [[ "${output}" != *"SENSITIVE-ZAP-EXAMPLE-URL"* ]]
 }
 
 @test "Remote API definitions are passed as the target and missing files fail" {
@@ -147,15 +173,17 @@ run_zap() {
 @test "Reports are redacted before upload and raw output is removed" {
   local workdir="${RUNNER_TEMP}/zap-wrk"
   mkdir -p "${workdir}"
-  cat > "${workdir}/report.json" << 'JSON'
-{"site":[{"alerts":[{"name":"Leak","riskcode":"2","evidence":"Authorization: Bearer abc.def-ghi\r\nCookie: sid=SESSIONSECRET; other=1\r\nGET /x?api_key=KEY123&ok=1 token=TOKEN456 eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig"}]}]}
+  local jwt_header="eyJhbGciOiJIUzI1NiJ9"
+  local jwt_payload="eyJzdWIiOiIxMjM0NTY3ODkwIn0"
+  cat > "${workdir}/report.json" << JSON
+{"site":[{"alerts":[{"name":"Leak","riskcode":"2","evidence":"Authorization: Bearer abc.def-ghi\r\nCookie: sid=SESSIONSECRET; other=1\r\nGET /x?api_key=KEY123&ok=1 token=TOKEN456 ${jwt_header}.${jwt_payload}.sig"}]}]}
 JSON
   printf '<p>Set-Cookie: session=HTMLSECRET; Path=/</p>' > "${workdir}/report.html"
   run env WORKDIR="${workdir}" bash "${BATS_TEST_TMPDIR}/redact.sh"
   [ "${status}" -eq 0 ]
   [ ! -e "${workdir}" ]
   local out="${RUNNER_TEMP}/zap-report"
-  ! grep -Eq 'abc\.def|SESSIONSECRET|KEY123|TOKEN456|eyJhbGci|HTMLSECRET' "${out}/report.json" "${out}/report.html"
+  run ! grep -Eq 'abc\.def|SESSIONSECRET|KEY123|TOKEN456|eyJhbGci|HTMLSECRET' "${out}/report.json" "${out}/report.html"
   grep -Fq '[REDACTED]' "${out}/report.json"
   grep -Fq 'ok=1' "${out}/report.json"
   jq -e '.site[0].alerts[0].name == "Leak"' "${out}/report.json"

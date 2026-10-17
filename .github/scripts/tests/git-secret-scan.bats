@@ -54,14 +54,14 @@ step_output() {
   grep -Eq 'trufflesecurity/trufflehog:[0-9.]+@sha256:[0-9a-f]{64}' "${WORKFLOW}"
   grep -Fq 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' "${WORKFLOW}"
   [ "$(yq -r '.jobs.trufflehog.steps[] | select(.name == "Checkout repository") | .with."persist-credentials"' "${WORKFLOW}")" = false ]
-  ! grep -Fq 'upload-artifact' "${WORKFLOW}"
-  ! grep -Fq -- '--fail' "${WORKFLOW}"
-  ! grep -Eq '^\s*uses: .*@(v[0-9]|main|master)' "${WORKFLOW}"
+  run ! grep -Fq 'upload-artifact' "${WORKFLOW}"
+  run ! grep -Fq -- '--fail' "${WORKFLOW}"
+  run ! grep -Eq '^\s*uses: .*@(v[0-9]|main|master)' "${WORKFLOW}"
 }
 
 @test "Source security scan stays limited to OSV-Scanner, Trivy, and Semgrep" {
   local src="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
-  ! grep -Eqi 'trufflehog|scorecard|zaproxy|zap-|cosign' "${src}"
+  run ! grep -Eqi 'trufflehog|scorecard|zaproxy|zap-|cosign' "${src}"
   [ "$(yq -r '.permissions | keys | join(",")' "${src}")" = contents ]
 }
 
@@ -140,7 +140,7 @@ step_output() {
   run env GITHUB_WORKSPACE="${BATS_TEST_TMPDIR}" TRUFFLEHOG_IMAGE=img SCAN_MODE=full BASE_SHA= HEAD_SHA=bbb VERIFY=true DOCKER_EXIT_CODE=2 DOCKER_STDERR='boom' bash "${BATS_TEST_TMPDIR}/trufflehog.sh"
   [ "${status}" -eq 2 ]
   [[ "${output}" == *"TruffleHog failed with exit code 2"* ]]
-  ! grep -q '^results=' "${GITHUB_OUTPUT}"
+  run ! grep -q '^results=' "${GITHUB_OUTPUT}"
 }
 
 write_verified_and_unverified() {
@@ -166,7 +166,7 @@ run_report() {
   [ "${status}" -eq 1 ]
   [[ "${output}" == *"1 verified secret(s)"* ]]
   [[ "${output}" != *SECRETVALUE* && "${output}" != *supersecret* && "${output}" != *UNVERIFIEDVALUE* ]]
-  ! grep -Eq 'SECRETVALUE|supersecret|UNVERIFIEDVALUE|AKIA' "${GITHUB_STEP_SUMMARY}"
+  run ! grep -Eq 'SECRETVALUE|supersecret|UNVERIFIEDVALUE|AKIA' "${GITHUB_STEP_SUMMARY}"
   grep -Fq 'config/prod.env:3' "${GITHUB_STEP_SUMMARY}"
   grep -Fq '01234567' "${GITHUB_STEP_SUMMARY}"
 }

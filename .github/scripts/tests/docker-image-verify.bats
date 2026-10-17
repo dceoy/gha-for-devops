@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+bats_require_minimum_version 1.5.0
+
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/docker-image-verify.yml"
@@ -82,9 +84,11 @@ validate() {
 }
 
 @test "Build workflow keeps its reusable-workflow signer identity and digest-based verification" {
+  # shellcheck disable=SC2016
   grep -Fq 'cosign sign --yes "{}@${DIGEST}"' "${BUILD_WORKFLOW}"
   grep -Fq 'https://github.com/dceoy/gha-for-devops/\\.github/workflows/docker-build-and-push\\.yml@(refs/.+|[0-9a-f]{40})' "${BUILD_WORKFLOW}"
   grep -Fq -- '--certificate-oidc-issuer https://token.actions.githubusercontent.com' "${BUILD_WORKFLOW}"
+  # shellcheck disable=SC2016
   grep -Fq '"${tag}@${DIGEST}"' "${BUILD_WORKFLOW}"
   [ "$(yq -r '.on.workflow_call.inputs.cosign.default' "${BUILD_WORKFLOW}")" = false ]
   [ "$(yq -r '.on.workflow_call.inputs.provenance.default' "${BUILD_WORKFLOW}")" = false ]
