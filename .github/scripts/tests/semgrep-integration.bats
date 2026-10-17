@@ -49,6 +49,7 @@ run_semgrep_step() {
     local path="${REPO_ROOT}/.github/workflows/${workflow}"
     [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${path}")" = true ]
     [ "$(yq -r '.jobs."security-scan".uses' "${path}")" = '$/.github/workflows/source-security-scan.yml' ]
+    # shellcheck disable=SC2016
     [ "$(yq -r '.jobs."security-scan".with."use-semgrep"' "${path}")" = '${{ inputs.use-semgrep }}' ]
     run ! grep -Fq 'uvx semgrep scan' "${path}"
   done
@@ -126,6 +127,7 @@ run_semgrep_step() {
 
 @test "Shared Semgrep uses uvx with seven-day cooldown and setup-uv caching" {
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
+  # shellcheck disable=SC2016
   grep -Fq 'uvx "${args[@]}"' "${SCAN_WORKFLOW}"
   [ "$(yq -r '.jobs.scan.env.UV_EXCLUDE_NEWER' "${SCAN_WORKFLOW}")" = "7 days" ]
   [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${SCAN_WORKFLOW}")" = auto ]
