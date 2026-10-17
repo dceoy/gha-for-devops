@@ -9,8 +9,15 @@ setup() {
   yq -r '.jobs.scan.steps[] | select(.id == "prepare") | .run' "${WORKFLOW}" > "${PREPARE_SCRIPT}"
 }
 
-@test "Dependency scanner uses pinned official OSV and Trivy actions on ubuntu-latest" {
-  [ "$(yq -r '.jobs.scan.runs-on' "${WORKFLOW}")" = ubuntu-latest ]
+@test "Source scanner selects ubuntu-latest only for Docker-based OSV scans" {
+  [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "${WORKFLOW}")" = "" ]
+  local runner_expression validation_expression
+  runner_expression="$(yq -r '.jobs.scan.runs-on' "${WORKFLOW}")"
+  validation_expression="$(yq -r '.jobs.scan.steps[] | select(.name == "Validate runner for Docker action") | .if' "${WORKFLOW}")"
+  [[ "${runner_expression}" == *"inputs.runs-on"* ]]
+  [[ "${runner_expression}" == *"inputs.use-osv-scanner && 'ubuntu-latest' || 'ubuntu-slim'"* ]]
+  [[ "${validation_expression}" == *"inputs.use-osv-scanner"* ]]
+  [[ "${validation_expression}" == *"inputs.runs-on == 'ubuntu-slim'"* ]]
   [ "$(yq -r '.on.workflow_call.inputs."use-osv-scanner".default' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "${WORKFLOW}")" = true ]
   grep -Fq 'google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36' "${WORKFLOW}"
