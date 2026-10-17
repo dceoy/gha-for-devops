@@ -180,7 +180,6 @@ if [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N_DOCKER_FILES}" -gt 0 ]]; then
   trivy filesystem --scanners vuln,secret,misconfig --skip-dirs .venv --skip-dirs .terraform --skip-dirs .terragrunt-cache --skip-dirs node_modules --skip-dirs .git .
 fi
 
-# Scan supported tracked sources once across the repository.
 N_SEMGREP_FILES=$(git ls-files -- '*.py' '*.go' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.mts' '*.cts' '*.sh' '*.bash' '*.bats' '*.tf' '*.hcl' '*.yml' '*.yaml' '*.html' '*.htm' 'Dockerfile*' '*.dockerfile' | wc -l)
 if [[ "${N_SEMGREP_FILES}" -gt 0 ]]; then
   uvx semgrep scan --config p/default --metrics off --error .
