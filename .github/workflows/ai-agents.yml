@@ -97,7 +97,7 @@ jobs:
       actions: read
     uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@4ac2dcfedc831e91174efd2f0fec2aa2f4bbaa79  # v0.8.0
     with:
-      model: openrouter/stealth/ox-alpha
+      model: openrouter/nvidia/nemotron-3.5-super-vl:free
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -117,7 +117,7 @@ jobs:
       actions: read
     uses: dceoy/opencode-action/.github/workflows/opencode-bot.yml@4ac2dcfedc831e91174efd2f0fec2aa2f4bbaa79  # v0.8.0
     with:
-      model: openrouter/stealth/space-bunny-alpha
+      model: openrouter/nvidia/nemotron-3.5-super-vl:free
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
