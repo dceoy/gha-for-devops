@@ -19,10 +19,10 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@biomejs/biome": "^2.5.15",
-    "markdownlint-cli2": "0.23.3",
-    "oxlint": "^1.87.0",
-    "prettier": "3.9.10",
-    "typescript": "^7.0.2"
+    "@biomejs/biome": "latest",
+    "markdownlint-cli2": "latest",
+    "oxlint": "latest",
+    "prettier": "latest",
+    "typescript": "latest"
   }
 }
