@@ -56,6 +56,8 @@ jobs:
   lint:
     runs-on: ${{ inputs.runs-on }}
     env:
+      # renovate: datasource=pypi depName=semgrep versioning=pep440
+      SEMGREP_VERSION: 1.180.0
       # renovate: datasource=github-releases depName=koalaman/shellcheck
       SHELLCHECK_VERSION: v0.11.0
       # renovate: datasource=github-releases depName=mvdan/sh
@@ -168,7 +170,7 @@ jobs:
             echo "No tracked files matched file-names; skipping Semgrep."
             exit 0
           fi
-          uvx semgrep scan \
+          uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan \
             --config p/default --metrics off --error \
             --include '*.sh' \
             --include '*.bash' \

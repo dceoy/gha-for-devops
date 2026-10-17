@@ -182,6 +182,8 @@ jobs:
   github-actions-lint-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
+      # renovate: datasource=pypi depName=semgrep versioning=pep440
+      SEMGREP_VERSION: 1.180.0
       UV_EXCLUDE_NEWER: 7 days
       # renovate: datasource=github-releases depName=rhysd/actionlint
       ACTIONLINT_VERSION: v1.7.12
@@ -411,7 +413,7 @@ jobs:
         if: inputs.use-semgrep
         working-directory: ${{ inputs.search-path }}
         run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          uvx semgrep scan \
+          uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan \
             --config p/default --metrics off --error \
             --include '*.yml' \
             --include '*.yaml' .

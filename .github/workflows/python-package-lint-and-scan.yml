@@ -93,6 +93,8 @@ jobs:
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
+      # renovate: datasource=pypi depName=semgrep versioning=pep440
+      SEMGREP_VERSION: 1.180.0
       UV_EXCLUDE_NEWER: 7 days
       UV_MALWARE_CHECK: "1"
     steps:
@@ -246,6 +248,6 @@ jobs:
         if: inputs.use-semgrep
         working-directory: ${{ inputs.package-path }}
         run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          uvx semgrep scan \
+          uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan \
             --config p/default --metrics off --error \
             --include '*.py' .

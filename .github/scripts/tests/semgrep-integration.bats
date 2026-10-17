@@ -21,7 +21,7 @@ setup() {
     file="${REPO_ROOT}/.github/workflows/${workflow}"
     [[ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${file}")" == true ]]
     grep -Fq 'if: inputs.use-semgrep' "${file}"
-    grep -Fq "uvx semgrep scan \\" "${file}"
+    grep -Fq 'uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan' "${file}"
     grep -Fq -- '--config p/default --metrics off --error' "${file}"
   done
 }
@@ -51,8 +51,11 @@ run_semgrep_step() {
   local script="${BATS_TEST_TMPDIR}/semgrep-step.sh"
   yq -r '.jobs[].steps[] | select(.name == "Run Semgrep SAST scan") | .run' \
     "${REPO_ROOT}/.github/workflows/${workflow}" > "${script}"
+  local version
+  version="$(yq -r '.jobs[].env.SEMGREP_VERSION' "${REPO_ROOT}/.github/workflows/${workflow}")"
+  [[ "${version}" =~ ^[0-9]+(\.[0-9]+){2}$ ]] || return 1
   # shellcheck disable=SC2016
-  run env "$@" bash -c 'cd "$1" && exec bash -euo pipefail "$2"' _ "${directory}" "${script}"
+  run env "SEMGREP_VERSION=${version}" "$@" bash -c 'cd "$1" && exec bash -euo pipefail "$2"' _ "${directory}" "${script}"
 }
 
 @test "Semgrep steps execute for consumers of all eight workflows and propagate findings" {
@@ -61,7 +64,10 @@ run_semgrep_step() {
     run_semgrep_step "${workflow}" "${CONSUMER}" FILE_NAMES='*.sh' SCAN_TARGET=.
     [ "${status}" -eq 0 ]
     mapfile -d '' -t args < "${SEMGREP_ARGS}"
-    [ "${args[0]}" = semgrep ]
+    [ "${args[0]}" = --from ]
+    [ "${args[1]}" = "semgrep==$(yq -r '.jobs[].env.SEMGREP_VERSION' "${REPO_ROOT}/.github/workflows/${workflow}")" ]
+    [ "${args[2]}" = semgrep ]
+    [ "${args[3]}" = scan ]
     [ "${args[1]}" = scan ]
     [[ " ${args[*]} " == *' --config p/default --metrics off --error '* ]]
 
@@ -108,12 +114,13 @@ run_semgrep_step() {
   [ ! -e "${SEMGREP_ARGS}" ]
 }
 
-@test "Semgrep uses uvx and automatic setup-uv caching" {
+@test "Semgrep uses job-level pinned version and automatic setup-uv caching" {
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
   for workflow in "${WORKFLOWS[@]}"; do
     file="${REPO_ROOT}/.github/workflows/${workflow}"
-    grep -Fq 'uvx semgrep scan' "${file}"
-    run ! grep -q SEMGREP_VERSION "${file}"
+    grep -Fq 'uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan' "${file}"
+    grep -Fq '# renovate: datasource=pypi depName=semgrep versioning=pep440' "${file}"
+    [ "$(yq -r '.jobs[].env.SEMGREP_VERSION' "${file}")" = 1.180.0 ]
     if [[ "${workflow}" != python-package-lint-and-scan.yml ]]; then
       [ "$(yq -r '.jobs[].steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${file}")" = auto ]
     fi

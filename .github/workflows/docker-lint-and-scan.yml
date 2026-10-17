@@ -129,6 +129,9 @@ defaults:
 jobs:
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
+    env:
+      # renovate: datasource=pypi depName=semgrep versioning=pep440
+      SEMGREP_VERSION: 1.180.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -240,7 +243,7 @@ jobs:
         env:
           SCAN_TARGET: ${{ inputs.trivy-scan-ref }}
         run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          uvx semgrep scan \
+          uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan \
             --config p/default --metrics off --error \
             --include 'Dockerfile*' \
             --include '*.dockerfile' -- "${SCAN_TARGET}"
