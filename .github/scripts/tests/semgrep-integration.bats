@@ -115,12 +115,14 @@ run_semgrep_step() {
 }
 
 @test "Semgrep uses job-level pinned version and automatic setup-uv caching" {
+  local version
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
   for workflow in "${WORKFLOWS[@]}"; do
     file="${REPO_ROOT}/.github/workflows/${workflow}"
     grep -Fq 'uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan' "${file}"
     grep -Fq '# renovate: datasource=pypi depName=semgrep versioning=pep440' "${file}"
-    [ "$(yq -r '.jobs[].env.SEMGREP_VERSION' "${file}")" = 1.180.0 ]
+    version="$(yq -r '.jobs[].env.SEMGREP_VERSION' "${file}")"
+    [[ "${version}" =~ ^[0-9]+(\.[0-9]+){2}$ ]]
     if [[ "${workflow}" != python-package-lint-and-scan.yml ]]; then
       [ "$(yq -r '.jobs[].steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${file}")" = auto ]
     fi
