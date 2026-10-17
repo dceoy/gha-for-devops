@@ -2,6 +2,7 @@
 actionlint = "latest"
 checkov = "latest"
 gomplate = "latest"
+osv-scanner = "latest"
 shellcheck = "latest"
 shfmt = "latest"
 yq = "latest"
