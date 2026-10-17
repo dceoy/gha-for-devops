@@ -26,10 +26,10 @@ setup() {
   done
 }
 
-@test "Local QA runs one pinned Semgrep scan with no cloud credentials" {
+@test "Local QA runs one mise-managed Semgrep scan with no cloud credentials" {
   file="${REPO_ROOT}/.agents/skills/local-qa/scripts/qa.sh"
   [[ "$(grep -c 'semgrep scan --config p/default' "${file}")" -eq 1 ]]
-  grep -Fq "uvx --from \"semgrep==\${SEMGREP_VERSION}\"" "${file}"
+  grep -Fq "mise exec uv@latest semgrep@latest -- semgrep scan" "${file}"
   bash -n "${file}"
 }
 
@@ -40,12 +40,12 @@ prepare_consumer() {
   CONSUMER="${BATS_TEST_TMPDIR}/consumer"
   export SEMGREP_ARGS="${BATS_TEST_TMPDIR}/semgrep-args"
   export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
-  cat > "${BATS_TEST_TMPDIR}/bin/uvx" << 'SH'
+  cat > "${BATS_TEST_TMPDIR}/bin/mise" << 'SH'
 #!/usr/bin/env bash
 printf '%s\0' "$@" > "${SEMGREP_ARGS}"
 exit "${SEMGREP_EXIT_CODE:-0}"
 SH
-  chmod +x "${BATS_TEST_TMPDIR}/bin/uvx"
+  chmod +x "${BATS_TEST_TMPDIR}/bin/mise"
   git -C "${CONSUMER}" init --quiet
   touch "${CONSUMER}/nested/selected file.sh" "${CONSUMER}/nested/unrelated.sh"
   git -C "${CONSUMER}" add .
@@ -59,7 +59,7 @@ run_semgrep_step() {
   yq -r '.jobs[].steps[] | select(.name == "Run Semgrep SAST scan") | .run' \
     "${REPO_ROOT}/.github/workflows/${workflow}" > "${script}"
   # shellcheck disable=SC2016
-  run env SEMGREP_VERSION=1.180.0 "$@" bash -c 'cd "$1" && exec bash -euo pipefail "$2"' _ "${directory}" "${script}"
+  run env "$@" bash -c 'cd "$1" && exec bash -euo pipefail "$2"' _ "${directory}" "${script}"
 }
 
 @test "Semgrep steps execute for consumers of all eight workflows and propagate findings" {
@@ -68,10 +68,12 @@ run_semgrep_step() {
     run_semgrep_step "${workflow}" "${CONSUMER}" FILE_NAMES='*.sh' SCAN_TARGET=.
     [ "${status}" -eq 0 ]
     mapfile -d '' -t args < "${SEMGREP_ARGS}"
-    [ "${args[0]}" = --from ]
-    [ "${args[1]}" = semgrep==1.180.0 ]
-    [ "${args[2]}" = semgrep ]
-    [ "${args[3]}" = scan ]
+    [ "${args[0]}" = exec ]
+    [ "${args[1]}" = uv@latest ]
+    [ "${args[2]}" = semgrep@latest ]
+    [ "${args[3]}" = -- ]
+    [ "${args[4]}" = semgrep ]
+    [ "${args[5]}" = scan ]
     [[ " ${args[*]} " == *' --config p/default --metrics off --error '* ]]
 
     run_semgrep_step "${workflow}" "${CONSUMER}" FILE_NAMES='*.sh' SCAN_TARGET=. SEMGREP_EXIT_CODE=1
@@ -117,13 +119,12 @@ run_semgrep_step() {
   [ ! -e "${SEMGREP_ARGS}" ]
 }
 
-@test "Semgrep setup uses the automatic cache policy" {
+@test "Semgrep uses mise latest without installing caller project tools" {
+  grep -Fq 'semgrep = "latest"' "${REPO_ROOT}/mise.toml"
   for workflow in "${WORKFLOWS[@]}"; do
     file="${REPO_ROOT}/.github/workflows/${workflow}"
-    policy="$(yq -r '.jobs[].steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${file}")"
-    # Python reuses its existing uv setup.
-    if [[ "${workflow}" != python-package-lint-and-scan.yml ]]; then
-      [ "${policy}" = auto ]
-    fi
+    [ "$(yq -r '.jobs[].steps[] | select(.name == "Set up mise for Semgrep") | .with.install' "${file}")" = false ]
+    [ "$(yq -r '.jobs[].steps[] | select(.name == "Set up mise for Semgrep") | .with.cache' "${file}")" = false ]
+    ! grep -q SEMGREP_VERSION "${file}"
   done
 }

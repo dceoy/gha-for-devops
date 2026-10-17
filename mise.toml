@@ -2,6 +2,7 @@
 actionlint = "latest"
 checkov = "latest"
 gomplate = "latest"
+semgrep = "latest"
 shellcheck = "latest"
 shfmt = "latest"
 yq = "latest"

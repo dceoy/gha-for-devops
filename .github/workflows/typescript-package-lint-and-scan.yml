@@ -360,20 +360,17 @@ jobs:
               npm audit
               ;;
           esac
-      - name: Set up uv for Semgrep
+      - name: Set up mise for Semgrep
         if: inputs.use-semgrep
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
         with:
-          enable-cache: auto
+          install: false
+          cache: false
       - name: Run Semgrep SAST scan
         if: inputs.use-semgrep
         working-directory: ${{ inputs.package-path }}
-        env:
-          UV_EXCLUDE_NEWER: 7 days
-          # renovate: datasource=pypi depName=semgrep versioning=pep440
-          SEMGREP_VERSION: 1.180.0
-        run: | # zizmor: ignore[adhoc-packages] runs pinned Semgrep via uvx
-          uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan \
+        run: | # zizmor: ignore[adhoc-packages] runs Semgrep latest via mise
+          mise exec uv@latest semgrep@latest -- semgrep scan \
             --config p/default --metrics off --error \
             --include '*.ts' \
             --include '*.tsx' \

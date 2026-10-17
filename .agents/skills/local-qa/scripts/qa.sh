@@ -5,9 +5,6 @@ set -euox pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "${REPO_ROOT}"
 
-# renovate: datasource=pypi depName=semgrep versioning=pep440
-SEMGREP_VERSION=1.180.0
-
 # Supply-chain cooldown: avoid resolving/installing packages published within the last N days.
 COOLDOWN_DAYS=7
 export UV_EXCLUDE_NEWER="${COOLDOWN_DAYS} days"
@@ -186,5 +183,5 @@ fi
 # Scan supported source files once across the repository.
 N_SEMGREP_FILES=$(git ls-files -- '*.py' '*.go' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.mts' '*.cts' '*.sh' '*.bash' '*.bats' '*.tf' '*.hcl' '*.yml' '*.yaml' '*.html' '*.htm' 'Dockerfile*' '*.dockerfile' | wc -l)
 if [[ "${N_SEMGREP_FILES}" -gt 0 ]]; then
-  uvx --from "semgrep==${SEMGREP_VERSION}" semgrep scan --config p/default --metrics off --error .
+  env -u UV_EXCLUDE_NEWER mise exec uv@latest semgrep@latest -- semgrep scan --config p/default --metrics off --error .
 fi
