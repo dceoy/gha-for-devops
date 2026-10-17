@@ -216,6 +216,7 @@ jobs:
         uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
         with:
           version: 2026.8.5
+          install_args: actionlint yq gomplate
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
