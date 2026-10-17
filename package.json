@@ -9,9 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "qa": "bash scripts/qa.sh",
-    "format": "git ls-files -z -- '*.md' '*.mdx' | xargs -0 -r prettier --write",
-    "format:check": "git ls-files -z -- '*.md' '*.mdx' | xargs -0 -r prettier --check"
+    "qa": "bash scripts/qa.sh"
   },
   "repository": {
     "type": "git",
