@@ -11,9 +11,10 @@
 #   scans are unauthenticated; do not embed tokens in the target URL or API definition.
 # - Call from trusted events only. Fork pull requests and pull_request_target are rejected.
 #
-# The official zaproxy/action-baseline and zaproxy/action-api-scan actions upload their reports as an
-# unredacted artifact that cannot be disabled, so this workflow runs the same ZAP scan scripts from the
-# digest-pinned official image and uploads only a redacted report. Issue creation is never performed.
+# The official ZAP Actions expose raw HTTP evidence in reports. Run the digest-pinned ZAP image
+# directly and publish only allowlisted numeric metadata (rule ID, risk, instance count), never URLs,
+# headers, evidence, or raw HTML. SOAP is deliberately unsupported because imported WSDL endpoints
+# cannot be constrained to the authorized target. Issue creation is never performed.
 name: Web DAST scan
 on:
   workflow_call:
@@ -33,11 +34,11 @@ on:
       api-definition:
         type: string
         default: ""
-        description: OpenAPI/GraphQL/SOAP definition as an https URL or a path in the checked-out repository (api mode)
+        description: OpenAPI or GraphQL definition as an https URL or a repository path (SOAP is not safely scoped)
       api-format:
         type: string
         default: openapi
-        description: API definition format (openapi, graphql, or soap)
+        description: API definition format (openapi or graphql)
       active-scan:
         type: boolean
         default: false
@@ -61,7 +62,7 @@ on:
       report-artifact-name:
         type: string
         default: web-dast-report
-        description: Artifact name for the redacted report
+        description: Artifact name for the metadata-only ZAP report
       report-retention-days:
         type: number
         default: 7
@@ -108,7 +109,7 @@ jobs:
             baseline) ;;
             api)
               [[ -n "${API_DEFINITION}" ]] || fail "api mode requires api-definition."
-              case "${API_FORMAT}" in openapi | graphql | soap) ;; *) fail "api-format must be openapi, graphql, or soap." ;; esac
+              case "${API_FORMAT}" in openapi | graphql) ;; *) fail "api-format must be openapi or graphql (SOAP is not safely scoped)." ;; esac
               if [[ "${API_DEFINITION}" =~ ^[a-z]+:// ]]; then
                 [[ "${API_DEFINITION}" =~ ^https://[^@[:space:]]+$ ]] || fail "api-definition URLs must be https without credentials."
               else
@@ -117,7 +118,7 @@ jobs:
               ;;
             *) fail "scan-mode must be baseline or api." ;;
           esac
-          # Only OpenAPI supports ZAP's host override. Bound remote GraphQL/SOAP URLs to the authorized origin.
+          # Only OpenAPI supports ZAP's host override. Bound remote GraphQL schemas to the authorized origin.
           if [[ "${SCAN_MODE}" == api && "${API_FORMAT}" != openapi && "${API_DEFINITION}" =~ ^https:// ]]; then
             origin() {
               python3 -c 'import sys; from urllib.parse import urlsplit; u=urlsplit(sys.argv[1]); print((u.scheme, u.netloc))' "$1"
@@ -127,8 +128,6 @@ jobs:
           fi
           if [[ "${ACTIVE_SCAN}" == true ]]; then
             [[ "${SCAN_MODE}" == api ]] || fail "active-scan is only supported in api mode."
-            [[ ! ( "${SCAN_MODE}" == api && "${API_FORMAT}" == soap ) ]] ||
-              fail "Active SOAP scans cannot safely constrain WSDL endpoints to target-url."
             [[ ! "${ENVIRONMENT,,}" =~ prod|live ]] || fail "Active scans are refused for production-looking environments."
           fi
           case "${FAIL_ON_RISK}" in none | low | medium | high) ;; *) fail "fail-on-risk must be none, low, medium, or high." ;; esac
@@ -164,7 +163,7 @@ jobs:
               cp -- "${API_DEFINITION}" "${workdir}/api-definition"
               definition=/zap/wrk/api-definition
             fi
-            if [[ "${API_FORMAT}" == graphql && ! "${API_DEFINITION}" =~ ^https:// ]]; then
+            if [[ "${API_FORMAT}" == graphql ]]; then
               script=(zap-api-scan.py -t "${TARGET_URL}" -f graphql --schema "${definition}")
             else
               script=(zap-api-scan.py -t "${definition}" -f "${API_FORMAT}")
@@ -180,7 +179,7 @@ jobs:
           fi
           # -s hides example URLs; no raw scanner output is forwarded to GitHub Actions logs.
           # -I: alert-based exit codes are replaced by the fail-on-risk policy below.
-          script+=(-s -J report.json -r report.html -I)
+          script+=(-s -J report.json -I)
           log="${RUNNER_TEMP}/zap-scan.log"
           (umask 077 && : > "${log}")
           status=0
@@ -191,7 +190,7 @@ jobs:
             exit 1
           fi
           echo "workdir=${workdir}" >> "${GITHUB_OUTPUT}"
-      - name: Redact reports
+      - name: Prepare metadata-only report
         id: redact
         env:
           WORKDIR: ${{ steps.zap.outputs.workdir }}
@@ -200,19 +199,26 @@ jobs:
           set -euo pipefail
           outdir="${RUNNER_TEMP}/zap-report"
           mkdir -p "${outdir}"
-          for name in report.json report.html; do
-            [[ -f "${WORKDIR}/${name}" ]] || continue
-            sed -E \
-              -e 's/((proxy-)?authorization|(set-)?cookie|x-api-key|x-auth-token)([[:space:]]*[:=][[:space:]]*)[^\\"<]*/\1\4[REDACTED]/Ig' \
-              -e 's/Bearer[[:space:]]+[A-Za-z0-9._~+\/=-]+/Bearer [REDACTED]/Ig' \
-              -e 's/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]*/[REDACTED-JWT]/g' \
-              -e 's/((api[_-]?key|access[_-]?token|token|secret|passw(or)?d|session(id)?)(=|%3D))[^&"'"'"'[:space:]<\\]+/\1[REDACTED]/Ig' \
-              "${WORKDIR}/${name}" > "${outdir}/${name}"
-          done
+          chmod 700 "${outdir}"
+          # Never serialize untrusted titles, URLs, evidence, paths or request/response bodies.
+          # The raw scan report is used only inside this runner and is removed after extraction.
+          jq -e '
+            if (.site | type) != "array" then error("Invalid ZAP report: missing site array")
+            else {
+              alerts: [.site[]?.alerts[]? |
+                {
+                  rule: ((.pluginid // "") | tostring |
+                    if test("^[0-9]{1,8}$") then . else "unknown" end),
+                  risk: (.riskcode | tonumber),
+                  instances: ((.count // "0") | tonumber)
+                }
+              ]
+            } end
+          ' "${WORKDIR}/report.json" > "${outdir}/report.json"
           rm -rf "${WORKDIR}"
           echo "report=${outdir}/report.json" >> "${GITHUB_OUTPUT}"
           echo "dir=${outdir}" >> "${GITHUB_OUTPUT}"
-      - name: Upload redacted ZAP report
+      - name: Upload metadata-only ZAP report
         if: ${{ !cancelled() && inputs.report-artifact-name != '' && steps.redact.outputs.dir != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
@@ -236,11 +242,11 @@ jobs:
           {
             echo "## ZAP scan"
             echo
-            echo "| Risk | Alert | Instances |"
+            echo "| Risk | Rule ID | Instances |"
             echo "| --- | --- | --- |"
-            jq -r '[.site[]?.alerts[]?] | sort_by(-(.riskcode | tonumber)) | .[] | "| \(.riskdesc) | \(.name) | \(.count) |"' "${REPORT}"
+            jq -r '[.alerts[]] | sort_by(-.risk) | .[] | "| \(if .risk == 3 then "High" elif .risk == 2 then "Medium" elif .risk == 1 then "Low" else "Info" end) | \(.rule) | \(.instances) |"' "${REPORT}"
           } >> "${GITHUB_STEP_SUMMARY}"
-          blocking="$(jq --argjson t "${threshold}" '[.site[]?.alerts[]? | select((.riskcode | tonumber) >= $t)] | length' "${REPORT}")"
+          blocking="$(jq --argjson t "${threshold}" '[.alerts[] | select(.risk >= $t)] | length' "${REPORT}")"
           if (( blocking > 0 )); then
             echo "::error::${blocking} ZAP alert type(s) at or above '${FAIL_ON_RISK}' risk."
             exit 1

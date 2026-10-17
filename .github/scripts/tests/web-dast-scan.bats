@@ -94,6 +94,8 @@ validate() {
   [ "${status}" -eq 1 ]
   validate SCAN_MODE=api API_DEFINITION=https://staging.example.test/service.wsdl API_FORMAT=soap ACTIVE_SCAN=true
   [ "${status}" -eq 1 ]
+  validate SCAN_MODE=api API_DEFINITION=service.wsdl API_FORMAT=soap ACTIVE_SCAN=false
+  [ "${status}" -eq 1 ]
   validate SCAN_MODE=api API_DEFINITION=openapi.yaml ACTIVE_SCAN=true ENVIRONMENT=Production
   [ "${status}" -eq 1 ]
   [[ "${output}" == *"production-looking"* ]]
@@ -110,7 +112,7 @@ run_zap() {
   mapfile -t args < "${DOCKER_ARGS}"
   [[ " ${args[*]} " == *" --network host "* ]]
   [[ " ${args[*]} " == *" zap-baseline.py -t https://staging.example.test -m 2 -T 7 "* ]]
-  [[ " ${args[*]} " == *" -J report.json -r report.html -I "* ]]
+  [[ " ${args[*]} " == *" -J report.json -I "* ]]
   [[ " ${args[*]} " != *" -a "* ]]
 }
 
@@ -165,11 +167,11 @@ run_zap() {
   [[ "${output}" != *"SENSITIVE-ZAP-EXAMPLE-URL"* ]]
 }
 
-@test "Remote API definitions are passed as the target and missing files fail" {
-  run_zap SCAN_MODE=api API_DEFINITION=https://staging.example.test/graphql API_FORMAT=graphql
+@test "Remote GraphQL schema uses the authorized API endpoint" {
+  run_zap SCAN_MODE=api API_DEFINITION=https://staging.example.test/schema.graphql API_FORMAT=graphql TARGET_URL=https://staging.example.test/graphql
   [ "${status}" -eq 0 ]
   mapfile -t args < "${DOCKER_ARGS}"
-  [[ " ${args[*]} " == *" zap-api-scan.py -t https://staging.example.test/graphql -f graphql "* ]]
+  [[ " ${args[*]} " == *" zap-api-scan.py -t https://staging.example.test/graphql -f graphql --schema https://staging.example.test/schema.graphql -T 7 -S "* ]]
   cd "${BATS_TEST_TMPDIR}"
   run_zap SCAN_MODE=api API_DEFINITION=missing.yaml
   [ "${status}" -eq 1 ]
@@ -187,32 +189,40 @@ run_zap() {
   [ "${status}" -eq 0 ]
 }
 
-@test "Reports are redacted before upload and raw output is removed" {
+@test "Only allowlisted numeric metadata survives the ZAP report" {
   local workdir="${RUNNER_TEMP}/zap-wrk"
   mkdir -p "${workdir}"
   local jwt_header="eyJhbGciOiJIUzI1NiJ9"
   local jwt_payload="eyJzdWIiOiIxMjM0NTY3ODkwIn0"
   cat > "${workdir}/report.json" << JSON
-{"site":[{"alerts":[{"name":"Leak","riskcode":"2","evidence":"Authorization: Bearer abc.def-ghi\r\nCookie: sid=SESSIONSECRET; other=1\r\nGET /x?api_key=KEY123&ok=1 token=TOKEN456 ${jwt_header}.${jwt_payload}.sig"}]}]}
+{"site":[{"alerts":[{"pluginid":"20002","name":"Leak","riskcode":"2","count":"3","url":"https://staging.example.test/callback?session_id=PRIVATEVALUE","evidence":"Authorization: Bearer abc.def-ghi\\r\\nCookie: sid=SESSIONSECRET\\r\\nGET /x?api_key=KEY123&ok=1 token=TOKEN456 ${jwt_header}.${jwt_payload}.sig"}]}]}
 JSON
   printf '<p>Set-Cookie: session=HTMLSECRET; Path=/</p>' > "${workdir}/report.html"
   run env WORKDIR="${workdir}" bash "${BATS_TEST_TMPDIR}/redact.sh"
   [ "${status}" -eq 0 ]
   [ ! -e "${workdir}" ]
   local out="${RUNNER_TEMP}/zap-report"
-  run ! grep -Eq 'abc\.def|SESSIONSECRET|KEY123|TOKEN456|eyJhbGci|HTMLSECRET' "${out}/report.json" "${out}/report.html"
-  grep -Fq '[REDACTED]' "${out}/report.json"
-  grep -Fq 'ok=1' "${out}/report.json"
-  jq -e '.site[0].alerts[0].name == "Leak"' "${out}/report.json"
+  [ -f "${out}/report.json" ]
+  [ ! -f "${out}/report.html" ]
+  jq -e '.alerts == [{"rule":"20002","risk":2,"instances":3}]' "${out}/report.json"
+  run ! grep -Eq 'PRIVATEVALUE|SESSIONSECRET|KEY123|TOKEN456|eyJhbGci|HTMLSECRET|abc.def' "${out}/report.json"
+}
+
+@test "Unsafe or malformed ZAP metadata fails closed" {
+  local workdir="${RUNNER_TEMP}/zap-wrk"
+  mkdir -p "${workdir}"
+  printf '{"site":[{"alerts":[{"riskcode":"PRIVATEVALUE"}]}]}' > "${workdir}/report.json"
+  run env WORKDIR="${workdir}" bash "${BATS_TEST_TMPDIR}/redact.sh"
+  [ "${status}" -ne 0 ]
 }
 
 write_report() {
   cat > "${BATS_TEST_TMPDIR}/report.json" << 'JSON'
-{"site":[{"alerts":[
-  {"name":"Info thing","riskcode":"0","riskdesc":"Informational (Medium)","count":"1"},
-  {"name":"Low thing","riskcode":"1","riskdesc":"Low (Medium)","count":"2"},
-  {"name":"Medium thing","riskcode":"2","riskdesc":"Medium (High)","count":"3"}
-]}]}
+{"alerts":[
+  {"rule":"10000","risk":0,"instances":1},
+  {"rule":"10001","risk":1,"instances":2},
+  {"rule":"20002","risk":2,"instances":3}
+]}
 JSON
 }
 
@@ -232,11 +242,11 @@ run_enforce() {
   [[ "${output}" == *"2 ZAP alert"* ]]
   run_enforce none
   [ "${status}" -eq 0 ]
-  grep -Fq 'Medium thing' "${GITHUB_STEP_SUMMARY}"
+  grep -Fq '20002' "${GITHUB_STEP_SUMMARY}"
 }
 
 @test "An empty report passes every policy" {
-  printf '{"site":[]}' > "${BATS_TEST_TMPDIR}/report.json"
+  printf '{"alerts":[]}' > "${BATS_TEST_TMPDIR}/report.json"
   run_enforce low
   [ "${status}" -eq 0 ]
 }

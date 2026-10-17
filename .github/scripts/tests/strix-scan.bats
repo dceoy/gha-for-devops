@@ -28,7 +28,15 @@ setup() {
 printf '%s\n' "$@" > "${UVX_ARGS}"
 mkdir -p strix_runs/test
 printf '{"status":"%s","llm_usage":{"cost":%s}}' "${FAKE_RUN_STATUS:-completed}" "${FAKE_COST:-1}" > strix_runs/test/run.json
-printf '{"version":"2.1.0","runs":[]}' > strix_runs/test/findings.sarif
+if [[ "${FAKE_NO_SARIF:-false}" != true ]]; then
+  if [[ "${FAKE_FINDINGS:-false}" == true ]]; then
+    cat > strix_runs/test/findings.sarif << 'SARIF'
+{"version":"2.1.0","runs":[{"results":[{"ruleId":"STRIX-001","level":"error","locations":[{"physicalLocation":{"artifactLocation":{"uri":"src/auth.py"},"region":{"startLine":42}}}],"message":{"text":"SENSITIVE-SCAN-FINDING-WITH-SECRET"}},{"ruleId":"UNSAFE | TOKEN","level":"warning","locations":[{"physicalLocation":{"artifactLocation":{"uri":"https://evil.example/?token=LEAK"}}}],"message":{"text":"SENSITIVE-TOKEN-LEAK"}}]}]}
+SARIF
+  else
+    printf '{"version":"2.1.0","runs":[]}' > strix_runs/test/findings.sarif
+  fi
+fi
 echo 'SENSITIVE-SCAN-FINDING-WITH-SECRET'
 exit "${FAKE_EXIT_CODE:-0}"
 SH
@@ -124,6 +132,22 @@ scan() {
   [ "${status}" -eq 0 ]
   grep -Fq 'exit_code=2' "${GITHUB_OUTPUT}"
   [[ "${output}" != *'SENSITIVE-SCAN-FINDING'* ]]
+}
+
+@test "Default Strix output includes actionable safe finding locations without leaking evidence" {
+  scan FAKE_FINDINGS=true FAKE_EXIT_CODE=2
+  [ "${status}" -eq 0 ]
+  grep -Fq 'Finding count: 2' "${GITHUB_STEP_SUMMARY}"
+  grep -Fq 'STRIX-001 | src/auth.py:42' "${GITHUB_STEP_SUMMARY}"
+  grep -Fq 'unknown | unknown:?' "${GITHUB_STEP_SUMMARY}"
+  run ! grep -Eq 'SENSITIVE|TOKEN-LEAK|https://evil' "${GITHUB_STEP_SUMMARY}"
+  [ ! -f "${RUNNER_TEMP}/strix-findings.sarif" ]
+}
+
+@test "Missing SARIF fails closed even without publication" {
+  scan FAKE_NO_SARIF=true
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *'SARIF is missing or invalid'* ]]
 }
 
 @test "Incomplete, error, and budget-near-limit runs fail closed" {

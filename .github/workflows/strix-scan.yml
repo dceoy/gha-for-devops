@@ -176,6 +176,12 @@ jobs:
             echo "::error::Strix used at least 90% of the budget; coverage may be truncated."
             exit 1
           fi
+          sarif="$(dirname "${run_json}")/findings.sarif"
+          if [[ ! -f "${sarif}" ]] ||
+            ! jq -e '.version == "2.1.0" and (.runs | type == "array")' "${sarif}" > /dev/null; then
+            echo "::error::Strix SARIF is missing or invalid; cannot report findings safely."
+            exit 1
+          fi
           {
             echo "## Strix pentest"
             echo
@@ -189,13 +195,30 @@ jobs:
             else
               echo "- Severity threshold exceeded: no"
             fi
+            echo
+            echo "### Findings (metadata only)"
+            echo
+            echo "Finding count: $(jq '[.runs[]?.results[]?] | length' "${sarif}")"
+            echo
+            echo "| SARIF level | Rule ID | File:line |"
+            echo "| --- | --- | --- |"
+            # SARIF contains attacker-controlled evidence; emit only tightly validated identifiers.
+            jq -r '
+              .runs[]?.results[]? |
+              ((.ruleId // "unknown") | tostring |
+                if test("^[a-zA-Z0-9_.-]{1,80}$") then . else "unknown" end) as $rule |
+              ((.level // "unknown") | tostring |
+                if . == "error" or . == "warning" or . == "note" then . else "unknown" end) as $level |
+              ((.locations[0].physicalLocation.artifactLocation.uri // "unknown") | tostring |
+                if test("^[a-zA-Z0-9_./-]{1,180}$") then . else "unknown" end) as $file |
+              ((.locations[0].physicalLocation.region.startLine // null) |
+                if type == "number" and . >= 1 and . <= 10000000 then tostring else "?" end) as $line |
+              "| \($level) | \($rule) | \($file):\($line) |"
+            ' "${sarif}"
+            echo
+            echo "Raw finding evidence is withheld. Enable upload-sarif only for authorized code-scanning access."
           } >> "${GITHUB_STEP_SUMMARY}"
           if [[ "${UPLOAD_SARIF}" == true ]]; then
-            sarif="$(dirname "${run_json}")/findings.sarif"
-            if [[ ! -f "${sarif}" ]] || ! jq -e '.version == "2.1.0" and (.runs | type == "array")' "${sarif}" > /dev/null; then
-              echo "::error::Strix SARIF is missing or invalid."
-              exit 1
-            fi
             cp -- "${sarif}" "${RUNNER_TEMP}/strix-findings.sarif"
           fi
           echo "exit_code=${status}" >> "${GITHUB_OUTPUT}"
