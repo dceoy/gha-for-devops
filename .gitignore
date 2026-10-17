@@ -1,6 +1,10 @@
 # env file
 .env
 
+# Local tooling environments
+/node_modules/
+/.venv/
+
 # Editor/IDE
 # .idea/
 # .vscode/

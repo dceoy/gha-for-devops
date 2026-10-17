@@ -1,0 +1,25 @@
+{
+  "name": "gha-for-devops",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local QA tooling for reusable GitHub Actions workflows",
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "qa": "bash scripts/qa.sh",
+    "format": "git ls-files -z -- '*.md' '*.mdx' | xargs -0 -r prettier --write",
+    "format:check": "git ls-files -z -- '*.md' '*.mdx' | xargs -0 -r prettier --check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dceoy/gha-for-devops.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "markdownlint-cli2": "^0.23.2",
+    "prettier": "^3.9.6"
+  }
+}

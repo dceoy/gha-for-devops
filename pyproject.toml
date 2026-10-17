@@ -1,0 +1,24 @@
+[project]
+name = "local-qa"
+version = "0.1.0"
+description = "Local QA tooling for gha-for-devops"
+authors = [{name = "dceoy", email = "dceoy@users.noreply.github.com"}]
+maintainers = [{name = "dceoy", email = "dceoy@users.noreply.github.com"}]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11,<3.14"
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/dceoy/gha-for-devops.git"
+
+[tool.uv]
+package = false
+exclude-newer = "7 days"
+
+[dependency-groups]
+dev = [
+    "checkov>=3.3.9",
+    "yamllint>=1.38.0",
+    "zizmor>=1.29.0",
+]
