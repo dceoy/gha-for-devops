@@ -19,6 +19,16 @@ on:
         type: boolean
         default: true
         description: Scan the filesystem with Trivy
+      submit-dependencies:
+        type: boolean
+        default: false
+        description: Submit source dependency snapshot on trusted default-branch events
+      snapshot-correlator:
+        type: string
+        default: source-root
+      snapshot-artifact-prefix:
+        type: string
+        default: source-security
       trivy-scanners:
         type: string
         default: vuln,secret,misconfig
@@ -156,7 +166,7 @@ jobs:
           fi
           exit "${status}"
   scan:
-    if: inputs.use-trivy || inputs.use-semgrep
+    if: inputs.use-semgrep
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days
@@ -165,64 +175,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: Run Trivy filesystem scan
-        id: trivy
-        if: ${{ !cancelled() && inputs.use-trivy }}
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
-        continue-on-error: true
-        env:
-          TRIVY_DISABLE_TELEMETRY: 'true'
-          TRIVY_SKIP_VERSION_CHECK: 'true'
-        with:
-          scan-type: filesystem
-          scan-ref: ${{ inputs.package-path }}
-          scanners: ${{ inputs.trivy-scanners }}
-          severity: ${{ inputs.trivy-severity }}
-          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
-          timeout: ${{ inputs.trivy-timeout }}
-          format: sarif
-          limit-severities-for-sarif: true
-          output: ${{ runner.temp }}/source-security-trivy.sarif
-          exit-code: ${{ inputs.trivy-exit-code }}
-          trivy-config: ${{ inputs.trivy-config }}
-      - name: Summarize Trivy findings
-        if: ${{ !cancelled() && inputs.use-trivy }}
-        env:
-          REPORT: ${{ runner.temp }}/source-security-trivy.sarif
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo '## Trivy source scan' >> "${GITHUB_STEP_SUMMARY}"
-          if ! command -v jq > /dev/null 2>&1; then
-            echo '::warning::jq is unavailable; the Trivy summary cannot be generated. See the scanner logs.'
-            echo 'jq is unavailable; the Trivy summary cannot be generated. See the scanner logs.' >> "${GITHUB_STEP_SUMMARY}"
-            exit 0
-          fi
-          if [[ ! -s "${REPORT}" ]] || ! jq -e '.runs | type == "array"' "${REPORT}" > /dev/null 2>&1; then
-            echo 'Trivy did not generate a valid SARIF report. See the scanner logs.' >> "${GITHUB_STEP_SUMMARY}"
-            exit 0
-          fi
-          # Metadata only: messages and snippets can contain matched secrets.
-          jq -r '
-            [.runs[]?.results[]?] as $results |
-            "Findings: \($results | length). Showing up to 100 locations.",
-            "<table><tr><th>Rule</th><th>Level</th><th>Location</th></tr>",
-            ($results[:100][] |
-              .locations[0].physicalLocation as $location |
-              "<tr><td>\((.ruleId // "unknown")[:256] | @html)</td>" +
-              "<td>\((.level // "warning")[:32] | @html)</td>" +
-              "<td>\(($location.artifactLocation.uri // "unknown")[:512] | @html):" +
-              "\(($location.region.startLine // 0) | tostring | .[:16] | @html)</td></tr>"),
-            "</table>",
-            "Messages and code snippets are omitted to avoid exposing matched secrets."
-          ' "${REPORT}" >> "${GITHUB_STEP_SUMMARY}"
-      - name: Upload Trivy SARIF report
-        if: ${{ !cancelled() && inputs.use-trivy && inputs.trivy-report-artifact-name != '' }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: ${{ inputs.trivy-report-artifact-name }}
-          path: ${{ runner.temp }}/source-security-trivy.sarif
-          if-no-files-found: warn
       - name: Set up uv for Semgrep
         if: ${{ !cancelled() && inputs.use-semgrep }}
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
@@ -268,8 +220,42 @@ jobs:
             uvx "${args[@]}" -- "${SEMGREP_TARGET}"
           fi
       - name: Enforce security scan results
-        if: ${{ !cancelled() && (steps.trivy.outcome == 'failure' || steps.semgrep.outcome == 'failure') }}
+        if: ${{ !cancelled() && steps.semgrep.outcome == 'failure' }}
         run: exit 1
+  trivy-scan:
+    if: inputs.use-trivy
+    permissions:
+      contents: read
+    uses: ./.github/workflows/trivy-scan.yml
+    with:
+      scan-type: filesystem
+      scan-ref: ${{ inputs.package-path }}
+      trivy-scanners: ${{ inputs.trivy-scanners }}
+      trivy-severity: ${{ inputs.trivy-severity }}
+      trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+      trivy-config: ${{ inputs.trivy-config }}
+      trivy-timeout: ${{ inputs.trivy-timeout }}
+      trivy-exit-code: ${{ inputs.trivy-exit-code }}
+      report-format: sarif
+      trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
+      submit-dependencies: ${{ inputs.submit-dependencies }}
+      snapshot-correlator: ${{ inputs.snapshot-correlator }}
+      snapshot-artifact-prefix: ${{ inputs.snapshot-artifact-prefix }}
+      runs-on: ${{ inputs.runs-on }}
+  submit-dependencies:
+    if: >-
+      always()
+      && needs.trivy-scan.result != 'cancelled'
+      && inputs.use-trivy
+      && inputs.submit-dependencies
+      && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: trivy-scan
+    permissions:
+      contents: write
+    uses: ./.github/workflows/dependency-submission.yml
+    with:
+      snapshot-artifact-name: ${{ inputs.snapshot-artifact-prefix }}-dependency-snapshot-0
   checkov:
     if: inputs.use-checkov
     runs-on: ubuntu-latest

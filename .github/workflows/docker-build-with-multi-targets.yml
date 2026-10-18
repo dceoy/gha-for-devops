@@ -63,6 +63,10 @@ on:
         type: boolean
         description: Push an image to the registry
         default: true
+      submit-dependencies:
+        type: boolean
+        default: false
+        description: Submit each pushed image dependency inventory on trusted default-branch builds
       scan-before-build:
         required: false
         type: boolean
@@ -207,9 +211,29 @@ jobs:
               <<< "${IMAGE_NAME_TO_TARGET_STAGE_JSON}"
             echo "${delimiter}"
           } | tee -a "${GITHUB_OUTPUT}"
+  prebuild-lint-and-scan:
+    if: inputs.scan-before-build
+    uses: ./.github/workflows/docker-lint-and-scan.yml
+    with:
+      hadolint-dockerfile: ${{ inputs.file }}
+      hadolint-failure-threshold: ${{ inputs.hadolint-failure-threshold }}
+      hadolint-recursive: ${{ inputs.hadolint-recursive }}
+      trivy-scan-ref: ${{ inputs.context }}
+      trivy-scanners: ${{ inputs.trivy-scanners }}
+      trivy-severity: ${{ inputs.trivy-severity }}
+      trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+      trivy-exit-code: ${{ inputs.trivy-filesystem-exit-code }}
+      trivy-config: ${{ inputs.trivy-config }}
+      trivy-timeout: ${{ inputs.trivy-timeout }}
+      runs-on: ${{ inputs.runs-on }}
   build-and-push:
+    if: >-
+      always()
+      && needs.create-target-matrix.result == 'success'
+      && (needs.prebuild-lint-and-scan.result == 'success' || needs.prebuild-lint-and-scan.result == 'skipped')
     needs:
       - create-target-matrix
+      - prebuild-lint-and-scan
     permissions:
       contents: write
       packages: write
@@ -233,7 +257,9 @@ jobs:
       provenance: ${{ inputs.provenance }}
       push: ${{ inputs.push }}
       cosign: ${{ inputs.cosign }}
-      scan-before-build: ${{ inputs.scan-before-build }}
+      scan-before-build: false  # Scanned once before the matrix, not once per target
+      submit-dependencies: ${{ inputs.submit-dependencies }}
+      snapshot-artifact-prefix: ${{ format('docker-image-{0}', matrix.image-to-target.artifact) }}
       scan-after-build: ${{ inputs.scan-after-build }}
       hadolint-failure-threshold: ${{ inputs.hadolint-failure-threshold }}
       hadolint-recursive: ${{ inputs.hadolint-recursive }}
