@@ -298,9 +298,10 @@ jobs:
               | . as $target
               | ($target.value."image.name" // "" | split(",") | map(select(length > 0)) | .[0]) as $tag
               | select($tag != null)
+              | ($tag | sub("@[^@]+$"; "") | sub(":[^/:]+$"; "")) as $image
               | {
                   image_ref: ($tag + "@" + $target.value."containerimage.digest"),
-                  correlator: ("docker-bake-" + $target.key)
+                  correlator: ("docker-bake-" + $target.key + "-" + $image)
                 }
             ]
             | if length == 0 then error("No pushed images with digests were found in Bake metadata") else . end
