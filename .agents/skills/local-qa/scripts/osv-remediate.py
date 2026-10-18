@@ -13,35 +13,45 @@ MAX_PACKAGES = 20
 PYPI_NAME = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*\Z")
 NPM_NAME = re.compile(r"(?:@[a-zA-Z0-9][a-zA-Z0-9_.-]*/)?[a-zA-Z0-9][a-zA-Z0-9_.-]*\Z")
 PNPM_ENTRY = re.compile(r"^  ['\"]?(.+?)@(\d+)\.(\d+)\.(\d+)[^:]*['\"]?:\s*$", re.M)
-VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)")
+VERSION = re.compile(r"^v?(\d+(?:\.\d+)*)$")
 
 
-def versions(lockfile: Path) -> dict[str, set[tuple[int, int, int]]]:
+def versions(lockfile: Path) -> dict[str, set[str]]:
     """Read resolved versions without installing or invoking a package manager."""
-    result: dict[str, set[tuple[int, int, int]]] = defaultdict(set)
+    result: dict[str, set[str]] = defaultdict(set)
     if lockfile.name == "uv.lock":
         for package in tomllib.loads(lockfile.read_text()).get("package", []):
-            match = VERSION.match(package.get("version", ""))
-            if match:
-                result[package["name"].lower()].add(tuple(map(int, match.groups())))
+            result[package["name"].lower()].add(package["version"])
     else:
         for match in PNPM_ENTRY.finditer(lockfile.read_text()):
-            result[match.group(1)].add(tuple(map(int, match.groups()[1:])))
+            result[match.group(1)].add(match.group(2))
     return result
 
 
+def release(version: str) -> tuple[int, ...] | None:
+    """Parse ordinary PEP 440 release segments; decline unsupported pre/post releases."""
+    match = VERSION.fullmatch(version)
+    if not match:
+        return None
+    numbers = tuple(map(int, match.group(1).split(".")))
+    return numbers + (0,) * max(0, 3 - len(numbers))
+
+
 def safe_upgrade(before: dict, after: dict) -> bool:
-    """Reject downgrades or major-version jumps for every changed package."""
+    """Reject downgrades or major jumps, including versions without three segments."""
     if not before or not after:
         return False
     for name, new_versions in after.items():
         old_versions = before.get(name)
-        if not old_versions:
-            continue  # Newly resolved transitive dependency, checked by OSV rescan.
-        if any(
-            not any(new[0] == old[0] and new >= old for old in old_versions)
-            for new in new_versions
-        ):
+        if not old_versions or old_versions == new_versions:
+            continue  # New transitive dependencies are checked by the OSV rescan.
+        old = [release(version) for version in old_versions]
+        new = [release(version) for version in new_versions]
+        if any(value is None for value in old + new):
+            return False
+        if any(not any(a[0] == b[0] and a >= b for a in new) for b in old):
+            return False
+        if any(not any(a[0] == b[0] and a >= b for b in old) for a in new):
             return False
     return True
 
