@@ -121,7 +121,7 @@ on:
     secrets:
       GH_TOKEN:
         required: false
-        description: GitHub token
+        description: Deprecated and unused; retained for caller compatibility
       BC_API_KEY:
         required: false
         description: Bridgecrew or Prisma Cloud API key

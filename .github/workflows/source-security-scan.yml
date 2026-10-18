@@ -190,6 +190,11 @@ jobs:
         run: |
           set -euo pipefail
           echo '## Trivy source scan' >> "${GITHUB_STEP_SUMMARY}"
+          if ! command -v jq > /dev/null 2>&1; then
+            echo '::warning::jq is unavailable; the Trivy summary cannot be generated. See the scanner logs.'
+            echo 'jq is unavailable; the Trivy summary cannot be generated. See the scanner logs.' >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
           if [[ ! -s "${REPORT}" ]] || ! jq -e '.runs | type == "array"' "${REPORT}" > /dev/null 2>&1; then
             echo 'Trivy did not generate a valid SARIF report. See the scanner logs.' >> "${GITHUB_STEP_SUMMARY}"
             exit 0

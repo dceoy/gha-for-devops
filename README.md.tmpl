@@ -78,7 +78,7 @@ Use `scan-type: image` with `image-ref` for container inventories; optionally su
 
 Security trust boundaries remain explicit: TruffleHog reports no secret values, public OpenSSF Scorecard publication stays in the non-reusable repository-local `scorecard.yml`, OWASP ZAP is limited to explicitly authorized non-production targets, and Cosign verification requires a known signer identity. Cosign and BuildKit provenance do not establish SLSA compliance on their own.
 
-**Breaking changes:** `docker-image-scan.yml`, `docker-image-verify.yml`, and `microsoft-defender-for-devops.yml` were removed. Migrate release callers to `container-security.yml`; use the shared source checks and CodeQL for static analysis.
+**Breaking changes:** `docker-image-scan.yml`, `docker-image-verify.yml`, and `microsoft-defender-for-devops.yml` were removed. Migrate release callers to `container-security.yml` and drop the old `secrets: GH_TOKEN` mapping, which the replacement does not accept. Use `dependency-submission.yml` if Dependency Graph SBOM submission is still needed; use the shared source checks and CodeQL for static analysis.
 
 ## Local QA
 
