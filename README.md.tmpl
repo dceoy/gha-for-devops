@@ -66,8 +66,6 @@ Publication is opt-in and limited to default-branch `push`, `schedule`, or `work
 
 Docker build, multi-target, and Bake workflows reuse their postbuild scan for publication. Set `submit-dependencies: true` and `push: true`; grant `contents: write` and `packages: read` for GHCR, and pass `DOCKER_TOKEN` for registry access. Avoid submitting the same inventory twice.
 
-**Migration:** Replace `docker-image-scan.yml` and `docker-image-verify.yml` with `container-security.yml`, removing the old `secrets: GH_TOKEN` mapping. Replace `dependency-submission.yml` with `trivy-scan.yml` and `submit-dependencies: true`. For the removed `microsoft-defender-for-devops.yml`, use source checks and CodeQL.
-
 ## Local QA
 
 Install the tools in `mise.toml`, then run:
