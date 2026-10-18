@@ -126,24 +126,44 @@ on:
         required: false
         description: Bridgecrew or Prisma Cloud API key
 permissions:
-  contents: write
+  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   security-scan:
-    if: inputs.use-semgrep
+    if: inputs.use-semgrep || inputs.use-checkov
     uses: $/.github/workflows/source-security-scan.yml
     with:
       runs-on: ${{ inputs.security-runs-on }}
       use-osv-scanner: false
       use-trivy: false
       use-semgrep: ${{ inputs.use-semgrep }}
+      package-path: ${{ inputs.trivy-scan-ref }
+      use-trivy: true
+      trivy-scanners: ${{ inputs.trivy-scanners }
+      trivy-severity: ${{ inputs.trivy-severity }
+      trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }
+      trivy-config: ${{ inputs.trivy-config }
+      trivy-exit-code: ${{ inputs.trivy-exit-code }
+      trivy-timeout: ${{ inputs.trivy-timeout }
+      trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }
+      use-checkov: ${{ inputs.use-checkov }
+      checkov-framework: ${{ inputs.checkov-framework }
+      checkov-skip-framework: ${{ inputs.checkov-skip-framework }
+      checkov-check: ${{ inputs.checkov-check }
+      checkov-skip-check: ${{ inputs.checkov-skip-check }
+      checkov-config-file: ${{ inputs.checkov-config-file }
+      checkov-output-format: ${{ inputs.checkov-output-format }
+      checkov-output-file-path: ${{ inputs.checkov-output-file-path }
+      checkov-soft-fail: ${{ inputs.checkov-soft-fail }
       semgrep-target: ${{ inputs.trivy-scan-ref }}
       semgrep-includes: |
         Dockerfile*
         *.dockerfile
+    secrets:
+      BC_API_KEY: ${{ secrets.BC_API_KEY }}
   lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
@@ -160,91 +180,3 @@ jobs:
           dockerfile: ${{ inputs.hadolint-dockerfile }}
           failure-threshold: ${{ inputs.hadolint-failure-threshold }}
           recursive: ${{ inputs.hadolint-recursive }}
-      - name: Run Trivy in GitHub SBOM mode and submit results to Dependency Graph
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
-        with:
-          scan-type: filesystem
-          scan-ref: ${{ inputs.trivy-scan-ref }}
-          scanners: ${{ inputs.trivy-scanners }}
-          severity: ${{ inputs.trivy-severity }}
-          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
-          exit-code: 0
-          trivy-config: ${{ inputs.trivy-config }}
-          timeout: ${{ inputs.trivy-timeout }}
-          format: github
-          output: dependency-results.sbom.json
-          github-pat: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
-      - name: Run Trivy and generate a readable report
-        id: trivy-report
-        continue-on-error: true
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
-        with:
-          scan-type: filesystem
-          scan-ref: ${{ inputs.trivy-scan-ref }}
-          scanners: ${{ inputs.trivy-scanners }}
-          severity: ${{ inputs.trivy-severity }}
-          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
-          exit-code: ${{ inputs.trivy-exit-code }}
-          trivy-config: ${{ inputs.trivy-config }}
-          timeout: ${{ inputs.trivy-timeout }}
-          format: table
-          output: trivy-results.txt
-          skip-setup-trivy: true
-        env:
-          TRIVY_FORMAT: table
-      - name: Upload complete Trivy report
-        if: always() && inputs.trivy-report-artifact-name != null
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: ${{ inputs.trivy-report-artifact-name }}
-          path: trivy-results.txt
-          if-no-files-found: ignore
-      - name: Add Trivy results to job summary
-        if: always()
-        env:
-          TRIVY_SCAN_REF: ${{ inputs.trivy-scan-ref }}
-          TRIVY_REPORT_ARTIFACT_NAME: ${{ inputs.trivy-report-artifact-name }}
-        run: |
-          {
-            echo "## Trivy filesystem scan"
-            echo
-            echo "**Target:** \`${TRIVY_SCAN_REF}\`"
-            echo
-            echo "<details open>"
-            echo "<summary>Scan results</summary>"
-            echo
-            echo '```text'
-            if [[ -s trivy-results.txt ]]; then
-              head -c 900000 trivy-results.txt
-              if [[ $(wc -c < trivy-results.txt) -gt 900000 ]]; then
-                echo
-                if [[ -n "${TRIVY_REPORT_ARTIFACT_NAME}" ]]; then
-                  echo "[Report truncated; download the complete report artifact.]"
-                else
-                  echo "[Report truncated; set trivy-report-artifact-name to upload the complete report.]"
-                fi
-              fi
-            else
-              echo "Trivy did not generate a report."
-            fi
-            echo '```'
-            echo
-            echo "</details>"
-          } >> "${GITHUB_STEP_SUMMARY}"
-      - name: Enforce Trivy scan result
-        if: steps.trivy-report.outcome == 'failure'
-        run: exit 1
-      - name: Run Checkov
-        if: inputs.use-checkov
-        uses: bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931  # v12.3131.0
-        with:
-          directory: ${{ inputs.trivy-scan-ref }}
-          framework: ${{ inputs.checkov-framework }}
-          skip_framework: ${{ inputs.checkov-skip-framework }}
-          check: ${{ inputs.checkov-check }}
-          skip_check: ${{ inputs.checkov-skip-check }}
-          config_file: ${{ inputs.checkov-config-file }}
-          output_format: ${{ inputs.checkov-output-format }}
-          output_file_path: ${{ inputs.checkov-output-file-path }}
-          soft_fail: ${{ inputs.checkov-soft-fail }}
-          api-key: ${{ secrets.BC_API_KEY }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
