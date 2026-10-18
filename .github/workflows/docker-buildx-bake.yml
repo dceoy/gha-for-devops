@@ -303,8 +303,9 @@ jobs:
       inputs.scan-after-build
     needs:
       - bake
-    uses: $/.github/workflows/docker-image-scan.yml
+    uses: $/.github/workflows/container-security.yml
     with:
+      verify-signatures: false  # Tag/tarball scan; verify digest-pinned images for deployment
       image-refs-json: ${{ needs.bake.outputs.image-refs-json }}
       image-artifact-name: ${{ inputs.image-artifact-name }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
@@ -315,5 +316,3 @@ jobs:
       trivy-timeout: ${{ inputs.trivy-timeout }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name && format('{0}-image', inputs.trivy-report-artifact-name) || '' }}
       runs-on: ${{ inputs.runs-on }}
-    secrets:
-      GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}

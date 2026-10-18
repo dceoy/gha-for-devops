@@ -192,6 +192,7 @@ jobs:
       use-osv-scanner: false
       use-trivy: false
       use-semgrep: ${{ inputs.use-semgrep }}
+      package-path: ${{ inputs.search-path }}
       use-checkov: ${{ inputs.use-checkov }}
       checkov-framework: ${{ inputs.checkov-framework }}
       checkov-skip-framework: ${{ inputs.checkov-skip-framework }}

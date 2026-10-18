@@ -84,9 +84,6 @@ on:
       DOCKER_TOKEN:
         required: false
         description: Registry token
-      GH_TOKEN:
-        required: false
-        description: GitHub token
 permissions:
   contents: read
 defaults:
@@ -96,7 +93,7 @@ defaults:
 jobs:
   scan:
     permissions:
-      contents: write  # GitHub SBOM submission
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     strategy:
       fail-fast: false
@@ -128,20 +125,6 @@ jobs:
           registry: ${{ inputs.registry }}
           username: ${{ inputs.registry-user }}
           password: ${{ secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
-      - name: Run Trivy in GitHub SBOM mode and submit results to Dependency Graph
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
-        with:
-          scan-type: image
-          image-ref: ${{ matrix.image-ref }}
-          scanners: ${{ inputs.trivy-scanners }}
-          severity: ${{ inputs.trivy-severity }}
-          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
-          exit-code: 0
-          trivy-config: ${{ inputs.trivy-config }}
-          timeout: ${{ inputs.trivy-timeout }}
-          format: github
-          output: dependency-results.${{ strategy.job-index }}.sbom.json
-          github-pat: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
       - name: Run Trivy and generate a readable report
         id: trivy-report
         continue-on-error: true
@@ -157,7 +140,6 @@ jobs:
           timeout: ${{ inputs.trivy-timeout }}
           format: table
           output: trivy-results.txt
-          skip-setup-trivy: true
         env:
           TRIVY_FORMAT: table
       - name: Upload complete Trivy report

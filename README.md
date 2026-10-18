@@ -111,9 +111,9 @@ jobs:
       package-path: .
 ```
 
-For scheduled or manually triggered audits, call `security-audit.yml`. Specify project-specific `codeql-languages`; enable the more expensive Joern scan with `use-joern: true`. Deep audits skip pull-request events.
+For scheduled or manually triggered audits, call `security-audit.yml`. Specify project-specific `codeql-languages`; enable the more expensive Joern scan with `use-joern: true`. Deep audits skip pull-request events. Callers using the default CodeQL and Scorecard jobs must grant `contents: read`, `actions: read`, and `security-events: write`.
 
-For release verification, call `container-security.yml` with `image-refs-json` (JSON array of immutable `@sha256:` references) and `certificate-identity` or `certificate-identity-regexp`. Signature verification runs only after successful image scanning. Set `verify-signatures: false` explicitly for non-release/tag-based scans. The caller must grant `contents: write` if Trivy submits SBOMs to the dependency graph.
+For release verification, call `container-security.yml` with `image-refs-json` (JSON array of immutable `@sha256:` references) and `certificate-identity` or `certificate-identity-regexp`. Signature verification runs only after successful image scanning. Set `verify-signatures: false` explicitly for non-release/tag-based scans. Container security scans run with `contents: read` and do not submit SBOMs to the dependency graph. Before deployment, use digest-pinned image references and an expected signer identity.
 
 Language-specific `*-lint-and-scan.yml` workflows continue handling language tooling, while OSV-Scanner, Trivy, Semgrep, and Checkov share the `source-security-scan.yml` implementation. The shared Trivy scan now emits SARIF rather than the previous table/SBOM submission; set `trivy-report-artifact-name` to retain its artifact.
 
