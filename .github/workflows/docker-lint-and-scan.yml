@@ -1,6 +1,6 @@
 ---
 name: Lint and security scan for Dockerfile
-on:
+on:  # checkov:skip=CKV2_GHA_1:Optional dependency publication must inherit caller-scoped write permission; scan jobs stay read-only
   workflow_call:
     inputs:
       hadolint-dockerfile:
