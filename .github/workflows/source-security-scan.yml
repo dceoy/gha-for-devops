@@ -19,6 +19,13 @@ on:
         type: boolean
         default: true
         description: Scan the filesystem with Trivy
+      submit-dependencies:
+        type: boolean
+        default: false
+        description: Publish the existing Trivy dependency snapshot on trusted default-branch events
+      snapshot-correlator:
+        type: string
+        default: source-root
       trivy-scanners:
         type: string
         default: vuln,secret,misconfig
@@ -103,10 +110,10 @@ on:
     secrets:
       BC_API_KEY:
         required: false
-permissions:
-  contents: read
 jobs:
   osv-scan:
+    permissions:
+      contents: read
     if: inputs.use-osv-scanner
     runs-on: ubuntu-latest
     steps:
@@ -156,6 +163,8 @@ jobs:
           fi
           exit "${status}"
   scan:
+    permissions:
+      contents: read
     if: inputs.use-semgrep
     runs-on: ${{ inputs.runs-on }}
     env:
@@ -214,12 +223,12 @@ jobs:
         run: exit 1
   trivy-scan:
     if: inputs.use-trivy
-    permissions:
-      contents: read
     uses: $/.github/workflows/trivy-scan.yml
     with:
       scan-type: filesystem
       scan-ref: ${{ inputs.package-path }}
+      submit-dependencies: ${{ inputs.submit-dependencies }}
+      snapshot-correlator: ${{ inputs.snapshot-correlator }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
       trivy-severity: ${{ inputs.trivy-severity }}
       trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
@@ -230,6 +239,8 @@ jobs:
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
       runs-on: ${{ inputs.runs-on }}
   checkov:
+    permissions:
+      contents: read
     if: inputs.use-checkov
     runs-on: ubuntu-latest
     steps:
