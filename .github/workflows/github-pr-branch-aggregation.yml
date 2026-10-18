@@ -57,6 +57,8 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
+env:
+  GH_TELEMETRY: 'false'
 jobs:
   branch-list:
     if: >

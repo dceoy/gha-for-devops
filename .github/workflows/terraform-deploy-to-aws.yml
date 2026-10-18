@@ -105,6 +105,8 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
+env:
+  CHECKPOINT_DISABLE: '1'
 jobs:
   deploy:
     runs-on: ${{ inputs.runs-on }}

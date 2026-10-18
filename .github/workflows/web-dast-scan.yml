@@ -179,6 +179,7 @@ jobs:
           fi
           # -s hides example URLs; no raw scanner output is forwarded to GitHub Actions logs.
           # -I: alert-based exit codes are replaced by the fail-on-risk policy below.
+          script+=(-z "-notel")
           script+=(-s -J report.json -I)
           log="${RUNNER_TEMP}/zap-scan.log"
           (umask 077 && : > "${log}")

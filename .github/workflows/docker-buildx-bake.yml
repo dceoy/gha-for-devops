@@ -58,6 +58,11 @@ on:
         type: boolean
         description: Pull images before building
         default: false
+      submit-dependencies:
+        required: false
+        type: boolean
+        description: Submit digest-pinned dependency snapshots for pushed Bake targets on trusted default-branch runs
+        default: false
       scan-before-build:
         required: false
         type: boolean
@@ -206,6 +211,7 @@ jobs:
     outputs:
       bake-metadata-json: ${{ steps.docker-bake.outputs.metadata }}
       image-refs-json: ${{ steps.extract-image-refs.outputs.image_refs_json }}
+      dependency-snapshot-matrix: ${{ steps.dependency-snapshot-matrix.outputs.matrix }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -280,6 +286,26 @@ jobs:
           else
             tee -a "${GITHUB_OUTPUT}" <<< "image_refs_json=${IMAGE_REFS_JSON}"
           fi
+      - name: Prepare dependency snapshot matrix
+        id: dependency-snapshot-matrix
+        if: inputs.submit-dependencies && inputs.push && steps.docker-bake.outcome == 'success'
+        env:
+          BAKE_OUTPUT_METADATA_JSON: ${{ steps.docker-bake.outputs.metadata }}
+        run: |
+          jq -ce '
+            [to_entries[]
+              | select((.value."containerimage.digest" // "") != "")
+              | . as $target
+              | ($target.value."image.name" // "" | split(",") | map(select(length > 0)) | .[0]) as $tag
+              | select($tag != null)
+              | ($tag | sub("@[^@]+$"; "") | sub(":[^/:]+$"; "")) as $image
+              | {
+                  image_ref: ($tag + "@" + $target.value."containerimage.digest"),
+                  correlator: ("docker-bake-" + $target.key + "-" + $image)
+                }
+            ]
+            | if length == 0 then error("No pushed images with digests were found in Bake metadata") else . end
+          ' <<< "${BAKE_OUTPUT_METADATA_JSON}" | sed 's/^/matrix=/' >> "${GITHUB_OUTPUT}"
       - name: Pull the images
         if: inputs.push
         env:
@@ -316,3 +342,30 @@ jobs:
       trivy-timeout: ${{ inputs.trivy-timeout }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name && format('{0}-image', inputs.trivy-report-artifact-name) || '' }}
       runs-on: ${{ inputs.runs-on }}
+  dependency-submission:
+    if: >-
+      inputs.submit-dependencies
+      && inputs.push
+      && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      && needs.bake.result == 'success'
+      && needs.bake.outputs.dependency-snapshot-matrix != ''
+      && needs.bake.outputs.dependency-snapshot-matrix != '[]'
+    needs:
+      - bake
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.bake.outputs.dependency-snapshot-matrix) }}
+    permissions:
+      contents: write
+      packages: read
+    uses: $/.github/workflows/dependency-submission.yml
+    with:
+      scan-type: image
+      image-ref: ${{ matrix.image_ref }}
+      registry: ${{ inputs.registry }}
+      registry-user: ${{ inputs.registry-user }}
+      snapshot-correlator: ${{ matrix.correlator }}
+    secrets:
+      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}

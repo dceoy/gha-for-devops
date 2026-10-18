@@ -39,6 +39,7 @@ jobs:
   submit:
     permissions:
       contents: write
+      packages: read
     runs-on: ubuntu-latest
     steps:
       - name: Validate publication request
@@ -93,6 +94,9 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
       - name: Generate dependency snapshot
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        env:
+          TRIVY_DISABLE_TELEMETRY: 'true'
+          TRIVY_SKIP_VERSION_CHECK: 'true'
         with:
           scan-type: ${{ inputs.scan-type }}
           scan-ref: ${{ inputs.scan-ref }}

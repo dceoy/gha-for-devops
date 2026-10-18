@@ -68,6 +68,11 @@ on:
         type: boolean
         description: Keyless-sign the pushed image digest with cosign (needs push true and caller id-token write; verify with container-security.yml using a pinned digest before deploying)
         default: false
+      submit-dependencies:
+        required: false
+        type: boolean
+        description: Submit a digest-pinned image dependency snapshot on trusted default-branch builds
+        default: false
       scan-before-build:
         required: false
         type: boolean
@@ -377,3 +382,26 @@ jobs:
       trivy-timeout: ${{ inputs.trivy-timeout }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name && format('{0}-image', inputs.trivy-report-artifact-name) || '' }}
       runs-on: ${{ inputs.runs-on }}
+  dependency-submission:
+    if: >-
+      inputs.submit-dependencies
+      && inputs.push
+      && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      && needs.build-and-push.result == 'success'
+      && needs.build-and-push.outputs.image-ref != ''
+      && needs.build-and-push.outputs.build-push-digest != ''
+    needs:
+      - build-and-push
+    permissions:
+      contents: write
+      packages: read
+    uses: $/.github/workflows/dependency-submission.yml
+    with:
+      scan-type: image
+      image-ref: ${{ format('{0}@{1}', needs.build-and-push.outputs.image-ref, needs.build-and-push.outputs.build-push-digest) }}
+      registry: ${{ inputs.registry }}
+      registry-user: ${{ inputs.registry-user }}
+      snapshot-correlator: ${{ format('docker-image-{0}-{1}', inputs.registry || 'default', inputs.image-name) }}
+    secrets:
+      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}

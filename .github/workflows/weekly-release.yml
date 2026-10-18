@@ -14,6 +14,9 @@ permissions:
 defaults:
   run:
     shell: bash -euo pipefail {0}
+env:
+  GH_TELEMETRY: 'false'
+  MISE_USE_VERSIONS_HOST_TRACK: 'false'
 jobs:
   plan:
     runs-on: ubuntu-slim

@@ -38,6 +38,8 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
+env:
+  GH_TELEMETRY: 'false'
 jobs:
   create-major-version-tag:
     runs-on: ${{ inputs.runs-on || 'ubuntu-slim' }}
