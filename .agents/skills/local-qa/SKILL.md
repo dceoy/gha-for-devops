@@ -21,3 +21,9 @@ Run the local QA script `scripts/qa.sh` in this skill.
 - If multiple tools are missing, repeat install -> rerun until QA completes or you hit a blocker.
 - If installation fails or requires unavailable privileges, report what was attempted, the exact failure, and stop.
 - Do not run unrelated commands; only run commands needed for QA and missing-tool installation.
+
+## Dependency vulnerability remediation
+
+- OSV scans run before other QA. On findings, `qa.sh` attempts one bounded, non-interactive update of affected `uv.lock` (using `uv lock --upgrade-package`) or `pnpm-lock.yaml` (using `pnpm update --lockfile-only --no-save --ignore-scripts`), then rescans.
+- Only clean, tracked lockfiles are eligible. Updates respect the existing seven-day release cooldown and reject detected major-version jumps or downgrades; failed updates are rolled back. No manifest constraints, overrides, or ignore lists are changed automatically.
+- Unsupported ecosystems, unfixable vulnerabilities, and remaining OSV findings still fail QA. Do not suppress or bypass scan failures; report remaining issues separately from successful lockfile changes. Avoid running on untrusted repositories with untrusted package manager configuration.
