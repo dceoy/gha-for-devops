@@ -18,13 +18,24 @@ class RemediationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             lock = Path(directory) / "pnpm-lock.yaml"
             lock.write_text("packages:\n\n  '@example/foo@1.2.3':\n  'bar@3.4.5':\n")
-            self.assertEqual(FUNCTIONS["versions"](lock)["@example/foo"], {(1, 2, 3)})
+            self.assertEqual(FUNCTIONS["versions"](lock)["@example/foo"], {"1.2.3"})
             self.assertTrue(
-                FUNCTIONS["safe_upgrade"]({"foo": {(1, 2, 3)}}, {"foo": {(1, 2, 4)}})
+                FUNCTIONS["safe_upgrade"]({"foo": {"1.2.3"}}, {"foo": {"1.2.4"}})
             )
             self.assertFalse(
-                FUNCTIONS["safe_upgrade"]({"foo": {(1, 2, 3)}}, {"foo": {(2, 0, 0)}})
+                FUNCTIONS["safe_upgrade"]({"foo": {"1.2.3"}}, {"foo": {"2.0.0"}})
             )
+
+    def test_short_pep440_versions_and_unsupported_prereleases(self):
+        self.assertFalse(
+            FUNCTIONS["safe_upgrade"]({"foo": {"1.9"}}, {"foo": {"2.0"}})
+        )
+        self.assertTrue(
+            FUNCTIONS["safe_upgrade"]({"foo": {"1.9"}}, {"foo": {"1.10"}})
+        )
+        self.assertFalse(
+            FUNCTIONS["safe_upgrade"]({"foo": {"1.9"}}, {"foo": {"1.10rc1"}})
+        )
 
     def test_uv_update_and_major_rollback(self):
         for update, expected in (("1.2.4", "1.2.4"), ("2.0.0", "1.2.3")):
