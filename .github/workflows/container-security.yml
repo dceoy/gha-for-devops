@@ -62,7 +62,7 @@ on:
         default: null
       image-targets-json:
         type: string
-        default: ''
+        default: null
         description: Optional array of {image_ref, correlator} pairs for pinned images
       verify-signatures:
         type: boolean
@@ -70,11 +70,11 @@ on:
         description: Fail releases unless images have valid Cosign signatures
       certificate-identity:
         type: string
-        default: ""
+        default: null
         description: Expected keyless signer identity (exclusive with regexp)
       certificate-identity-regexp:
         type: string
-        default: ""
+        default: null
         description: Anchored signer identity regular expression
       certificate-oidc-issuer:
         type: string
