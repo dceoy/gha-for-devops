@@ -63,5 +63,5 @@ generate_matrix() {
   [ "$(yq -r '.jobs.scan.permissions.contents' "$TRIVY_WORKFLOW")" = read ]
   [ "$(yq -r '.jobs.submit.permissions.contents' "$TRIVY_WORKFLOW")" = write ]
   [ "$(yq -r '.jobs."postbuild-scan".uses' "$REPO_ROOT/.github/workflows/docker-build-and-push.yml")" = './.github/workflows/trivy-scan.yml' ]
-  ! grep -Fq 'dependency-submission.yml' "$BAKE_WORKFLOW"
+  run ! grep -Fq 'dependency-submission.yml' "$BAKE_WORKFLOW"
 }

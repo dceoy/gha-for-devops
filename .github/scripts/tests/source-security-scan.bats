@@ -42,7 +42,7 @@ run_osv_scan() {
   [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "$WORKFLOW")" = 1 ]
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "$WORKFLOW")" = false ]
   grep -Fq 'ghcr.io/google/osv-scanner:v2.7.0@sha256:' "$WORKFLOW"
-  ! grep -Fq 'aquasecurity/trivy-action@' "$WORKFLOW"
+  run ! grep -Fq 'aquasecurity/trivy-action@' "$WORKFLOW"
   grep -Fq 'steps.semgrep.outcome' "$WORKFLOW"
 }
 

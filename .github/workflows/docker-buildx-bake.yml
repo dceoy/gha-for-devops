@@ -341,9 +341,9 @@ jobs:
     permissions:
       contents: write
       packages: read
-    uses: ./.github/workflows/container-security.yml
+    uses: ./.github/workflows/trivy-scan.yml
     with:
-      verify-signatures: false  # Verify digest-pinned images separately before deployment
+      scan-type: image
       image-refs-json: ${{ needs.bake.outputs.image-refs-json }}
       image-targets-json: ${{ inputs.submit-dependencies && inputs.push && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && needs.bake.outputs.dependency-snapshot-matrix != '[]' && needs.bake.outputs.dependency-snapshot-matrix || '' }}
       image-artifact-name: ${{ inputs.image-artifact-name }}
@@ -355,30 +355,10 @@ jobs:
       trivy-exit-code: ${{ inputs.trivy-image-exit-code }}
       trivy-config: ${{ inputs.trivy-config || '' }}
       trivy-timeout: ${{ inputs.trivy-timeout }}
+      report-format: table
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name && format('{0}-image', inputs.trivy-report-artifact-name) || '' }}
       submit-dependencies: ${{ inputs.submit-dependencies && inputs.push }}
       snapshot-artifact-prefix: ${{ inputs.snapshot-artifact-prefix }}
       runs-on: ${{ inputs.runs-on }}
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
-  dependency-submission:
-    if: >-
-      always()
-      && inputs.submit-dependencies
-      && inputs.push
-      && needs.bake.result == 'success'
-      && needs.postbuild-scan.result != 'cancelled'
-      && needs.postbuild-scan.outputs.snapshot-targets-json != ''
-      && needs.postbuild-scan.outputs.snapshot-targets-json != '[]'
-      && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    needs: [bake, postbuild-scan]
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.postbuild-scan.outputs.snapshot-targets-json) }}
-    permissions:
-      contents: write
-    uses: ./.github/workflows/dependency-submission.yml
-    with:
-      snapshot-artifact-name: ${{ inputs.snapshot-artifact-prefix }}-dependency-snapshot-${{ matrix.id }}

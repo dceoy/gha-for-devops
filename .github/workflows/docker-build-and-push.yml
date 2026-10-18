@@ -381,9 +381,9 @@ jobs:
     permissions:
       contents: write
       packages: read
-    uses: ./.github/workflows/container-security.yml
+    uses: ./.github/workflows/trivy-scan.yml
     with:
-      verify-signatures: false  # Verify digest-pinned images separately before deployment
+      scan-type: image
       image-refs-json: ${{ needs.build-and-push.outputs.image-ref && format('[{0}]', toJSON(needs.build-and-push.outputs.image-ref)) || '[]' }}
       image-targets-json: ${{ inputs.submit-dependencies && inputs.push && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && needs.build-and-push.outputs.build-push-digest != '' && format('[{{"image_ref":{0},"correlator":{1}}}]', toJSON(format('{0}@{1}', needs.build-and-push.outputs.image-ref, needs.build-and-push.outputs.build-push-digest)), toJSON(format('docker-image-{0}-{1}', inputs.registry || 'default', inputs.image-name))) || '' }}
       image-artifact-name: ${{ inputs.image-artifact-name }}
@@ -395,26 +395,10 @@ jobs:
       trivy-exit-code: ${{ inputs.trivy-image-exit-code }}
       trivy-config: ${{ inputs.trivy-config || '' }}
       trivy-timeout: ${{ inputs.trivy-timeout }}
+      report-format: table
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name && format('{0}-image', inputs.trivy-report-artifact-name) || '' }}
       submit-dependencies: ${{ inputs.submit-dependencies && inputs.push }}
       snapshot-artifact-prefix: ${{ inputs.snapshot-artifact-prefix }}
       runs-on: ${{ inputs.runs-on }}
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
-  dependency-submission:
-    if: >-
-      always()
-      && inputs.submit-dependencies
-      && inputs.push
-      && needs.build-and-push.result == 'success'
-      && needs.postbuild-scan.result != 'cancelled'
-      && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    needs:
-      - build-and-push
-      - postbuild-scan
-    permissions:
-      contents: write
-    uses: ./.github/workflows/dependency-submission.yml
-    with:
-      snapshot-artifact-name: ${{ inputs.snapshot-artifact-prefix }}-dependency-snapshot-0
