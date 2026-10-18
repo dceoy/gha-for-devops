@@ -182,6 +182,32 @@ jobs:
           output: ${{ runner.temp }}/source-security-trivy.sarif
           exit-code: ${{ inputs.trivy-exit-code }}
           trivy-config: ${{ inputs.trivy-config }}
+      - name: Summarize Trivy findings
+        if: ${{ !cancelled() && inputs.use-trivy }}
+        env:
+          REPORT: ${{ runner.temp }}/source-security-trivy.sarif
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '## Trivy source scan' >> "${GITHUB_STEP_SUMMARY}"
+          if [[ ! -s "${REPORT}" ]] || ! jq -e '.runs | type == "array"' "${REPORT}" > /dev/null 2>&1; then
+            echo 'Trivy did not generate a valid SARIF report. See the scanner logs.' >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+          # Metadata only: messages and snippets can contain matched secrets.
+          jq -r '
+            [.runs[]?.results[]?] as $results |
+            "Findings: \($results | length). Showing up to 100 locations.",
+            "<table><tr><th>Rule</th><th>Level</th><th>Location</th></tr>",
+            ($results[:100][] |
+              .locations[0].physicalLocation as $location |
+              "<tr><td>\((.ruleId // "unknown")[:256] | @html)</td>" +
+              "<td>\((.level // "warning")[:32] | @html)</td>" +
+              "<td>\(($location.artifactLocation.uri // "unknown")[:512] | @html):" +
+              "\(($location.region.startLine // 0) | tostring | .[:16] | @html)</td></tr>"),
+            "</table>",
+            "Messages and code snippets are omitted to avoid exposing matched secrets."
+          ' "${REPORT}" >> "${GITHUB_STEP_SUMMARY}"
       - name: Upload Trivy SARIF report
         if: ${{ !cancelled() && inputs.use-trivy && inputs.trivy-report-artifact-name != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2

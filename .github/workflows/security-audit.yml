@@ -34,6 +34,7 @@ jobs:
     uses: $/.github/workflows/source-security-scan.yml
     with:
       package-path: ${{ inputs.package-path }}
+      semgrep-working-directory: ${{ inputs.package-path }}
       use-osv-scanner: true
       use-trivy: true
       use-semgrep: true
