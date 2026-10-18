@@ -213,7 +213,7 @@ jobs:
           } | tee -a "${GITHUB_OUTPUT}"
   prebuild-lint-and-scan:
     if: inputs.scan-before-build
-    uses: ./.github/workflows/docker-lint-and-scan.yml
+    uses: $/.github/workflows/docker-lint-and-scan.yml
     with:
       hadolint-dockerfile: ${{ inputs.file }}
       hadolint-failure-threshold: ${{ inputs.hadolint-failure-threshold }}

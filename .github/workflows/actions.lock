@@ -230,14 +230,12 @@ workflows:
         - 'hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e'
     '.github/workflows/toml-lint.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-    '.github/workflows/trivy-core.yml':
+    '.github/workflows/trivy-scan.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         - 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25'
         - 'docker/login-action@dbcb813823bdd20940b903addbd779551569679f'
-    '.github/workflows/trivy-scan.yml':
-        - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
     '.github/workflows/typescript-package-format-and-pr.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'

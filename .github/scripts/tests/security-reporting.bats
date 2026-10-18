@@ -6,7 +6,6 @@ bats_require_minimum_version 1.5.0
 setup() {
   REPO_ROOT="$(git -C "$BATS_TEST_DIRNAME" rev-parse --show-toplevel)"
   TRIVY="$REPO_ROOT/.github/workflows/trivy-scan.yml"
-  CORE="$REPO_ROOT/.github/workflows/trivy-core.yml"
   SOURCE="$REPO_ROOT/.github/workflows/source-security-scan.yml"
   CONTAINER="$REPO_ROOT/.github/workflows/container-security.yml"
   PUBLISH_SCRIPT="$BATS_TEST_TMPDIR/publish.sh"
@@ -14,23 +13,23 @@ setup() {
   export GITHUB_STEP_SUMMARY="$BATS_TEST_TMPDIR/summary"
 }
 
-@test "Trivy core scans all categories once and converts reports" {
-  [ "$(yq -r '[.jobs.scan.steps[] | select(.uses | contains("aquasecurity/trivy-action@"))] | length' "$CORE")" = 1 ]
-  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with.format' "$CORE")" = json ]
-  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with."list-all-pkgs"' "$CORE")" = true ]
-  [ "$(yq -r '.on.workflow_call.inputs."trivy-scanners".default' "$CORE")" = 'vuln,secret,misconfig' ]
-  grep -Fq 'trivy convert --format github' "$CORE"
-  grep -Fq 'trivy convert --format "$REPORT_FORMAT"' "$CORE"
+@test "Trivy scan runs each category once and converts reports" {
+  [ "$(yq -r '[.jobs.scan.steps[] | select(.uses | contains("aquasecurity/trivy-action@"))] | length' "$TRIVY")" = 1 ]
+  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with.format' "$TRIVY")" = json ]
+  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with."list-all-pkgs"' "$TRIVY")" = true ]
+  [ "$(yq -r '.on.workflow_call.inputs."trivy-scanners".default' "$TRIVY")" = 'vuln,secret,misconfig' ]
+  grep -Fq 'trivy convert --format github' "$TRIVY"
+  grep -Fq 'trivy convert --format "$REPORT_FORMAT"' "$TRIVY"
 }
 
 @test "Only the integrated publisher is writable and gated to trusted events" {
   [ "$(yq -r '.jobs.scan.permissions.contents' "$TRIVY")" = read ]
-  [ "$(yq -r '.jobs.submit.permissions.contents' "$TRIVY")" = write ]
-  [ "$(yq -r '.jobs.scan.permissions.contents' "$CORE")" = read ]
+  [ "$(yq -r '.jobs.submit.permissions.contents' "$TRIVY")" = null ]
+  [ "$(yq -r '.jobs.scan.permissions.contents' "$TRIVY")" = read ]
   [ "$(yq -r '.permissions.contents' "$SOURCE")" = read ]
   [ "$(yq -r '.permissions.contents' "$CONTAINER")" = read ]
-  [ "$(yq -r '.jobs."trivy-scan".uses' "$SOURCE")" = './.github/workflows/trivy-core.yml' ]
-  [ "$(yq -r '.jobs.scan.uses' "$CONTAINER")" = './.github/workflows/trivy-core.yml' ]
+  [ "$(yq -r '.jobs."trivy-scan".uses' "$SOURCE")" = '$/.github/workflows/trivy-scan.yml' ]
+  [ "$(yq -r '.jobs.scan.uses' "$CONTAINER")" = '$/.github/workflows/trivy-scan.yml' ]
   [ ! -e "$REPO_ROOT/.github/workflows/dependency-submission.yml" ]
   local cond
   cond="$(yq -r '.jobs.submit.if' "$TRIVY")"
@@ -71,15 +70,15 @@ SH
 }
 
 @test "Stable correlator is injected into each converted snapshot" {
-  [ "$(yq -r '.jobs.scan.with."snapshot-correlator"' "$TRIVY")" = '${{ inputs.snapshot-correlator }}' ]
-  grep -Fq 'jq -e --arg correlator "$SNAPSHOT_CORRELATOR"' "$CORE"
-  grep -Fq '.job.correlator=$correlator' "$CORE"
+  [ "$(yq -r '.jobs.prepare.steps[] | select(.id == "targets") | .env.CORRELATOR' "$TRIVY")" = '${{ inputs.snapshot-correlator }}' ]
+  grep -Fq 'jq -e --arg correlator "$SNAPSHOT_CORRELATOR"' "$TRIVY"
+  grep -Fq '.job.correlator=$correlator' "$TRIVY"
 }
 
 @test "Table summary omits matching secret values" {
   local script
   script="$BATS_TEST_TMPDIR/report.sh"
-  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$CORE" > "$script"
+  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$script"
   export REPORT_FORMAT=table RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report.txt"
   printf '%s\n' '{"Results":[{"Target":"SECRET_PATH","Secrets":[{"Title":"SECRET_SENTINEL"}],"Vulnerabilities":[{"VulnerabilityID":"CVE-1"}]}]}' > "$RAW_REPORT"
   mkdir -p "$BATS_TEST_TMPDIR/bin"

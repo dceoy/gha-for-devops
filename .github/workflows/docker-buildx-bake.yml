@@ -341,7 +341,7 @@ jobs:
     permissions:
       contents: write
       packages: read
-    uses: ./.github/workflows/trivy-scan.yml
+    uses: $/.github/workflows/trivy-scan.yml
     with:
       scan-type: image
       image-refs-json: ${{ needs.bake.outputs.image-refs-json }}

@@ -56,12 +56,12 @@ generate_matrix() {
 }
 
 @test "Bake feeds pinned targets to one Trivy scan that publishes from a separate privileged job" {
-  [ "$(yq -r '.jobs."postbuild-scan".uses' "$BAKE_WORKFLOW")" = './.github/workflows/trivy-scan.yml' ]
+  [ "$(yq -r '.jobs."postbuild-scan".uses' "$BAKE_WORKFLOW")" = '$/.github/workflows/trivy-scan.yml' ]
   [ "$(yq -r '.jobs."postbuild-scan".permissions.contents' "$BAKE_WORKFLOW")" = write ]
   [ "$(yq -r '.jobs."postbuild-scan".permissions.packages' "$BAKE_WORKFLOW")" = read ]
   [ "$(yq -r '.jobs."postbuild-scan".with."image-targets-json"' "$BAKE_WORKFLOW" | grep -c dependency-snapshot-matrix)" -gt 0 ]
   [ "$(yq -r '.jobs.scan.permissions.contents' "$TRIVY_WORKFLOW")" = read ]
-  [ "$(yq -r '.jobs.submit.permissions.contents' "$TRIVY_WORKFLOW")" = write ]
-  [ "$(yq -r '.jobs."postbuild-scan".uses' "$REPO_ROOT/.github/workflows/docker-build-and-push.yml")" = './.github/workflows/trivy-scan.yml' ]
+  [ "$(yq -r '.jobs.submit.permissions.contents' "$TRIVY_WORKFLOW")" = null ]
+  [ "$(yq -r '.jobs."postbuild-scan".uses' "$REPO_ROOT/.github/workflows/docker-build-and-push.yml")" = '$/.github/workflows/trivy-scan.yml' ]
   run ! grep -Fq 'dependency-submission.yml' "$BAKE_WORKFLOW"
 }

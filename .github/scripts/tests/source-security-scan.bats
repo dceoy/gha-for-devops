@@ -34,7 +34,7 @@ run_osv_scan() {
 @test "Source scanner isolates OSV on ubuntu-latest and delegates Trivy to the read-only core" {
   [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "$WORKFLOW")" = ubuntu-slim ]
   [ "$(yq -r '.jobs."osv-scan".runs-on' "$WORKFLOW")" = ubuntu-latest ]
-  [ "$(yq -r '.jobs."trivy-scan".uses' "$WORKFLOW")" = './.github/workflows/trivy-core.yml' ]
+  [ "$(yq -r '.jobs."trivy-scan".uses' "$WORKFLOW")" = '$/.github/workflows/trivy-scan.yml' ]
   [ "$(yq -r '.jobs."trivy-scan".with."scan-type"' "$WORKFLOW")" = filesystem ]
   [ "$(yq -r '.jobs."trivy-scan".with."report-format"' "$WORKFLOW")" = sarif ]
   [ "$(yq -r '.on.workflow_call.inputs."use-osv-scanner".default' "$WORKFLOW")" = true ]

@@ -381,7 +381,7 @@ jobs:
     permissions:
       contents: write
       packages: read
-    uses: ./.github/workflows/trivy-scan.yml
+    uses: $/.github/workflows/trivy-scan.yml
     with:
       scan-type: image
       image-refs-json: ${{ needs.build-and-push.outputs.image-ref && format('[{0}]', toJSON(needs.build-and-push.outputs.image-ref)) || '[]' }}

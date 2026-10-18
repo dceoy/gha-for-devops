@@ -64,12 +64,6 @@ on:
         type: string
         default: ''
         description: Optional array of {image_ref, correlator} pairs for pinned images
-      snapshot-correlator:
-        type: string
-        default: docker-image
-      snapshot-artifact-prefix:
-        type: string
-        default: container-security
       verify-signatures:
         type: boolean
         default: true
@@ -106,7 +100,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/trivy-core.yml
+    uses: $/.github/workflows/trivy-scan.yml
     with:
       scan-type: image
       image-refs-json: ${{ inputs.image-refs-json }}
@@ -121,9 +115,6 @@ jobs:
       trivy-config: ${{ inputs.trivy-config || '' }}
       trivy-timeout: ${{ inputs.trivy-timeout }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name || '' }}
-      submit-dependencies: false
-      snapshot-correlator: ${{ inputs.snapshot-correlator }}
-      snapshot-artifact-prefix: ${{ inputs.snapshot-artifact-prefix }}
       runs-on: ${{ inputs.runs-on }}
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
