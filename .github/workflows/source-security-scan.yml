@@ -1,6 +1,6 @@
 ---
 name: Source security scan
-on:  # checkov:skip=CKV2_GHA_1:Optional dependency publication must inherit caller-scoped write permission; scan jobs stay read-only
+on:
   workflow_call:
     inputs:
       package-path:
@@ -110,6 +110,8 @@ on:  # checkov:skip=CKV2_GHA_1:Optional dependency publication must inherit call
     secrets:
       BC_API_KEY:
         required: false
+permissions:
+  contents: read
 jobs:
   osv-scan:
     permissions:
@@ -223,6 +225,8 @@ jobs:
         run: exit 1
   trivy-scan:
     if: inputs.use-trivy
+    permissions:
+      contents: read
     uses: $/.github/workflows/trivy-scan.yml
     with:
       scan-type: filesystem
