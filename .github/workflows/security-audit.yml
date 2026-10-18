@@ -1,0 +1,63 @@
+---
+name: Deep security audit
+on:
+  workflow_call:
+    inputs:
+      package-path:
+        type: string
+        default: .
+      codeql-languages:
+        type: string
+        default: '["python"]'
+        description: JSON array of CodeQL languages
+      use-codeql:
+        type: boolean
+        default: true
+      use-joern:
+        type: boolean
+        default: false
+        description: Opt in to the resource-intensive Joern scan
+      use-scorecard:
+        type: boolean
+        default: true
+      use-git-history:
+        type: boolean
+        default: true
+    secrets:
+      SCORECARD_TOKEN:
+        required: false
+permissions:
+  contents: read
+jobs:
+  source:
+    if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+    uses: $/.github/workflows/source-security-scan.yml
+    with:
+      package-path: ${{ inputs.package-path }
+      use-osv-scanner: true
+      use-trivy: true
+      use-semgrep: true
+  history:
+    if: inputs.use-git-history && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+    uses: $/.github/workflows/git-secret-scan.yml
+    with:
+      scan-mode: full
+  codeql:
+    if: inputs.use-codeql && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    uses: $/.github/workflows/github-codeql-analysis.yml
+    with:
+      language: ${{ inputs.codeql-languages }
+  joern:
+    if: inputs.use-joern && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+    uses: $/.github/workflows/joern-scan.yml
+    with:
+      scan-path: ${{ inputs.package-path }
+  scorecard:
+    if: inputs.use-scorecard && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+    uses: $/.github/workflows/scorecard-assessment.yml
+    secrets:
+      SCORECARD_TOKEN: ${{ secrets.SCORECARD_TOKEN }
