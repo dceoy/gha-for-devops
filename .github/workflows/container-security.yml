@@ -84,7 +84,6 @@ on:
         type: string
         description: GitHub Actions runner to use
         default: ubuntu-latest
-    outputs:
     secrets:
       DOCKER_TOKEN:
         required: false
