@@ -39,6 +39,7 @@ jobs:
   submit:
     permissions:
       contents: write
+      packages: read
     runs-on: ubuntu-latest
     steps:
       - name: Validate publication request
