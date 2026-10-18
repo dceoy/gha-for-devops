@@ -155,6 +155,7 @@ jobs:
           REPORT_FORMAT: ${{ inputs.report-format }}
           TRIVY_SCANNERS: ${{ inputs.trivy-scanners }}
           TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
+          TRIVY_CONFIG: ${{ inputs.trivy-config }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
           REPORT: ${{ runner.temp }}/trivy-report
         shell: bash
@@ -189,6 +190,7 @@ jobs:
         env:
           SNAPSHOT_CORRELATOR: ${{ matrix.correlator }}
           TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
+          TRIVY_CONFIG: ${{ inputs.trivy-config }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
           SNAPSHOT: ${{ runner.temp }}/dependency-snapshot.json
         run: |
@@ -211,6 +213,7 @@ jobs:
           EXIT_CODE: ${{ inputs.trivy-exit-code }}
           TRIVY_SCANNERS: ${{ inputs.trivy-scanners }}
           TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
+          TRIVY_CONFIG: ${{ inputs.trivy-config }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
         shell: bash
         run: trivy convert --scanners "${TRIVY_SCANNERS}" --format table --severity "${TRIVY_SEVERITY}" --output /dev/null --exit-code "${EXIT_CODE}" "${RAW_REPORT}"

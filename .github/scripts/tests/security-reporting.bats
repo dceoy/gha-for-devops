@@ -13,6 +13,20 @@ setup() {
   export GITHUB_STEP_SUMMARY="$BATS_TEST_TMPDIR/summary"
 }
 
+prepare_conversion_config() {
+  mkdir -p "$BATS_TEST_TMPDIR/ci"
+  printf 'severity: [CRITICAL]\nexit-code: 23\n' > "$BATS_TEST_TMPDIR/trivy.yaml"
+  printf 'severity: [CRITICAL]\nexit-code: 23\nignorefile: ci/strict.ignore\n' > "$BATS_TEST_TMPDIR/ci/trivy.yaml"
+  touch "$BATS_TEST_TMPDIR/ci/strict.ignore"
+  printf 'CVE-2026-1234\n' > "$BATS_TEST_TMPDIR/.trivyignore"
+}
+
+use_conversion_config() {
+  local config
+  config="$(STEP_NAME="$1" yq -r '.jobs.scan.steps[] | select(.name == strenv(STEP_NAME)) | .env.TRIVY_CONFIG // ""' "$TRIVY")"
+  export TRIVY_CONFIG="${config//'${{ inputs.trivy-config }}'/$BATS_TEST_TMPDIR/ci/trivy.yaml}"
+}
+
 @test "Trivy scan runs each category once and converts reports" {
   [ "$(yq -r '[.jobs.scan.steps[] | select(.uses | contains("aquasecurity/trivy-action@"))] | length' "$TRIVY")" = 1 ]
   [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with.format' "$TRIVY")" = json ]
@@ -85,16 +99,19 @@ SH
   cat > "$RAW_REPORT" << 'JSON'
 {"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"package-lock.json","Class":"lang-pkgs","Type":"npm","Packages":[{"ID":"lodash@4.17.20","Name":"lodash","Version":"4.17.20"}],"Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash","PkgID":"lodash@4.17.20","InstalledVersion":"4.17.20","FixedVersion":"4.17.21","Severity":"HIGH","Title":"fixture vulnerability"}]}]}
 JSON
-  printf 'severity: [CRITICAL]\nexit-code: 23\n' > "$BATS_TEST_TMPDIR/trivy.yaml"
+  prepare_conversion_config
   yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
   yq -r '.jobs.scan.steps[] | select(.name == "Convert dependency snapshot without rescanning") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/snapshot.sh"
   cd "$BATS_TEST_TMPDIR"
+  use_conversion_config "Convert report from JSON"
   local format
   for format in table sarif; do
     run env REPORT_FORMAT="$format" bash "$BATS_TEST_TMPDIR/report.sh"
     [ "$status" -eq 0 ]
     grep -Fq CVE-2026-1234 "$REPORT"
   done
+  use_conversion_config "Convert dependency snapshot without rescanning"
+  [ -n "$TRIVY_CONFIG" ]
   run bash "$BATS_TEST_TMPDIR/snapshot.sh"
   [ "$status" -eq 0 ]
   [ "$(jq -r '.job.correlator' "$SNAPSHOT")" = source-root ]
@@ -105,9 +122,10 @@ JSON
   export RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json"
   export TRIVY_SCANNERS=vuln TRIVY_SEVERITY=HIGH,CRITICAL
   printf '%s\n' '{"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"fixture","Class":"lang-pkgs","Type":"npm","Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash","InstalledVersion":"4.17.20","Severity":"HIGH"}]}]}' > "$RAW_REPORT"
-  printf 'severity: [CRITICAL]\nexit-code: 23\n' > "$BATS_TEST_TMPDIR/trivy.yaml"
+  prepare_conversion_config
   yq -r '.jobs.scan.steps[] | select(.name == "Enforce findings policy") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/enforce.sh"
   cd "$BATS_TEST_TMPDIR"
+  use_conversion_config "Enforce findings policy"
   local code
   for code in 0 7; do
     run env EXIT_CODE="$code" bash "$BATS_TEST_TMPDIR/enforce.sh"
