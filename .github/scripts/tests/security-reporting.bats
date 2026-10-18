@@ -133,6 +133,49 @@ JSON
   done
 }
 
+@test "Summaries remain actionable for failing scans with report artifacts omitted" {
+  export RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report"
+  export TRIVY_SCANNERS=vuln,secret,misconfig TRIVY_SEVERITY=HIGH,CRITICAL
+  cat > "$RAW_REPORT" << 'JSON'
+{"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"package-lock<script>.json","Class":"lang-pkgs","Type":"npm","Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash<&>","InstalledVersion":"4.17.20","Severity":"HIGH","Title":"SECRET_SENTINEL","Description":"SECRET_SENTINEL"}]},{"Target":"Dockerfile<script>","Class":"config","Type":"dockerfile","Misconfigurations":[{"ID":"DS002","AVDID":"AVD-DS-0002","Severity":"HIGH","Title":"SECRET_SENTINEL","Message":"SECRET_SENTINEL","CauseMetadata":{"StartLine":42,"EndLine":42}}]},{"Target":"secret.env","Class":"secret","Secrets":[{"RuleID":"generic-api-key","Severity":"HIGH","Title":"SECRET_SENTINEL","Match":"SECRET_SENTINEL","StartLine":1,"EndLine":1}]}]}
+JSON
+  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
+  yq -r '.jobs.scan.steps[] | select(.name == "Enforce findings policy") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/enforce.sh"
+  [ "$(yq -r '.on.workflow_call.inputs."trivy-report-artifact-name".default' "$SOURCE")" = null ]
+  [ "$(yq -r '.on.workflow_call.inputs."trivy-report-artifact-name".default' "$CONTAINER")" = null ]
+  local format
+  for format in table sarif; do
+    echo "format: $format"
+    : > "$GITHUB_STEP_SUMMARY"
+    run env REPORT_FORMAT="$format" bash "$BATS_TEST_TMPDIR/report.sh"
+    [ "$status" -eq 0 ]
+    run env EXIT_CODE=7 bash "$BATS_TEST_TMPDIR/enforce.sh"
+    [ "$status" -eq 7 ]
+    grep -Fq CVE-2026-1234 "$GITHUB_STEP_SUMMARY"
+    grep -Fq 'lodash&lt;&amp;&gt;' "$GITHUB_STEP_SUMMARY"
+    grep -Fq 'package-lock&lt;script&gt;.json' "$GITHUB_STEP_SUMMARY"
+    grep -Fq AVD-DS-0002 "$GITHUB_STEP_SUMMARY"
+    grep -Fq 'Dockerfile&lt;script&gt;:42' "$GITHUB_STEP_SUMMARY"
+    run ! grep -Fq '<script>' "$GITHUB_STEP_SUMMARY"
+    run ! grep -Fq SECRET_SENTINEL "$GITHUB_STEP_SUMMARY"
+  done
+}
+
+@test "Summary rows and untrusted metadata are bounded across finding categories" {
+  export RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report"
+  export TRIVY_SCANNERS=vuln,misconfig TRIVY_SEVERITY=HIGH,CRITICAL
+  jq -n '{SchemaVersion:2,ArtifactName:"fixture",ArtifactType:"filesystem",Results:[
+    {Target:("p" * 600),Class:"lang-pkgs",Type:"npm",Vulnerabilities:[range(99) | {VulnerabilityID:("CVE-" + tostring),PkgName:("x" * 300),InstalledVersion:"1.0",Severity:"HIGH"}]},
+    {Target:"Dockerfile",Class:"config",Type:"dockerfile",Misconfigurations:[{ID:"DS002",AVDID:"AVD-DS-0002",Severity:"HIGH"},{ID:"DS003",AVDID:"AVD-DS-0003",Severity:"HIGH"}]}]}' > "$RAW_REPORT"
+  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
+  run env REPORT_FORMAT=table bash "$BATS_TEST_TMPDIR/report.sh"
+  [ "$status" -eq 0 ]
+  [ "$(grep -c '<tr><td>' "$GITHUB_STEP_SUMMARY")" -eq 100 ]
+  grep -Fq AVD-DS-0002 "$GITHUB_STEP_SUMMARY"
+  run ! grep -Fq AVD-DS-0003 "$GITHUB_STEP_SUMMARY"
+  run ! grep -Eq 'x{257}|p{513}' "$GITHUB_STEP_SUMMARY"
+}
+
 @test "Table summary omits matching secret values" {
   local script
   script="$BATS_TEST_TMPDIR/report.sh"

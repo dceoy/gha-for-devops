@@ -163,18 +163,29 @@ jobs:
           set -euo pipefail
           case "${REPORT_FORMAT}" in table | sarif) ;; *) exit 1 ;; esac
           trivy convert --scanners "${TRIVY_SCANNERS}" --format "${REPORT_FORMAT}" --severity "${TRIVY_SEVERITY}" --exit-code 0 --output "${REPORT}" "${RAW_REPORT}"
-          if [[ "${REPORT_FORMAT}" == table ]]; then
-            jq -r '
-              [.Results[]?] as $results
-              | "Trivy scanned \($results | length) targets",
-                "Vulnerabilities: \([$results[] | .Vulnerabilities[]?] | length)",
-                "Misconfigurations: \([$results[] | .Misconfigurations[]?] | length)",
-                "Secrets: \([$results[] | .Secrets[]?] | length)"
-            ' "${RAW_REPORT}" >> "${GITHUB_STEP_SUMMARY}"
-          else
-            count="$(jq '[.runs[]?.results[]?] | length' "${REPORT}")"
-            echo "Trivy SARIF findings: ${count} (messages omitted)" >> "${GITHUB_STEP_SUMMARY}"
-          fi
+          # Allowlisted metadata only: messages, titles and snippets can contain secrets.
+          jq -r '
+            def cell($limit): tostring | .[:$limit] | gsub("[[:cntrl:]]"; " ") | @html;
+            [.Results[]?] as $results
+            | [$results[] | . as $target
+                | (.Vulnerabilities[]? | {id:.VulnerabilityID, severity:.Severity,
+                    package:.PkgName, location:$target.Target}),
+                  (.Misconfigurations[]? | {id:(.AVDID // .ID), severity:.Severity,
+                    package:"n/a", location:($target.Target + ":" + (.CauseMetadata.StartLine // 0 | tostring))})
+              ] as $findings
+            | "Trivy scanned \($results | length) targets",
+              "Vulnerabilities: \([$results[] | .Vulnerabilities[]?] | length)",
+              "Misconfigurations: \([$results[] | .Misconfigurations[]?] | length)",
+              "Secrets: \([$results[] | .Secrets[]?] | length)",
+              "Showing up to 100 vulnerability and misconfiguration findings. Secret details are omitted.",
+              "<table><tr><th>Rule</th><th>Severity</th><th>Package</th><th>Location</th></tr>",
+              ($findings[:100][] |
+                "<tr><td>\((.id // "unknown") | cell(256))</td>" +
+                "<td>\((.severity // "unknown") | cell(32))</td>" +
+                "<td>\((.package // "unknown") | cell(256))</td>" +
+                "<td>\((.location // "unknown") | cell(512))</td></tr>"),
+              "</table>"
+          ' "${RAW_REPORT}" >> "${GITHUB_STEP_SUMMARY}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: inputs.trivy-report-artifact-name != ''
         with:
