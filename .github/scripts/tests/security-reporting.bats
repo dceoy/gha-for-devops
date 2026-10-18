@@ -96,7 +96,6 @@ SH
   run ! grep -Fq SECRET_SENTINEL "$GITHUB_STEP_SUMMARY"
 }
 
-
 @test "Security wrappers keep Semgrep within the selected package" {
   local wrapper
   for wrapper in security-pr security-audit; do
