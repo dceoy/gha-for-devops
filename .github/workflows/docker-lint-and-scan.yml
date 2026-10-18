@@ -23,6 +23,15 @@ on:
         type: string
         description: Scan reference
         default: .
+      submit-dependencies:
+        required: false
+        type: boolean
+        default: false
+        description: Publish dependency snapshots from the existing source scan on trusted default-branch events
+      snapshot-correlator:
+        required: false
+        type: string
+        default: source-root
       trivy-scanners:
         required: false
         type: string
@@ -125,8 +134,6 @@ on:
       BC_API_KEY:
         required: false
         description: Bridgecrew or Prisma Cloud API key
-permissions:
-  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -139,6 +146,8 @@ jobs:
       use-osv-scanner: false
       use-semgrep: ${{ inputs.use-semgrep }}
       package-path: ${{ inputs.trivy-scan-ref }}
+      submit-dependencies: ${{ inputs.submit-dependencies }}
+      snapshot-correlator: ${{ inputs.snapshot-correlator }}
       use-trivy: true
       trivy-scanners: ${{ inputs.trivy-scanners }}
       trivy-severity: ${{ inputs.trivy-severity }}
@@ -163,6 +172,8 @@ jobs:
     secrets:
       BC_API_KEY: ${{ secrets.BC_API_KEY }}
   lint-and-scan:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days
