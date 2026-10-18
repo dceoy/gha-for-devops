@@ -34,12 +34,11 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [bats-test.yml](.github/workflows/bats-test.yml)                                                                 | Test for Bats                                                     |
 | [claude-code-bot.yml](.github/workflows/claude-code-bot.yml)                                                     | Mention bot using Claude Code                                     |
 | [claude-code-review.yml](.github/workflows/claude-code-review.yml)                                               | Pull request review using Claude Code                             |
+| [container-security.yml](.github/workflows/container-security.yml)                                               | Container security scan and signature verification                |
 | [dependabot-auto-merge.yml](.github/workflows/dependabot-auto-merge.yml)                                         | Dependabot auto-merge                                             |
 | [docker-build-and-push.yml](.github/workflows/docker-build-and-push.yml)                                         | Docker image build and push                                       |
 | [docker-build-with-multi-targets.yml](.github/workflows/docker-build-with-multi-targets.yml)                     | Docker image build and save for multiple build targets            |
 | [docker-buildx-bake.yml](.github/workflows/docker-buildx-bake.yml)                                               | Docker image build from a bake definition file                    |
-| [docker-image-scan.yml](.github/workflows/docker-image-scan.yml)                                                 | Security scan for Docker images                                   |
-| [docker-image-verify.yml](.github/workflows/docker-image-verify.yml)                                             | Docker image signature verification                               |
 | [docker-lint-and-scan.yml](.github/workflows/docker-lint-and-scan.yml)                                           | Lint and security scan for Dockerfile                             |
 | [docker-pull-from-aws.yml](.github/workflows/docker-pull-from-aws.yml)                                           | Docker image pull from AWS                                        |
 | [docker-save-and-terraform-deploy-to-aws.yml](.github/workflows/docker-save-and-terraform-deploy-to-aws.yml)     | Docker image save and resource deployment to AWS using Terraform  |
@@ -60,7 +59,6 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [json-schema-validation.yml](.github/workflows/json-schema-validation.yml)                                       | Schema validation for JSON                                        |
 | [markdown-format-and-pr.yml](.github/workflows/markdown-format-and-pr.yml)                                       | Formatting for Markdown                                           |
 | [markdown-lint.yml](.github/workflows/markdown-lint.yml)                                                         | Lint for Markdown                                                 |
-| [microsoft-defender-for-devops.yml](.github/workflows/microsoft-defender-for-devops.yml)                         | Microsoft Defender for Devops                                     |
 | [mise-lock-update.yml](.github/workflows/mise-lock-update.yml)                                                   | Update mise.lock and create a pull request                        |
 | [python-package-format-and-pr.yml](.github/workflows/python-package-format-and-pr.yml)                           | Formatting for Python                                             |
 | [python-package-lint-and-scan.yml](.github/workflows/python-package-lint-and-scan.yml)                           | Lint and security scan for Python                                 |
@@ -71,6 +69,8 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [r-package-format-and-pr.yml](.github/workflows/r-package-format-and-pr.yml)                                     | Formatting for R                                                  |
 | [r-package-lint.yml](.github/workflows/r-package-lint.yml)                                                       | Lint for R                                                        |
 | [scorecard-assessment.yml](.github/workflows/scorecard-assessment.yml)                                           | OpenSSF Scorecard assessment                                      |
+| [security-audit.yml](.github/workflows/security-audit.yml)                                                       | Deep security audit                                               |
+| [security-pr.yml](.github/workflows/security-pr.yml)                                                             | Security PR checks                                                |
 | [shell-lint.yml](.github/workflows/shell-lint.yml)                                                               | Lint for Shell                                                    |
 | [source-security-scan.yml](.github/workflows/source-security-scan.yml)                                           | Source security scan                                              |
 | [terraform-deploy-to-aws.yml](.github/workflows/terraform-deploy-to-aws.yml)                                     | Deployment of AWS resources using Terraform                       |
@@ -90,17 +90,36 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 
 ## Security Workflows
 
-Security scanners are separate workflows because their targets, permissions, and execution conditions differ.
+Choose by **execution use case**, not by the individual scanner:
 
-| Capability                                | Workflow                                                                                                                          | Trust boundary                                                    |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Source tree (OSV-Scanner, Trivy, Semgrep) | `source-security-scan.yml`                                                                                                        | Checked-out files, read-only                                      |
-| Git-history secrets (TruffleHog)          | `git-secret-scan.yml`                                                                                                             | Commit history, read-only; secret values never logged or uploaded |
-| Repository posture (OpenSSF Scorecard)    | `scorecard-assessment.yml` (private, unpublished) or a dedicated `scorecard.yml` in the scanned repository for public publication | Repository settings and workflows                                 |
-| Web/API DAST (OWASP ZAP)                  | `web-dast-scan.yml`                                                                                                               | Authorized staging or ephemeral deployments only                  |
-| Image signing and verification (Cosign)   | `docker-build-and-push.yml` (`push: true`, `cosign: true`), then `docker-image-verify.yml`                                        | Immutable image digest, expected signer identity and issuer       |
+| Use case                       | Reusable workflow        | Default checks                                              |
+| ------------------------------ | ------------------------ | ----------------------------------------------------------- |
+| Pull requests                  | `security-pr.yml`        | OSV-Scanner, Trivy, Semgrep and TruffleHog commit range     |
+| Scheduled/manual deep audit    | `security-audit.yml`     | Source scan, Git history, CodeQL, Scorecard; optional Joern |
+| Container release gate         | `container-security.yml` | Trivy image scan, then Cosign digest/signature verification |
+| Authorized staging/API testing | `web-dast-scan.yml`      | OWASP ZAP with explicit authorization                       |
 
-Cosign signatures and BuildKit `provenance` do not by themselves establish SLSA compliance.
+PR gate (pin a tag or commit SHA in production):
+
+```yaml
+jobs:
+  security:
+    uses: dceoy/gha-for-devops/.github/workflows/security-pr.yml@<pinned-ref>
+    permissions:
+      contents: read
+    with:
+      package-path: .
+```
+
+For scheduled or manually triggered audits, call `security-audit.yml`. Specify project-specific `codeql-languages`; enable the more expensive Joern scan with `use-joern: true`. Deep audits skip pull-request events.
+
+For release verification, call `container-security.yml` with `image-refs-json` (JSON array of immutable `@sha256:` references) and `certificate-identity` or `certificate-identity-regexp`. Signature verification runs only after successful image scanning. Set `verify-signatures: false` explicitly for non-release/tag-based scans. The caller must grant `contents: write` if Trivy submits SBOMs to the dependency graph.
+
+Language-specific `*-lint-and-scan.yml` workflows continue handling language tooling, while OSV-Scanner, Trivy, Semgrep, and Checkov share the `source-security-scan.yml` implementation. The shared Trivy scan now emits SARIF rather than the previous table/SBOM submission; set `trivy-report-artifact-name` to retain its artifact.
+
+Security trust boundaries remain explicit: TruffleHog reports no secret values, public OpenSSF Scorecard publication stays in the non-reusable repository-local `scorecard.yml`, OWASP ZAP is limited to explicitly authorized non-production targets, and Cosign verification requires a known signer identity. Cosign and BuildKit provenance do not establish SLSA compliance on their own.
+
+**Breaking changes:** `docker-image-scan.yml`, `docker-image-verify.yml`, and `microsoft-defender-for-devops.yml` were removed. Migrate release callers to `container-security.yml`; use the shared source checks and CodeQL for static analysis.
 
 ## License
 

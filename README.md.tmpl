@@ -33,17 +33,36 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 
 ## Security Workflows
 
-Security scanners are separate workflows because their targets, permissions, and execution conditions differ.
+Choose by **execution use case**, not by the individual scanner:
 
-| Capability                                | Workflow                                                                                                                          | Trust boundary                                                    |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Source tree (OSV-Scanner, Trivy, Semgrep) | `source-security-scan.yml`                                                                                                        | Checked-out files, read-only                                      |
-| Git-history secrets (TruffleHog)          | `git-secret-scan.yml`                                                                                                             | Commit history, read-only; secret values never logged or uploaded |
-| Repository posture (OpenSSF Scorecard)    | `scorecard-assessment.yml` (private, unpublished) or a dedicated `scorecard.yml` in the scanned repository for public publication | Repository settings and workflows                                 |
-| Web/API DAST (OWASP ZAP)                  | `web-dast-scan.yml`                                                                                                               | Authorized staging or ephemeral deployments only                  |
-| Image signing and verification (Cosign)   | `docker-build-and-push.yml` (`push: true`, `cosign: true`), then `docker-image-verify.yml`                                        | Immutable image digest, expected signer identity and issuer       |
+| Use case                       | Reusable workflow        | Default checks                                              |
+| ------------------------------ | ------------------------ | ----------------------------------------------------------- |
+| Pull requests                  | `security-pr.yml`        | OSV-Scanner, Trivy, Semgrep and TruffleHog commit range     |
+| Scheduled/manual deep audit    | `security-audit.yml`     | Source scan, Git history, CodeQL, Scorecard; optional Joern |
+| Container release gate         | `container-security.yml` | Trivy image scan, then Cosign digest/signature verification |
+| Authorized staging/API testing | `web-dast-scan.yml`      | OWASP ZAP with explicit authorization                       |
 
-Cosign signatures and BuildKit `provenance` do not by themselves establish SLSA compliance.
+PR gate (pin a tag or commit SHA in production):
+
+```yaml
+jobs:
+  security:
+    uses: dceoy/gha-for-devops/.github/workflows/security-pr.yml@<pinned-ref>
+    permissions:
+      contents: read
+    with:
+      package-path: .
+```
+
+For scheduled or manually triggered audits, call `security-audit.yml`. Specify project-specific `codeql-languages`; enable the more expensive Joern scan with `use-joern: true`. Deep audits skip pull-request events.
+
+For release verification, call `container-security.yml` with `image-refs-json` (JSON array of immutable `@sha256:` references) and `certificate-identity` or `certificate-identity-regexp`. Signature verification runs only after successful image scanning. Set `verify-signatures: false` explicitly for non-release/tag-based scans. The caller must grant `contents: write` if Trivy submits SBOMs to the dependency graph.
+
+Language-specific `*-lint-and-scan.yml` workflows continue handling language tooling, while OSV-Scanner, Trivy, Semgrep, and Checkov share the `source-security-scan.yml` implementation. The shared Trivy scan now emits SARIF rather than the previous table/SBOM submission; set `trivy-report-artifact-name` to retain its artifact.
+
+Security trust boundaries remain explicit: TruffleHog reports no secret values, public OpenSSF Scorecard publication stays in the non-reusable repository-local `scorecard.yml`, OWASP ZAP is limited to explicitly authorized non-production targets, and Cosign verification requires a known signer identity. Cosign and BuildKit provenance do not establish SLSA compliance on their own.
+
+**Breaking changes:** `docker-image-scan.yml`, `docker-image-verify.yml`, and `microsoft-defender-for-devops.yml` were removed. Migrate release callers to `container-security.yml`; use the shared source checks and CodeQL for static analysis.
 
 ## License
 
