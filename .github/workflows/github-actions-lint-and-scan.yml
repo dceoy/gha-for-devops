@@ -183,6 +183,8 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
+env:
+  GH_TELEMETRY: 'false'
 jobs:
   security-scan:
     if: inputs.use-semgrep || inputs.use-checkov

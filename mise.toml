@@ -1,5 +1,6 @@
 [settings]
 minimum_release_age = "7d"
+use_versions_host_track = false
 
 [tools]
 actionlint = "latest"

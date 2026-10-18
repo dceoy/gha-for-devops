@@ -141,6 +141,8 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
+env:
+  CHECKPOINT_DISABLE: '1'
 jobs:
   security-scan:
     if: inputs.use-semgrep || inputs.use-trivy || inputs.use-checkov

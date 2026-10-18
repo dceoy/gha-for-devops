@@ -5,6 +5,9 @@ set -euox pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "${REPO_ROOT}"
 
+export GH_TELEMETRY=false
+export CHECKPOINT_DISABLE=1
+
 # Supply-chain cooldown: avoid resolving/installing packages published within the last N days.
 COOLDOWN_DAYS=7
 export UV_EXCLUDE_NEWER="${COOLDOWN_DAYS} days"

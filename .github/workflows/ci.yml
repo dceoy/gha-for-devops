@@ -32,6 +32,8 @@ concurrency:
 permissions:
   contents: read
 env:
+  GH_TELEMETRY: 'false'
+  MISE_USE_VERSIONS_HOST_TRACK: 'false'
   # renovate: datasource=github-releases depName=jdx/mise
   MISE_VERSION: 2026.8.5
 defaults:

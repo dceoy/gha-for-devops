@@ -65,6 +65,8 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
+env:
+  CHECKPOINT_DISABLE: '1'
 jobs:
   start-or-stop:
     runs-on: ${{ inputs.runs-on }}
