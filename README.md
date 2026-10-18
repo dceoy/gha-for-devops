@@ -104,6 +104,8 @@ Container verification needs digest-pinned `image-refs-json` and either `certifi
 
 Language lint workflows share `source-security-scan.yml`. Trivy runs once per target and converts its JSON into reports and optional dependency snapshots. Summaries omit secret values; full reports may contain sensitive matches, so upload them only when needed with `trivy-report-artifact-name`.
 
+`docker-lint-and-scan.yml` and `terraform-lint-and-scan.yml` can publish the dependency snapshot from their existing Trivy scan: set `submit-dependencies: true`, optionally set `snapshot-correlator`, and grant `contents: write` to the caller job. The scan jobs explicitly use read-only permissions, and publication is gated to trusted default-branch events. Do not add a separate source dependency-submission job.
+
 ### Dependency Graph
 
 Use `trivy-scan.yml` to scan and publish dependencies:
