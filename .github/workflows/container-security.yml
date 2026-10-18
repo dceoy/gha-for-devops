@@ -60,10 +60,6 @@ on:
         type: string
         description: Unique base name for Trivy report artifacts; omit to skip report uploads
         default: null
-      submit-dependencies:
-        type: boolean
-        default: false
-        description: Publish a snapshot from the same Trivy image scan on trusted default-branch events
       image-targets-json:
         type: string
         default: ''
@@ -95,9 +91,6 @@ on:
         description: GitHub Actions runner to use
         default: ubuntu-latest
     outputs:
-      snapshot-targets-json:
-        description: Targets with stable correlators and artifact indices for publishing
-        value: ${{ jobs.scan.outputs.targets }}
     secrets:
       DOCKER_TOKEN:
         required: false
@@ -113,7 +106,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/trivy-scan.yml
+    uses: ./.github/workflows/trivy-core.yml
     with:
       scan-type: image
       image-refs-json: ${{ inputs.image-refs-json }}
@@ -128,7 +121,7 @@ jobs:
       trivy-config: ${{ inputs.trivy-config || '' }}
       trivy-timeout: ${{ inputs.trivy-timeout }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name || '' }}
-      submit-dependencies: ${{ inputs.submit-dependencies }}
+      submit-dependencies: false
       snapshot-correlator: ${{ inputs.snapshot-correlator }}
       snapshot-artifact-prefix: ${{ inputs.snapshot-artifact-prefix }}
       runs-on: ${{ inputs.runs-on }}

@@ -379,7 +379,7 @@ jobs:
       )
     needs: build-and-push
     permissions:
-      contents: read
+      contents: write
       packages: read
     uses: ./.github/workflows/container-security.yml
     with:

@@ -36,7 +36,6 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [claude-code-review.yml](.github/workflows/claude-code-review.yml)                                               | Pull request review using Claude Code                             |
 | [container-security.yml](.github/workflows/container-security.yml)                                               | Container security scan and signature verification                |
 | [dependabot-auto-merge.yml](.github/workflows/dependabot-auto-merge.yml)                                         | Dependabot auto-merge                                             |
-| [dependency-submission.yml](.github/workflows/dependency-submission.yml)                                         | Submit dependencies to GitHub Dependency Graph                    |
 | [docker-build-and-push.yml](.github/workflows/docker-build-and-push.yml)                                         | Docker image build and push                                       |
 | [docker-build-with-multi-targets.yml](.github/workflows/docker-build-with-multi-targets.yml)                     | Docker image build and save for multiple build targets            |
 | [docker-buildx-bake.yml](.github/workflows/docker-buildx-bake.yml)                                               | Docker image build from a bake definition file                    |
@@ -81,8 +80,9 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [terraform-lock-files-upgrade.yml](.github/workflows/terraform-lock-files-upgrade.yml)                           | Upgrade of Terraform lock files                                   |
 | [terragrunt-aws-switch-resources.yml](.github/workflows/terragrunt-aws-switch-resources.yml)                     | Switcher to apply or destroy AWS resources using Terragrunt       |
 | [toml-lint.yml](.github/workflows/toml-lint.yml)                                                                 | Lint for TOML                                                     |
+| [trivy-core.yml](.github/workflows/trivy-core.yml)                                                               | Trivy scan core                                                   |
+| [trivy-scan.yml](.github/workflows/trivy-scan.yml)                                                               | Trivy scan and dependency submission                              |
 | [typescript-package-format-and-pr.yml](.github/workflows/typescript-package-format-and-pr.yml)                   | Formatting for TypeScript                                         |
-| [trivy-scan.yml](.github/workflows/trivy-scan.yml)                                                         | Shared Trivy scan and dependency snapshot                           |
 | [typescript-package-lint-and-scan.yml](.github/workflows/typescript-package-lint-and-scan.yml)                   | Lint and security scan for TypeScript                             |
 | [typescript-package-script.yml](.github/workflows/typescript-package-script.yml)                                 | Package script run for a TypeScript project                       |
 | [web-api-monitoring-with-slack.yml](.github/workflows/web-api-monitoring-with-slack.yml)                         | Synthetic web API monitoring with Slack notification              |
@@ -115,40 +115,32 @@ jobs:
 
 For scheduled or manually triggered audits, call `security-audit.yml`. Specify project-specific `codeql-languages`; enable the more expensive Joern scan with `use-joern: true`. Deep audits skip pull-request events. Callers using the default CodeQL and Scorecard jobs must grant `contents: read`, `actions: read`, and `security-events: write`.
 
-For release verification, call `container-security.yml` with `image-refs-json` (JSON array of immutable `@sha256:` references) and `certificate-identity` or `certificate-identity-regexp`. Signature verification runs only after successful image scanning. Set `verify-signatures: false` explicitly for non-release/tag-based scans. Container security scans run with `contents: read`. Docker build workflows reuse their existing postbuild Trivy scan for Dependency Graph reporting; `dependency-submission.yml` is an internal snapshot publisher and does not scan images or source. Before deployment, use digest-pinned image references and an expected signer identity.
+For release verification, call `container-security.yml` with `image-refs-json` (JSON array of immutable `@sha256:` references) and `certificate-identity` or `certificate-identity-regexp`. Signature verification runs only after successful image scanning. Set `verify-signatures: false` explicitly for non-release/tag-based scans. Container security scans run with `contents: read`. Docker build workflows reuse their existing postbuild Trivy scan for Dependency Graph reporting; the optional publisher is built into `trivy-scan.yml`, while `trivy-core.yml` provides a read-only scan for security wrappers. Before deployment, use digest-pinned image references and an expected signer identity.
 
-Language-specific `*-lint-and-scan.yml` workflows continue handling language tooling, while OSV-Scanner, Trivy, Semgrep, and Checkov share the `source-security-scan.yml` implementation. The shared `trivy-scan.yml` runs Trivy once per filesystem or image target with all configured scanners. It converts the local JSON to a table or SARIF report and, when requested, a GitHub dependency snapshot without rescanning. Raw JSON is not uploaded because secret matches may contain sensitive data. Set `trivy-report-artifact-name` only when you want to retain the full SARIF artifact, which may contain sensitive matches.
+Language-specific `*-lint-and-scan.yml` workflows continue handling language tooling, while OSV-Scanner, Trivy, Semgrep, and Checkov share the `source-security-scan.yml` implementation. The read-only `trivy-core.yml` runs Trivy once per filesystem or image target with all configured scanners. It converts the local JSON to a table or SARIF report and, when requested, a GitHub dependency snapshot without rescanning. Raw JSON is not uploaded because secret matches may contain sensitive data. Set `trivy-report-artifact-name` only when you want to retain the full SARIF artifact, which may contain sensitive matches.
 
 Docker image builds can publish immutable, digest-pinned inventories without another Trivy scan. The postbuild scan runs even if `scan-after-build: false` when dependency submission is requested on a trusted push. Set `submit-dependencies: true` and `push: true` on `docker-build-and-push.yml`, `docker-build-with-multi-targets.yml`, or `docker-buildx-bake.yml`. Multi-target builds scan shared source once before the build matrix. Publication runs only on trusted events targeting the default branch and remains opt-in by default. Bake publishes a separate snapshot for each pushed target with a digest in its build metadata. The caller must allow `contents: write` (and `packages: read` for GHCR) and pass `DOCKER_TOKEN` for registry access. Do not also submit the same image in a separate caller job.
 
-Dependency Graph publication is restricted to trusted default-branch `push`, `schedule`, or `workflow_dispatch` events; PR events cannot publish. The Docker build workflows manage the separate read-only scan and write-only publisher jobs automatically. For filesystem inventories, call `trivy-scan.yml` and then publish its snapshot artifact from a trusted caller job, for example:
+Dependency Graph publication is integrated into `trivy-scan.yml`, restricted to trusted default-branch `push`, `schedule`, or `workflow_dispatch` events. Its scan job delegates to `trivy-core.yml` with `contents: read`, then the optional publisher downloads the generated package snapshot with `contents: write`. Source security and container verification wrappers call read-only `trivy-core.yml` directly. To scan and submit a filesystem inventory in one reusable workflow call:
 
 ```yaml
 jobs:
-  scan:
+  dependencies:
     uses: dceoy/gha-for-devops/.github/workflows/trivy-scan.yml@<pinned-ref>
     permissions:
-      contents: read
+      contents: write
     with:
       scan-type: filesystem
       scan-ref: .
       submit-dependencies: true
       snapshot-correlator: source-root
-      snapshot-artifact-prefix: source
-  publish:
-    needs: scan
-    uses: dceoy/gha-for-devops/.github/workflows/dependency-submission.yml@<pinned-ref>
-    permissions:
-      contents: write
-    with:
-      snapshot-artifact-name: source-dependency-snapshot-0
 ```
 
-The publisher validates trusted events and the default branch. Configure the caller to run these jobs only on trusted events; avoid simultaneously running independent source dependency scans for the same target. This separation prevents untrusted scanner jobs from inheriting write permissions.
+The caller must allow `contents: write` for publication. Do not enable publishing in pull-request security checks. Docker build workflows call `trivy-scan.yml` after building and automatically reuse the one scan for inspection and optional inventory submission. Bake images retain per-target stable correlators, even across changing image digests. `trivy-core.yml` is read-only and does not publish; neither scan nor publisher repeats Trivy execution.
 
 Security trust boundaries remain explicit: TruffleHog reports no secret values, public OpenSSF Scorecard publication stays in the non-reusable repository-local `scorecard.yml`, OWASP ZAP is limited to explicitly authorized non-production targets, and Cosign verification requires a known signer identity. Cosign and BuildKit provenance do not establish SLSA compliance on their own.
 
-**Breaking changes:** `docker-image-scan.yml`, `docker-image-verify.yml`, and `microsoft-defender-for-devops.yml` were removed. Migrate release callers to `container-security.yml` and drop the old `secrets: GH_TOKEN` mapping, which the replacement does not accept. Use `dependency-submission.yml` if Dependency Graph SBOM submission is still needed; use the shared source checks and CodeQL for static analysis.
+**Breaking changes:** `docker-image-scan.yml`, `docker-image-verify.yml`, and `microsoft-defender-for-devops.yml` were removed. Migrate release callers to `container-security.yml` and drop the old `secrets: GH_TOKEN` mapping, which the replacement does not accept. Use `trivy-scan.yml` with `submit-dependencies: true` if Dependency Graph SBOM submission is needed; use the shared source checks and CodeQL for static analysis.
 
 ## Local QA
 

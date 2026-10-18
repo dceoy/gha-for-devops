@@ -31,31 +31,19 @@ run_osv_scan() {
     "$@" bash "${OSV_SCRIPT}"
 }
 
-@test "Source scanner isolates Docker OSV on ubuntu-latest from slim filesystem scans" {
-  [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "${WORKFLOW}")" = ubuntu-slim ]
-  [ "$(yq -r '.jobs."osv-scan".runs-on' "${WORKFLOW}")" = ubuntu-latest ]
-  local runner_expression
-  runner_expression="$(yq -r '.jobs.scan.runs-on' "${WORKFLOW}")"
-  [[ "${runner_expression}" == *"inputs.runs-on"* ]]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Run OSV-Scanner") | .name' "${WORKFLOW}")" = "Run OSV-Scanner" ]
-  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Run OSV-Scanner") | .name' "${WORKFLOW}")" = "" ]
-  [ "$(yq -r '.on.workflow_call.inputs."use-osv-scanner".default' "${WORKFLOW}")" = true ]
-  [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "${WORKFLOW}")" = true ]
-  grep -Fq 'ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0' "${WORKFLOW}"
-  grep -Fq 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25' "${WORKFLOW}"
-  [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."scan-type"' "${WORKFLOW}")" = filesystem ]
-  # shellcheck disable=SC2016
-  [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."exit-code"' "${WORKFLOW}")" = '${{ inputs.trivy-exit-code }}' ]
-  [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "${WORKFLOW}")" = 1 ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.id == "osv") | .shell' "${WORKFLOW}")" = bash ]
-  grep -Fq 'steps.trivy.outcome' "${WORKFLOW}"
-  grep -Fq 'steps.semgrep.outcome' "${WORKFLOW}"
-  [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${WORKFLOW}")" = false ]
-  [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with.format' "${WORKFLOW}")" = sarif ]
-  [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."limit-severities-for-sarif"' "${WORKFLOW}")" = true ]
-  # shellcheck disable=SC2016
-  [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with.severity' "${WORKFLOW}")" = '${{ inputs.trivy-severity }}' ]
-  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Upload Trivy SARIF report") | .with."if-no-files-found"' "${WORKFLOW}")" = warn ]
+@test "Source scanner isolates OSV on ubuntu-latest and delegates Trivy to the read-only core" {
+  [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "$WORKFLOW")" = ubuntu-slim ]
+  [ "$(yq -r '.jobs."osv-scan".runs-on' "$WORKFLOW")" = ubuntu-latest ]
+  [ "$(yq -r '.jobs."trivy-scan".uses' "$WORKFLOW")" = './.github/workflows/trivy-core.yml' ]
+  [ "$(yq -r '.jobs."trivy-scan".with."scan-type"' "$WORKFLOW")" = filesystem ]
+  [ "$(yq -r '.jobs."trivy-scan".with."report-format"' "$WORKFLOW")" = sarif ]
+  [ "$(yq -r '.on.workflow_call.inputs."use-osv-scanner".default' "$WORKFLOW")" = true ]
+  [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "$WORKFLOW")" = true ]
+  [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "$WORKFLOW")" = 1 ]
+  [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "$WORKFLOW")" = false ]
+  grep -Fq 'ghcr.io/google/osv-scanner:v2.7.0@sha256:' "$WORKFLOW"
+  ! grep -Fq 'aquasecurity/trivy-action@' "$WORKFLOW"
+  grep -Fq 'steps.semgrep.outcome' "$WORKFLOW"
 }
 
 @test "Package lint workflows delegate optional scans to the shared workflow" {

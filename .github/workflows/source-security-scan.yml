@@ -216,7 +216,7 @@ jobs:
     if: inputs.use-trivy
     permissions:
       contents: read
-    uses: ./.github/workflows/trivy-scan.yml
+    uses: ./.github/workflows/trivy-core.yml
     with:
       scan-type: filesystem
       scan-ref: ${{ inputs.package-path }}
