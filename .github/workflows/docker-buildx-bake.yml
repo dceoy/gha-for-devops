@@ -341,7 +341,6 @@ jobs:
       trivy-timeout: ${{ inputs.trivy-timeout }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name && format('{0}-image', inputs.trivy-report-artifact-name) || '' }}
       runs-on: ${{ inputs.runs-on }}
-
   dependency-submission:
     if: >-
       inputs.submit-dependencies
