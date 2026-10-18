@@ -63,6 +63,9 @@ step_output() {
   local src="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
   run ! grep -Eqi 'trufflehog|scorecard|zaproxy|zap-|cosign' "${src}"
   [ "$(yq -r '.permissions | keys | join(",")' "${src}")" = contents ]
+  for job in osv-scan scan checkov; do
+    [ "$(JOB="${job}" yq -r '.jobs[strenv(JOB)].permissions.contents' "${src}")" = read ]
+  done
 }
 
 @test "Checkout fetches full history and rejects pull_request_target" {

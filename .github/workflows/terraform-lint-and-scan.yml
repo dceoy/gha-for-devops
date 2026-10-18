@@ -33,6 +33,15 @@ on:
         type: boolean
         description: Use Trivy vulnerability scanner
         default: true
+      submit-dependencies:
+        required: false
+        type: boolean
+        default: false
+        description: Publish dependency snapshots from the existing Trivy scan on trusted default-branch events
+      snapshot-correlator:
+        required: false
+        type: string
+        default: source-root
       trivy-scanners:
         required: false
         type: string
@@ -135,16 +144,18 @@ on:
       BC_API_KEY:
         required: false
         description: Bridgecrew or Prisma Cloud API key
-permissions:
-  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 env:
   CHECKPOINT_DISABLE: '1'
+permissions:
+  contents: read
 jobs:
   security-scan:
+    permissions:
+      contents: read
     if: inputs.use-semgrep || inputs.use-trivy || inputs.use-checkov
     uses: $/.github/workflows/source-security-scan.yml
     with:
@@ -152,6 +163,8 @@ jobs:
       use-osv-scanner: false
       use-semgrep: ${{ inputs.use-semgrep }}
       package-path: ${{ inputs.search-path }}
+      submit-dependencies: ${{ inputs.submit-dependencies }}
+      snapshot-correlator: ${{ inputs.snapshot-correlator }}
       use-trivy: ${{ inputs.use-trivy }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
       trivy-severity: ${{ inputs.trivy-severity }}
@@ -176,6 +189,8 @@ jobs:
     secrets:
       BC_API_KEY: ${{ secrets.BC_API_KEY }}
   lint-and-scan:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days
