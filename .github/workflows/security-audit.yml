@@ -33,7 +33,7 @@ jobs:
     if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     uses: $/.github/workflows/source-security-scan.yml
     with:
-      package-path: ${{ inputs.package-path }
+      package-path: ${{ inputs.package-path }}
       use-osv-scanner: true
       use-trivy: true
       use-semgrep: true
@@ -50,14 +50,14 @@ jobs:
       security-events: write
     uses: $/.github/workflows/github-codeql-analysis.yml
     with:
-      language: ${{ inputs.codeql-languages }
+      language: ${{ inputs.codeql-languages }}
   joern:
     if: inputs.use-joern && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     uses: $/.github/workflows/joern-scan.yml
     with:
-      scan-path: ${{ inputs.package-path }
+      scan-path: ${{ inputs.package-path }}
   scorecard:
     if: inputs.use-scorecard && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     uses: $/.github/workflows/scorecard-assessment.yml
     secrets:
-      SCORECARD_TOKEN: ${{ secrets.SCORECARD_TOKEN }
+      SCORECARD_TOKEN: ${{ secrets.SCORECARD_TOKEN }}

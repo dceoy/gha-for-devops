@@ -247,13 +247,13 @@ jobs:
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931  # v12.3131.0
         with:
-          directory: ${{ inputs.package-path }
-          framework: ${{ inputs.checkov-framework }
-          skip_framework: ${{ inputs.checkov-skip-framework }
-          check: ${{ inputs.checkov-check }
-          skip_check: ${{ inputs.checkov-skip-check }
-          config_file: ${{ inputs.checkov-config-file }
-          output_format: ${{ inputs.checkov-output-format }
-          output_file_path: ${{ inputs.checkov-output-file-path }
-          soft_fail: ${{ inputs.checkov-soft-fail }
-          api-key: ${{ secrets.BC_API_KEY }  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          directory: ${{ inputs.package-path }}
+          framework: ${{ inputs.checkov-framework }}
+          skip_framework: ${{ inputs.checkov-skip-framework }}
+          check: ${{ inputs.checkov-check }}
+          skip_check: ${{ inputs.checkov-skip-check }}
+          config_file: ${{ inputs.checkov-config-file }}
+          output_format: ${{ inputs.checkov-output-format }}
+          output_file_path: ${{ inputs.checkov-output-file-path }}
+          soft_fail: ${{ inputs.checkov-soft-fail }}
+          api-key: ${{ secrets.BC_API_KEY }}  # zizmor: ignore[secrets-outside-env] caller-provided secret

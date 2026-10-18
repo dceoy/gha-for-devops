@@ -192,15 +192,15 @@ jobs:
       use-osv-scanner: false
       use-trivy: false
       use-semgrep: ${{ inputs.use-semgrep }}
-      use-checkov: ${{ inputs.use-checkov }
-      checkov-framework: ${{ inputs.checkov-framework }
-      checkov-skip-framework: ${{ inputs.checkov-skip-framework }
-      checkov-check: ${{ inputs.checkov-check }
-      checkov-skip-check: ${{ inputs.checkov-skip-check }
-      checkov-config-file: ${{ inputs.checkov-config-file }
-      checkov-output-format: ${{ inputs.checkov-output-format }
-      checkov-output-file-path: ${{ inputs.checkov-output-file-path }
-      checkov-soft-fail: ${{ inputs.checkov-soft-fail }
+      use-checkov: ${{ inputs.use-checkov }}
+      checkov-framework: ${{ inputs.checkov-framework }}
+      checkov-skip-framework: ${{ inputs.checkov-skip-framework }}
+      checkov-check: ${{ inputs.checkov-check }}
+      checkov-skip-check: ${{ inputs.checkov-skip-check }}
+      checkov-config-file: ${{ inputs.checkov-config-file }}
+      checkov-output-format: ${{ inputs.checkov-output-format }}
+      checkov-output-file-path: ${{ inputs.checkov-output-file-path }}
+      checkov-soft-fail: ${{ inputs.checkov-soft-fail }}
       semgrep-working-directory: ${{ inputs.search-path }}
       semgrep-includes: |
         *.yml

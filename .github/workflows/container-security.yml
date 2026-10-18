@@ -208,7 +208,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image-ref: ${{ fromJSON(inputs.image-refs-json) }
+        image-ref: ${{ fromJSON(inputs.image-refs-json) }}
     steps:
       - name: Validate verification policy
         env:

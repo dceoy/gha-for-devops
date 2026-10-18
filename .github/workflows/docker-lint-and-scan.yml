@@ -133,31 +133,30 @@ defaults:
     working-directory: .
 jobs:
   security-scan:
-    if: inputs.use-semgrep || inputs.use-checkov
+    if: true  # Trivy runs even when optional scanners are disabled
     uses: $/.github/workflows/source-security-scan.yml
     with:
       runs-on: ${{ inputs.security-runs-on }}
       use-osv-scanner: false
-      use-trivy: false
       use-semgrep: ${{ inputs.use-semgrep }}
-      package-path: ${{ inputs.trivy-scan-ref }
+      package-path: ${{ inputs.trivy-scan-ref }}
       use-trivy: true
-      trivy-scanners: ${{ inputs.trivy-scanners }
-      trivy-severity: ${{ inputs.trivy-severity }
-      trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }
-      trivy-config: ${{ inputs.trivy-config }
-      trivy-exit-code: ${{ inputs.trivy-exit-code }
-      trivy-timeout: ${{ inputs.trivy-timeout }
-      trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }
-      use-checkov: ${{ inputs.use-checkov }
-      checkov-framework: ${{ inputs.checkov-framework }
-      checkov-skip-framework: ${{ inputs.checkov-skip-framework }
-      checkov-check: ${{ inputs.checkov-check }
-      checkov-skip-check: ${{ inputs.checkov-skip-check }
-      checkov-config-file: ${{ inputs.checkov-config-file }
-      checkov-output-format: ${{ inputs.checkov-output-format }
-      checkov-output-file-path: ${{ inputs.checkov-output-file-path }
-      checkov-soft-fail: ${{ inputs.checkov-soft-fail }
+      trivy-scanners: ${{ inputs.trivy-scanners }}
+      trivy-severity: ${{ inputs.trivy-severity }}
+      trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+      trivy-config: ${{ inputs.trivy-config }}
+      trivy-exit-code: ${{ inputs.trivy-exit-code }}
+      trivy-timeout: ${{ inputs.trivy-timeout }}
+      trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
+      use-checkov: ${{ inputs.use-checkov }}
+      checkov-framework: ${{ inputs.checkov-framework }}
+      checkov-skip-framework: ${{ inputs.checkov-skip-framework }}
+      checkov-check: ${{ inputs.checkov-check }}
+      checkov-skip-check: ${{ inputs.checkov-skip-check }}
+      checkov-config-file: ${{ inputs.checkov-config-file }}
+      checkov-output-format: ${{ inputs.checkov-output-format }}
+      checkov-output-file-path: ${{ inputs.checkov-output-file-path }}
+      checkov-soft-fail: ${{ inputs.checkov-soft-fail }}
       semgrep-target: ${{ inputs.trivy-scan-ref }}
       semgrep-includes: |
         Dockerfile*
