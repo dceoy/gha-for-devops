@@ -1,4 +1,7 @@
 ---
+# The default signing identity for images built by docker-build-and-push.yml can
+# be restricted with certificate-identity-regexp:
+# ^https://github\.com/dceoy/gha-for-devops/\.github/workflows/docker-build-and-push\.yml@(refs/.+|[0-9a-f]{40})$
 name: Container security scan and signature verification
 on:
   workflow_call:

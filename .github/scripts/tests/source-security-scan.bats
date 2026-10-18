@@ -44,7 +44,9 @@ run_osv_scan() {
   grep -Fq 'ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0' "${WORKFLOW}"
   grep -Fq 'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25' "${WORKFLOW}"
   [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."scan-type"' "${WORKFLOW}")" = filesystem ]
-  [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."exit-code"' "${WORKFLOW}")" = 1 ]
+  # shellcheck disable=SC2016
+  [ "$(yq -r '.jobs.scan.steps[] | select(.id == "trivy") | .with."exit-code"' "${WORKFLOW}")" = '${{ inputs.trivy-exit-code }}' ]
+  [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "${WORKFLOW}")" = 1 ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.id == "osv") | .shell' "${WORKFLOW}")" = bash ]
   grep -Fq 'steps.trivy.outcome' "${WORKFLOW}"
   grep -Fq 'steps.semgrep.outcome' "${WORKFLOW}"
