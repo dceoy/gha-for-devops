@@ -1,6 +1,6 @@
 ---
 name: Lint and security scan for Terraform
-on:
+on:  # checkov:skip=CKV2_GHA_1:Optional dependency publication must inherit caller-scoped write permission; scan jobs stay read-only
   workflow_call:
     inputs:
       search-path:
