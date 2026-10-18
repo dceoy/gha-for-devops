@@ -31,20 +31,20 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
     PACKAGE_DIRECTORY=''
   fi
   if [[ -n "${PACKAGE_DIRECTORY}" ]] && [[ -f "${PACKAGE_DIRECTORY}/uv.lock" ]]; then
-    uv run --directory "${PACKAGE_DIRECTORY}" ruff format .
-    uv run --directory "${PACKAGE_DIRECTORY}" ruff check --fix .
-    uv run --directory "${PACKAGE_DIRECTORY}" pyright .
+    uv run --locked --directory "${PACKAGE_DIRECTORY}" ruff format .
+    uv run --locked --directory "${PACKAGE_DIRECTORY}" ruff check --fix .
+    uv run --locked --directory "${PACKAGE_DIRECTORY}" pyright .
   elif [[ -n "${PACKAGE_DIRECTORY}" ]] && [[ -f "${PACKAGE_DIRECTORY}/poetry.lock" ]]; then
     poetry -C "${PACKAGE_DIRECTORY}" run ruff format .
     poetry -C "${PACKAGE_DIRECTORY}" run ruff check --fix .
     poetry -C "${PACKAGE_DIRECTORY}" run pyright .
   elif [[ -n "${PACKAGE_DIRECTORY}" ]]; then
-    uvx ruff format "${PACKAGE_DIRECTORY}"
-    uvx ruff check --fix "${PACKAGE_DIRECTORY}"
-    uvx pyright "${PACKAGE_DIRECTORY}"
+    uv run --locked ruff format "${PACKAGE_DIRECTORY}"
+    uv run --locked ruff check --fix "${PACKAGE_DIRECTORY}"
+    uv run --locked pyright "${PACKAGE_DIRECTORY}"
   else
-    uvx ruff format --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
-    uvx ruff check --fix --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --select="${RUFF_LINT_SELECT}" --ignore="${RUFF_LINT_IGNORE}" --config "${RUFF_LINT_PER_FILE_IGNORES}" --config "lint.pydocstyle.convention = 'google'" --config 'lint.pylint.max-args = 10' --config 'lint.pylint.max-public-methods = 40' .
+    uv run --locked ruff format --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
+    uv run --locked ruff check --fix --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --select="${RUFF_LINT_SELECT}" --ignore="${RUFF_LINT_IGNORE}" --config "${RUFF_LINT_PER_FILE_IGNORES}" --config "lint.pydocstyle.convention = 'google'" --config 'lint.pylint.max-args = 10' --config 'lint.pylint.max-public-methods = 40' .
 
     (
       PYRIGHT_CONFIG_FILE="${REPO_ROOT}/.pyrightconfig.local-qa.$$.json"
@@ -54,7 +54,7 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
       else
         printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
       fi
-      uvx pyright --threads=0 --project "${PYRIGHT_CONFIG_FILE}"
+      uv run --locked pyright --threads=0 --project "${PYRIGHT_CONFIG_FILE}"
     )
   fi
 fi
@@ -84,27 +84,27 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
   fi
 
   if command -v biome > /dev/null 2>&1; then
-    pnpm dlx @biomejs/biome check --write "${PACKAGE_DIRECTORY}"
+    pnpm exec biome check --write "${PACKAGE_DIRECTORY}"
   fi
   if command -v prettier > /dev/null 2>&1 && ! command -v biome > /dev/null 2>&1; then
-    pnpm dlx prettier --write "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss,md,mdx,html,htm}"
+    pnpm exec prettier --write "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss,md,mdx,html,htm}"
   fi
   if command -v oxlint > /dev/null 2>&1; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
-      pnpm dlx oxlint --fix --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
+      pnpm exec oxlint --fix --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
     else
-      pnpm dlx oxlint --fix "${PACKAGE_DIRECTORY}"
+      pnpm exec oxlint --fix "${PACKAGE_DIRECTORY}"
     fi
   fi
   if command -v eslint > /dev/null 2>&1; then
-    pnpm dlx eslint --fix --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
+    pnpm exec eslint --fix --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
   fi
 
   if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]]; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
-      pnpm --package=typescript dlx tsc --noEmit --project "${TSCONFIG_JSON_FILE}"
+      pnpm exec tsc --noEmit --project "${TSCONFIG_JSON_FILE}"
     else
-      pnpm --package=typescript dlx tsc --noEmit
+      pnpm exec tsc --noEmit
     fi
   fi
 else
