@@ -11,9 +11,16 @@ export UV_EXCLUDE_NEWER="${COOLDOWN_DAYS} days"
 export NPM_CONFIG_MIN_RELEASE_AGE="${COOLDOWN_DAYS}"
 export PNPM_CONFIG_MINIMUM_RELEASE_AGE=$((COOLDOWN_DAYS * 24 * 60))
 
-# Scan dependency manifests and lockfiles before running QA tools.
+# Remediate compatible dependency versions once, then verify with a fresh scan.
+OSV_REPORT="$(mktemp)"
+trap 'rm -f "${OSV_REPORT}"' EXIT
 osv_status=0
-osv-scanner scan source --recursive --include-git-root . || osv_status=$?
+osv-scanner scan source --recursive --include-git-root --format=json . > "${OSV_REPORT}" || osv_status=$?
+if [[ "${osv_status}" -eq 1 ]]; then
+  python3 "$(dirname -- "${BASH_SOURCE[0]}")/osv-remediate.py" "${OSV_REPORT}"
+  osv_status=0
+  osv-scanner scan source --recursive --include-git-root . || osv_status=$?
+fi
 if [[ "${osv_status}" -ne 0 && "${osv_status}" -ne 128 ]]; then
   exit "${osv_status}"
 fi
