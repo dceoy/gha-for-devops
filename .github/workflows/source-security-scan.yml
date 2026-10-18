@@ -19,16 +19,6 @@ on:
         type: boolean
         default: true
         description: Scan the filesystem with Trivy
-      submit-dependencies:
-        type: boolean
-        default: false
-        description: Submit source dependency snapshot on trusted default-branch events
-      snapshot-correlator:
-        type: string
-        default: source-root
-      snapshot-artifact-prefix:
-        type: string
-        default: source-security
       trivy-scanners:
         type: string
         default: vuln,secret,misconfig
@@ -238,24 +228,7 @@ jobs:
       trivy-exit-code: ${{ inputs.trivy-exit-code }}
       report-format: sarif
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
-      submit-dependencies: ${{ inputs.submit-dependencies }}
-      snapshot-correlator: ${{ inputs.snapshot-correlator }}
-      snapshot-artifact-prefix: ${{ inputs.snapshot-artifact-prefix }}
       runs-on: ${{ inputs.runs-on }}
-  submit-dependencies:
-    if: >-
-      always()
-      && needs.trivy-scan.result != 'cancelled'
-      && inputs.use-trivy
-      && inputs.submit-dependencies
-      && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    needs: trivy-scan
-    permissions:
-      contents: write
-    uses: ./.github/workflows/dependency-submission.yml
-    with:
-      snapshot-artifact-name: ${{ inputs.snapshot-artifact-prefix }}-dependency-snapshot-0
   checkov:
     if: inputs.use-checkov
     runs-on: ubuntu-latest

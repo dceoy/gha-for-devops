@@ -121,21 +121,30 @@ Language-specific `*-lint-and-scan.yml` workflows continue handling language too
 
 Docker image builds can publish immutable, digest-pinned inventories without another Trivy scan. The postbuild scan runs even if `scan-after-build: false` when dependency submission is requested on a trusted push. Set `submit-dependencies: true` and `push: true` on `docker-build-and-push.yml`, `docker-build-with-multi-targets.yml`, or `docker-buildx-bake.yml`. Multi-target builds scan shared source once before the build matrix. Publication runs only on trusted events targeting the default branch and remains opt-in by default. Bake publishes a separate snapshot for each pushed target with a digest in its build metadata. The caller must allow `contents: write` (and `packages: read` for GHCR) and pass `DOCKER_TOKEN` for registry access. Do not also submit the same image in a separate caller job.
 
-Dependency Graph submission is a separate publication job for trusted default-branch `push`, `schedule`, or `workflow_dispatch` runs; PR events cannot publish. Call `source-security-scan.yml` to scan source and submit its dependency inventory from the same scan, for example:
+Dependency Graph publication is restricted to trusted default-branch `push`, `schedule`, or `workflow_dispatch` events; PR events cannot publish. The Docker build workflows manage the separate read-only scan and write-only publisher jobs automatically. For filesystem inventories, call `trivy-scan.yml` and then publish its snapshot artifact from a trusted caller job, for example:
 
 ```yaml
 jobs:
-  source:
-    uses: dceoy/gha-for-devops/.github/workflows/source-security-scan.yml@<pinned-ref>
+  scan:
+    uses: dceoy/gha-for-devops/.github/workflows/trivy-scan.yml@<pinned-ref>
+    permissions:
+      contents: read
+    with:
+      scan-type: filesystem
+      scan-ref: .
+      submit-dependencies: true
+      snapshot-correlator: source-root
+      snapshot-artifact-prefix: source
+  publish:
+    needs: scan
+    uses: dceoy/gha-for-devops/.github/workflows/dependency-submission.yml@<pinned-ref>
     permissions:
       contents: write
     with:
-      package-path: .
-      submit-dependencies: true
-      snapshot-correlator: source-root
+      snapshot-artifact-name: source-dependency-snapshot-0
 ```
 
-For standalone container scans, use `container-security.yml` with `submit-dependencies: true` and immutable image references. Only the publisher job receives `contents: write`; scan jobs retain `contents: read`. Give each inventory a stable correlator to avoid replacement by an unrelated image. Publication failures fail the workflow. `dependency-submission.yml` consumes only an existing snapshot artifact and must not be called as a scanner. Disable duplicate caller-side dependency submission jobs.
+The publisher validates trusted events and the default branch. Configure the caller to run these jobs only on trusted events; avoid simultaneously running independent source dependency scans for the same target. This separation prevents untrusted scanner jobs from inheriting write permissions.
 
 Security trust boundaries remain explicit: TruffleHog reports no secret values, public OpenSSF Scorecard publication stays in the non-reusable repository-local `scorecard.yml`, OWASP ZAP is limited to explicitly authorized non-production targets, and Cosign verification requires a known signer identity. Cosign and BuildKit provenance do not establish SLSA compliance on their own.
 

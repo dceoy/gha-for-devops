@@ -339,7 +339,7 @@ jobs:
       )
     needs: bake
     permissions:
-      contents: write
+      contents: read
       packages: read
     uses: ./.github/workflows/container-security.yml
     with:
@@ -361,3 +361,24 @@ jobs:
       runs-on: ${{ inputs.runs-on }}
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+  dependency-submission:
+    if: >-
+      always()
+      && inputs.submit-dependencies
+      && inputs.push
+      && needs.bake.result == 'success'
+      && needs.postbuild-scan.result != 'cancelled'
+      && needs.postbuild-scan.outputs.snapshot-targets-json != ''
+      && needs.postbuild-scan.outputs.snapshot-targets-json != '[]'
+      && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: [bake, postbuild-scan]
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.postbuild-scan.outputs.snapshot-targets-json) }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/dependency-submission.yml
+    with:
+      snapshot-artifact-name: ${{ inputs.snapshot-artifact-prefix }}-dependency-snapshot-${{ matrix.id }}
