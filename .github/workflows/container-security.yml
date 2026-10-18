@@ -98,7 +98,6 @@ jobs:
   scan:
     permissions:
       contents: read
-      packages: read
     uses: $/.github/workflows/trivy-scan.yml
     with:
       scan-type: image

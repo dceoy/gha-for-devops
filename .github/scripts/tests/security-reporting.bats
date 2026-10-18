@@ -28,6 +28,7 @@ setup() {
   [ "$(yq -r '.jobs.scan.permissions.contents' "$TRIVY")" = read ]
   [ "$(yq -r '.permissions.contents' "$SOURCE")" = read ]
   [ "$(yq -r '.permissions.contents' "$CONTAINER")" = read ]
+  [ "$(yq -r '.jobs.scan.permissions | keys | join(",")' "$CONTAINER")" = contents ]
   [ "$(yq -r '.jobs."trivy-scan".uses' "$SOURCE")" = '$/.github/workflows/trivy-scan.yml' ]
   [ "$(yq -r '.jobs.scan.uses' "$CONTAINER")" = '$/.github/workflows/trivy-scan.yml' ]
   [ ! -e "$REPO_ROOT/.github/workflows/dependency-submission.yml" ]
@@ -75,11 +76,50 @@ SH
   grep -Fq '.job.correlator=$correlator' "$TRIVY"
 }
 
+@test "Conversions retain requested findings despite repository severity and exit settings" {
+  export RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json"
+  export REPORT="$BATS_TEST_TMPDIR/report"
+  export SNAPSHOT="$BATS_TEST_TMPDIR/snapshot.json"
+  export SNAPSHOT_CORRELATOR=source-root
+  export TRIVY_SCANNERS=vuln TRIVY_SEVERITY=HIGH,CRITICAL
+  cat > "$RAW_REPORT" << 'JSON'
+{"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"package-lock.json","Class":"lang-pkgs","Type":"npm","Packages":[{"ID":"lodash@4.17.20","Name":"lodash","Version":"4.17.20"}],"Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash","PkgID":"lodash@4.17.20","InstalledVersion":"4.17.20","FixedVersion":"4.17.21","Severity":"HIGH","Title":"fixture vulnerability"}]}]}
+JSON
+  printf 'severity: [CRITICAL]\nexit-code: 23\n' > "$BATS_TEST_TMPDIR/trivy.yaml"
+  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
+  yq -r '.jobs.scan.steps[] | select(.name == "Convert dependency snapshot without rescanning") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/snapshot.sh"
+  cd "$BATS_TEST_TMPDIR"
+  local format
+  for format in table sarif; do
+    run env REPORT_FORMAT="$format" bash "$BATS_TEST_TMPDIR/report.sh"
+    [ "$status" -eq 0 ]
+    grep -Fq CVE-2026-1234 "$REPORT"
+  done
+  run bash "$BATS_TEST_TMPDIR/snapshot.sh"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.job.correlator' "$SNAPSHOT")" = source-root ]
+  [ "$(jq -r '.manifests["package-lock.json"].resolved.lodash.package_url' "$SNAPSHOT")" = pkg:npm/lodash@4.17.20 ]
+}
+
+@test "Findings enforcement honors requested severity and exit code over repository config" {
+  export RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json"
+  export TRIVY_SCANNERS=vuln TRIVY_SEVERITY=HIGH,CRITICAL
+  printf '%s\n' '{"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"fixture","Class":"lang-pkgs","Type":"npm","Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash","InstalledVersion":"4.17.20","Severity":"HIGH"}]}]}' > "$RAW_REPORT"
+  printf 'severity: [CRITICAL]\nexit-code: 23\n' > "$BATS_TEST_TMPDIR/trivy.yaml"
+  yq -r '.jobs.scan.steps[] | select(.name == "Enforce findings policy") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/enforce.sh"
+  cd "$BATS_TEST_TMPDIR"
+  local code
+  for code in 0 7; do
+    run env EXIT_CODE="$code" bash "$BATS_TEST_TMPDIR/enforce.sh"
+    [ "$status" -eq "$code" ]
+  done
+}
+
 @test "Table summary omits matching secret values" {
   local script
   script="$BATS_TEST_TMPDIR/report.sh"
   yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$script"
-  export TRIVY_SCANNERS=vuln,secret,misconfig REPORT_FORMAT=table RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report.txt"
+  export TRIVY_SEVERITY=HIGH,CRITICAL TRIVY_SCANNERS=vuln,secret,misconfig REPORT_FORMAT=table RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report.txt"
   printf '%s\n' '{"Results":[{"Target":"SECRET_PATH","Secrets":[{"Title":"SECRET_SENTINEL"}],"Vulnerabilities":[{"VulnerabilityID":"CVE-1"}]}]}' > "$RAW_REPORT"
   mkdir -p "$BATS_TEST_TMPDIR/bin"
   cat > "$BATS_TEST_TMPDIR/bin/trivy" << 'SH'

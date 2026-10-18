@@ -3,25 +3,63 @@ name: Trivy scan and dependency submission
 on:
   workflow_call:
     inputs:
-      scan-type: {type: string, default: filesystem}
-      scan-ref: {type: string, default: .}
-      image-refs-json: {type: string, default: '[]'}
-      image-targets-json: {type: string, default: null}
-      image-artifact-name: {type: string, default: null}
-      registry: {type: string, default: null}
-      registry-user: {type: string, default: '${{ github.repository_owner }}'}
-      trivy-scanners: {type: string, default: 'vuln,secret,misconfig'}
-      trivy-severity: {type: string, default: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'}
-      trivy-ignore-unfixed: {type: boolean, default: true}
-      trivy-exit-code: {type: number, default: 1}
-      trivy-config: {type: string, default: null}
-      trivy-timeout: {type: string, default: 5m0s}
-      report-format: {type: string, default: table}
-      trivy-report-artifact-name: {type: string, default: null}
-      submit-dependencies: {type: boolean, default: false}
-      snapshot-correlator: {type: string, default: source-root}
-      snapshot-artifact-prefix: {type: string, default: trivy}
-      runs-on: {type: string, default: ubuntu-latest}
+      scan-type:
+        type: string
+        default: filesystem
+      scan-ref:
+        type: string
+        default: .
+      image-refs-json:
+        type: string
+        default: '[]'
+      image-targets-json:
+        type: string
+        default: null
+      image-artifact-name:
+        type: string
+        default: null
+      registry:
+        type: string
+        default: null
+      registry-user:
+        type: string
+        default: '${{ github.repository_owner }}'
+      trivy-scanners:
+        type: string
+        default: 'vuln,secret,misconfig'
+      trivy-severity:
+        type: string
+        default: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+      trivy-ignore-unfixed:
+        type: boolean
+        default: true
+      trivy-exit-code:
+        type: number
+        default: 1
+      trivy-config:
+        type: string
+        default: null
+      trivy-timeout:
+        type: string
+        default: 5m0s
+      report-format:
+        type: string
+        default: table
+      trivy-report-artifact-name:
+        type: string
+        default: null
+      submit-dependencies:
+        type: boolean
+        default: false
+      snapshot-correlator:
+        type: string
+        default: source-root
+      snapshot-artifact-prefix:
+        type: string
+        default: trivy
+      runs-on:
+        type: string
+        default: ubuntu-latest
     outputs:
       targets:
         description: Indexed scan targets and correlators
@@ -112,13 +150,14 @@ jobs:
         env:
           REPORT_FORMAT: ${{ inputs.report-format }}
           TRIVY_SCANNERS: ${{ inputs.trivy-scanners }}
+          TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
           REPORT: ${{ runner.temp }}/trivy-report
         shell: bash
         run: |
           set -euo pipefail
           case "$REPORT_FORMAT" in table | sarif) ;; *) exit 1 ;; esac
-          trivy convert --scanners "$TRIVY_SCANNERS" --format "$REPORT_FORMAT" --output "$REPORT" "$RAW_REPORT"
+          trivy convert --scanners "$TRIVY_SCANNERS" --format "$REPORT_FORMAT" --severity "$TRIVY_SEVERITY" --exit-code 0 --output "$REPORT" "$RAW_REPORT"
           if [[ "$REPORT_FORMAT" == table ]]; then
             jq -r '
               [.Results[]?] as $results
@@ -145,11 +184,12 @@ jobs:
         shell: bash
         env:
           SNAPSHOT_CORRELATOR: ${{ matrix.correlator }}
+          TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
           SNAPSHOT: ${{ runner.temp }}/dependency-snapshot.json
         run: |
           set -euo pipefail
-          trivy convert --format github --output "$SNAPSHOT.raw" "$RAW_REPORT"
+          trivy convert --format github --severity "$TRIVY_SEVERITY" --exit-code 0 --output "$SNAPSHOT.raw" "$RAW_REPORT"
           jq -e --arg correlator "$SNAPSHOT_CORRELATOR" '.job.correlator=$correlator | select(.version==0 and (.manifests|type=="object"))' "$SNAPSHOT.raw" > "$SNAPSHOT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: >-
@@ -166,9 +206,10 @@ jobs:
         env:
           EXIT_CODE: ${{ inputs.trivy-exit-code }}
           TRIVY_SCANNERS: ${{ inputs.trivy-scanners }}
+          TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
         shell: bash
-        run: trivy convert --scanners "$TRIVY_SCANNERS" --format table --output /dev/null --exit-code "$EXIT_CODE" "$RAW_REPORT"
+        run: trivy convert --scanners "$TRIVY_SCANNERS" --format table --severity "$TRIVY_SEVERITY" --output /dev/null --exit-code "$EXIT_CODE" "$RAW_REPORT"
   submit:
     if: >-
       always()
