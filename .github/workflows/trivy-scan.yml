@@ -85,18 +85,18 @@ jobs:
           CORRELATOR: ${{ inputs.snapshot-correlator }}
         run: |
           set -euo pipefail
-          if [[ "$SCAN_TYPE" == filesystem ]]; then
-            targets="$(jq -cn --arg ref "$SCAN_REF" --arg correlator "$CORRELATOR" '[{id:"0",ref:$ref,correlator:$correlator}]')"
-          elif [[ "$SCAN_TYPE" == image && -n "$IMAGE_TARGETS" ]]; then
-            targets="$(jq -ce 'to_entries | map({id:(.key|tostring),ref:.value.image_ref,correlator:.value.correlator})' <<< "$IMAGE_TARGETS")"
-          elif [[ "$SCAN_TYPE" == image ]]; then
-            targets="$(jq -cn --argjson refs "$IMAGE_REFS" --arg prefix "$CORRELATOR" '$refs | to_entries | map({id:(.key|tostring),ref:.value,correlator:($prefix+"-"+(.value|sub("@[^@]+$";"")|sub(":[^/:]+$";"")))})')"
+          if [[ "${SCAN_TYPE}" == filesystem ]]; then
+            targets="$(jq -cn --arg ref "${SCAN_REF}" --arg correlator "${CORRELATOR}" '[{id:"0",ref:$ref,correlator:$correlator}]')"
+          elif [[ "${SCAN_TYPE}" == image && -n "${IMAGE_TARGETS}" ]]; then
+            targets="$(jq -ce 'to_entries | map({id:(.key|tostring),ref:.value.image_ref,correlator:.value.correlator})' <<< "${IMAGE_TARGETS}")"
+          elif [[ "${SCAN_TYPE}" == image ]]; then
+            targets="$(jq -cn --argjson refs "${IMAGE_REFS}" --arg prefix "${CORRELATOR}" '$refs | to_entries | map({id:(.key|tostring),ref:.value,correlator:($prefix+"-"+(.value|sub("@[^@]+$";"")|sub(":[^/:]+$";"")))})')"
           else
             echo '::error::Unsupported Trivy scan type'
             exit 1
           fi
-          jq -e 'length > 0 and all(.[]; (.ref|type)=="string" and (.ref|length)>0 and (.correlator|type)=="string" and (.correlator|length)>0)' <<< "$targets" >/dev/null
-          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          jq -e 'length > 0 and all(.[]; (.ref|type)=="string" and (.ref|length)>0 and (.correlator|type)=="string" and (.correlator|length)>0)' <<< "${targets}" >/dev/null
+          echo "targets=${targets}" >> "${GITHUB_OUTPUT}"
   scan:
     needs: prepare
     runs-on: ${{ inputs.runs-on }}
@@ -121,7 +121,7 @@ jobs:
         env:
           IMAGE_TAR: ${{ runner.temp }}/image/${{ inputs.image-artifact-name }}.tar
         shell: bash
-        run: docker load -i "$IMAGE_TAR"
+        run: docker load -i "${IMAGE_TAR}"
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         if: inputs.scan-type == 'image' && inputs.registry != ''
         with:
@@ -156,19 +156,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          case "$REPORT_FORMAT" in table | sarif) ;; *) exit 1 ;; esac
-          trivy convert --scanners "$TRIVY_SCANNERS" --format "$REPORT_FORMAT" --severity "$TRIVY_SEVERITY" --exit-code 0 --output "$REPORT" "$RAW_REPORT"
-          if [[ "$REPORT_FORMAT" == table ]]; then
+          case "${REPORT_FORMAT}" in table | sarif) ;; *) exit 1 ;; esac
+          trivy convert --scanners "${TRIVY_SCANNERS}" --format "${REPORT_FORMAT}" --severity "${TRIVY_SEVERITY}" --exit-code 0 --output "${REPORT}" "${RAW_REPORT}"
+          if [[ "${REPORT_FORMAT}" == table ]]; then
             jq -r '
               [.Results[]?] as $results
               | "Trivy scanned \($results | length) targets",
                 "Vulnerabilities: \([$results[] | .Vulnerabilities[]?] | length)",
                 "Misconfigurations: \([$results[] | .Misconfigurations[]?] | length)",
                 "Secrets: \([$results[] | .Secrets[]?] | length)"
-            ' "$RAW_REPORT" >> "$GITHUB_STEP_SUMMARY"
+            ' "${RAW_REPORT}" >> "${GITHUB_STEP_SUMMARY}"
           else
-            count="$(jq '[.runs[]?.results[]?] | length' "$REPORT")"
-            echo "Trivy SARIF findings: $count (messages omitted)" >> "$GITHUB_STEP_SUMMARY"
+            count="$(jq '[.runs[]?.results[]?] | length' "${REPORT}")"
+            echo "Trivy SARIF findings: ${count} (messages omitted)" >> "${GITHUB_STEP_SUMMARY}"
           fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: inputs.trivy-report-artifact-name != ''
@@ -189,8 +189,8 @@ jobs:
           SNAPSHOT: ${{ runner.temp }}/dependency-snapshot.json
         run: |
           set -euo pipefail
-          trivy convert --format github --severity "$TRIVY_SEVERITY" --exit-code 0 --output "$SNAPSHOT.raw" "$RAW_REPORT"
-          jq -e --arg correlator "$SNAPSHOT_CORRELATOR" '.job.correlator=$correlator | select(.version==0 and (.manifests|type=="object"))' "$SNAPSHOT.raw" > "$SNAPSHOT"
+          trivy convert --format github --severity "${TRIVY_SEVERITY}" --exit-code 0 --output "${SNAPSHOT}.raw" "${RAW_REPORT}"
+          jq -e --arg correlator "${SNAPSHOT_CORRELATOR}" '.job.correlator=$correlator | select(.version==0 and (.manifests|type=="object"))' "${SNAPSHOT}.raw" > "${SNAPSHOT}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: >-
           inputs.submit-dependencies
@@ -209,7 +209,7 @@ jobs:
           TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
         shell: bash
-        run: trivy convert --scanners "$TRIVY_SCANNERS" --format table --severity "$TRIVY_SEVERITY" --output /dev/null --exit-code "$EXIT_CODE" "$RAW_REPORT"
+        run: trivy convert --scanners "${TRIVY_SCANNERS}" --format table --severity "${TRIVY_SEVERITY}" --output /dev/null --exit-code "${EXIT_CODE}" "${RAW_REPORT}"
   submit:
     if: >-
       always()

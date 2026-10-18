@@ -19,7 +19,7 @@ setup() {
   [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with."list-all-pkgs"' "$TRIVY")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."trivy-scanners".default' "$TRIVY")" = 'vuln,secret,misconfig' ]
   grep -Fq 'trivy convert --format github' "$TRIVY"
-  grep -Fq 'trivy convert --scanners "$TRIVY_SCANNERS" --format "$REPORT_FORMAT"' "$TRIVY"
+  grep -Fq 'trivy convert --scanners "${TRIVY_SCANNERS}" --format "${REPORT_FORMAT}"' "$TRIVY"
 }
 
 @test "Only the integrated publisher is writable and gated to trusted events" {
@@ -72,7 +72,7 @@ SH
 
 @test "Stable correlator is injected into each converted snapshot" {
   [ "$(yq -r '.jobs.prepare.steps[] | select(.id == "targets") | .env.CORRELATOR' "$TRIVY")" = '${{ inputs.snapshot-correlator }}' ]
-  grep -Fq 'jq -e --arg correlator "$SNAPSHOT_CORRELATOR"' "$TRIVY"
+  grep -Fq 'jq -e --arg correlator "${SNAPSHOT_CORRELATOR}"' "$TRIVY"
   grep -Fq '.job.correlator=$correlator' "$TRIVY"
 }
 
