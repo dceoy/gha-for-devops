@@ -31,4 +31,5 @@ fi
 gomplate \
   --datasource "workflows=file://${WORKFLOWS_JSON}?type=application/json" \
   --file README.md.tmpl --out README.md
+prettier --parser markdown --write README.md.tmpl
 prettier --write README.md
