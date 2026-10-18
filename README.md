@@ -80,7 +80,6 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [terraform-lock-files-upgrade.yml](.github/workflows/terraform-lock-files-upgrade.yml)                           | Upgrade of Terraform lock files                                   |
 | [terragrunt-aws-switch-resources.yml](.github/workflows/terragrunt-aws-switch-resources.yml)                     | Switcher to apply or destroy AWS resources using Terragrunt       |
 | [toml-lint.yml](.github/workflows/toml-lint.yml)                                                                 | Lint for TOML                                                     |
-| [trivy-scan.yml](.github/workflows/trivy-scan.yml)                                                               | Trivy scan core                                                   |
 | [trivy-scan.yml](.github/workflows/trivy-scan.yml)                                                               | Trivy scan and dependency submission                              |
 | [typescript-package-format-and-pr.yml](.github/workflows/typescript-package-format-and-pr.yml)                   | Formatting for TypeScript                                         |
 | [typescript-package-lint-and-scan.yml](.github/workflows/typescript-package-lint-and-scan.yml)                   | Lint and security scan for TypeScript                             |
