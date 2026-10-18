@@ -26,10 +26,10 @@ on:
         default: '${{ github.repository_owner }}'
       trivy-scanners:
         type: string
-        default: 'vuln,secret,misconfig'
+        default: vuln,secret,misconfig
       trivy-severity:
         type: string
-        default: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+        default: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
       trivy-ignore-unfixed:
         type: boolean
         default: true
@@ -65,9 +65,9 @@ on:
         description: Indexed scan targets and correlators
         value: ${{ jobs.prepare.outputs.targets }}
     secrets:
-      DOCKER_TOKEN: {required: false}
+      DOCKER_TOKEN:
+        required: false
 jobs:
-  # Publisher permissions are inherited from the caller; read-only wrappers cannot elevate.
   prepare:
     runs-on: ubuntu-slim
     permissions:
