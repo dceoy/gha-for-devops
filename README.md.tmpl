@@ -25,10 +25,26 @@ For production use, pin a release tag or commit SHA instead of `@main`. Configur
 Each workflow below exposes `workflow_call`; see its file for supported inputs, secrets, permissions, and defaults.
 
 | Workflow File | Description |
-| --- | --- |
-{{ range (datasource "workflows") -}}
+| ------------- | ----------- |
+
+{{- range (datasource "workflows") }}
 | [{{ .file }}](.github/workflows/{{ .file }}) | {{ .name }} |
-{{ end }}
+{{- end }}
+
+## Security Workflows
+
+Security scanners are separate workflows because their targets, permissions, and execution conditions differ.
+
+| Capability                                | Workflow                                                                                                                          | Trust boundary                                                    |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Source tree (OSV-Scanner, Trivy, Semgrep) | `source-security-scan.yml`                                                                                                        | Checked-out files, read-only                                      |
+| Git-history secrets (TruffleHog)          | `git-secret-scan.yml`                                                                                                             | Commit history, read-only; secret values never logged or uploaded |
+| Repository posture (OpenSSF Scorecard)    | `scorecard-assessment.yml` (private, unpublished) or a dedicated `scorecard.yml` in the scanned repository for public publication | Repository settings and workflows                                 |
+| Web/API DAST (OWASP ZAP)                  | `web-dast-scan.yml`                                                                                                               | Authorized staging or ephemeral deployments only                  |
+| Image signing and verification (Cosign)   | `docker-build-and-push.yml` (`push: true`, `cosign: true`), then `docker-image-verify.yml`                                        | Immutable image digest, expected signer identity and issuer       |
+
+Cosign signatures and BuildKit `provenance` do not by themselves establish SLSA compliance.
+
 ## License
 
 [MIT License](LICENSE)

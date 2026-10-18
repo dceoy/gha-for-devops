@@ -54,3 +54,27 @@ paths:
   .github/workflows/terraform-lock-files-upgrade-and-pr-merge.yml:
     ignore:
       - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/docker-lint-and-scan.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/github-actions-lint-and-scan.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/go-package-lint-and-scan.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/html-lint-and-scan.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/python-package-lint-and-scan.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/shell-lint.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/terraform-lint-and-scan.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/typescript-package-lint-and-scan.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
