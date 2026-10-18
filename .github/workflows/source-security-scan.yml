@@ -1,6 +1,6 @@
 ---
 name: Source security scan
-on:
+on:  # checkov:skip=CKV2_GHA_1:Optional dependency publication must inherit caller-scoped write permission; scan jobs stay read-only
   workflow_call:
     inputs:
       package-path:
