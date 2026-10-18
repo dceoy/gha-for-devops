@@ -19,7 +19,7 @@ setup() {
   [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with."list-all-pkgs"' "$TRIVY")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."trivy-scanners".default' "$TRIVY")" = 'vuln,secret,misconfig' ]
   grep -Fq 'trivy convert --format github' "$TRIVY"
-  grep -Fq 'trivy convert --format "$REPORT_FORMAT"' "$TRIVY"
+  grep -Fq 'trivy convert --scanners "$TRIVY_SCANNERS" --format "$REPORT_FORMAT"' "$TRIVY"
 }
 
 @test "Only the integrated publisher is writable and gated to trusted events" {
@@ -79,7 +79,7 @@ SH
   local script
   script="$BATS_TEST_TMPDIR/report.sh"
   yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$script"
-  export REPORT_FORMAT=table RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report.txt"
+  export TRIVY_SCANNERS=vuln,secret,misconfig REPORT_FORMAT=table RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report.txt"
   printf '%s\n' '{"Results":[{"Target":"SECRET_PATH","Secrets":[{"Title":"SECRET_SENTINEL"}],"Vulnerabilities":[{"VulnerabilityID":"CVE-1"}]}]}' > "$RAW_REPORT"
   mkdir -p "$BATS_TEST_TMPDIR/bin"
   cat > "$BATS_TEST_TMPDIR/bin/trivy" << 'SH'

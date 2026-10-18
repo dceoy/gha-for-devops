@@ -111,13 +111,14 @@ jobs:
       - name: Convert report from JSON
         env:
           REPORT_FORMAT: ${{ inputs.report-format }}
+          TRIVY_SCANNERS: ${{ inputs.trivy-scanners }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
           REPORT: ${{ runner.temp }}/trivy-report
         shell: bash
         run: |
           set -euo pipefail
           case "$REPORT_FORMAT" in table | sarif) ;; *) exit 1 ;; esac
-          trivy convert --format "$REPORT_FORMAT" --output "$REPORT" "$RAW_REPORT"
+          trivy convert --scanners "$TRIVY_SCANNERS" --format "$REPORT_FORMAT" --output "$REPORT" "$RAW_REPORT"
           if [[ "$REPORT_FORMAT" == table ]]; then
             jq -r '
               [.Results[]?] as $results
@@ -164,9 +165,10 @@ jobs:
       - name: Enforce findings policy
         env:
           EXIT_CODE: ${{ inputs.trivy-exit-code }}
+          TRIVY_SCANNERS: ${{ inputs.trivy-scanners }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
         shell: bash
-        run: trivy convert --format table --output /dev/null --exit-code "$EXIT_CODE" "$RAW_REPORT"
+        run: trivy convert --scanners "$TRIVY_SCANNERS" --format table --output /dev/null --exit-code "$EXIT_CODE" "$RAW_REPORT"
   submit:
     if: >-
       always()
