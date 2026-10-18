@@ -39,7 +39,6 @@ Security scanners are separate workflows because their targets, permissions, and
 | Git-history secrets (TruffleHog) | `git-secret-scan.yml` | Commit history, read-only; secret values never logged or uploaded |
 | Repository posture (OpenSSF Scorecard) | `scorecard-assessment.yml` (private, unpublished) or a dedicated `scorecard.yml` in the scanned repository for public publication | Repository settings and workflows |
 | Web/API DAST (OWASP ZAP) | `web-dast-scan.yml` | Authorized staging or ephemeral deployments only |
-| AI penetration testing (Strix) | `strix-scan.yml` | Authorized local source; opt-in LLM credentials and SARIF |
 | Image signing and verification (Cosign) | `docker-build-and-push.yml` (`push: true`, `cosign: true`), then `docker-image-verify.yml` | Immutable image digest, expected signer identity and issuer |
 
 Cosign signatures and BuildKit `provenance` do not by themselves establish SLSA compliance.
