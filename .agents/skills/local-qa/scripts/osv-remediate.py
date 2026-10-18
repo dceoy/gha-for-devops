@@ -12,7 +12,7 @@ from pathlib import Path
 MAX_PACKAGES = 20
 PYPI_NAME = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*\Z")
 NPM_NAME = re.compile(r"(?:@[a-zA-Z0-9][a-zA-Z0-9_.-]*/)?[a-zA-Z0-9][a-zA-Z0-9_.-]*\Z")
-PNPM_ENTRY = re.compile(r"^  ['\"]?(.+?)@(\d+)\.(\d+)\.(\d+)[^:]*['\"]?:\s*$", re.M)
+PNPM_ENTRY = re.compile(r"^  ['\"]?(.+?)@(\d+\.\d+\.\d+(?:[-+][\w.-]+)?)(?:\([^:]*\))?['\"]?:\s*$", re.M)
 VERSION = re.compile(r"^v?(\d+(?:\.\d+)*)$")
 
 
