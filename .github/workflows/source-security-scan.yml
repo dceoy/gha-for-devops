@@ -170,6 +170,9 @@ jobs:
         if: ${{ !cancelled() && inputs.use-trivy }}
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         continue-on-error: true
+        env:
+          TRIVY_DISABLE_TELEMETRY: 'true'
+          TRIVY_SKIP_VERSION_CHECK: 'true'
         with:
           scan-type: filesystem
           scan-ref: ${{ inputs.package-path }}
