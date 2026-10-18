@@ -47,11 +47,19 @@ def safe_upgrade(before: dict, after: dict) -> bool:
             continue  # New transitive dependencies are checked by the OSV rescan.
         old = [release(version) for version in old_versions]
         new = [release(version) for version in new_versions]
-        if any(value is None for value in old + new):
+        if None in old or None in new:
             return False
-        if any(not any(a[0] == b[0] and a >= b for a in new) for b in old):
+        old_releases = [value for value in old if value is not None]
+        new_releases = [value for value in new if value is not None]
+        if any(
+            not any(a[0] == b[0] and a >= b for a in new_releases)
+            for b in old_releases
+        ):
             return False
-        if any(not any(a[0] == b[0] and a >= b for b in old) for a in new):
+        if any(
+            not any(a[0] == b[0] and a >= b for b in old_releases)
+            for a in new_releases
+        ):
             return False
     return True
 
