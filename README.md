@@ -73,7 +73,6 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 | [scorecard-assessment.yml](.github/workflows/scorecard-assessment.yml)                                           | OpenSSF Scorecard assessment                                      |
 | [shell-lint.yml](.github/workflows/shell-lint.yml)                                                               | Lint for Shell                                                    |
 | [source-security-scan.yml](.github/workflows/source-security-scan.yml)                                           | Source security scan                                              |
-| [strix-scan.yml](.github/workflows/strix-scan.yml)                                                               | AI penetration test with Strix                                    |
 | [terraform-deploy-to-aws.yml](.github/workflows/terraform-deploy-to-aws.yml)                                     | Deployment of AWS resources using Terraform                       |
 | [terraform-format-and-pr.yml](.github/workflows/terraform-format-and-pr.yml)                                     | Formatting for Terraform                                          |
 | [terraform-lint-and-scan.yml](.github/workflows/terraform-lint-and-scan.yml)                                     | Lint and security scan for Terraform                              |
@@ -99,7 +98,6 @@ Security scanners are separate workflows because their targets, permissions, and
 | Git-history secrets (TruffleHog)          | `git-secret-scan.yml`                                                                                                             | Commit history, read-only; secret values never logged or uploaded |
 | Repository posture (OpenSSF Scorecard)    | `scorecard-assessment.yml` (private, unpublished) or a dedicated `scorecard.yml` in the scanned repository for public publication | Repository settings and workflows                                 |
 | Web/API DAST (OWASP ZAP)                  | `web-dast-scan.yml`                                                                                                               | Authorized staging or ephemeral deployments only                  |
-| AI penetration testing (Strix)            | `strix-scan.yml`                                                                                                                  | Authorized local source; opt-in LLM credentials and SARIF         |
 | Image signing and verification (Cosign)   | `docker-build-and-push.yml` (`push: true`, `cosign: true`), then `docker-image-verify.yml`                                        | Immutable image digest, expected signer identity and issuer       |
 
 Cosign signatures and BuildKit `provenance` do not by themselves establish SLSA compliance.
