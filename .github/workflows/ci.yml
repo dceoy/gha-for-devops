@@ -81,7 +81,7 @@ jobs:
         id: bats-scope
         run: |
           scope=full
-          if git rev-parse -q --verify HEAD^1 > /dev/null && changed_paths="$(git diff --name-only HEAD^1 HEAD)"; then
+          if git rev-parse -q --verify HEAD^1 > /dev/null && changed_paths="$(git diff --name-only --no-renames HEAD^1 HEAD)"; then
             if [[ -n "${changed_paths}" ]] && ! grep -Eqv '^(README\.md(\.tmpl)?|\.github/scripts/(update-readme\.sh|tests/update-readme\.bats))$' <<< "${changed_paths}"; then
               scope=readme
             fi
