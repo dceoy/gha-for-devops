@@ -74,6 +74,7 @@ jobs:
       contents: read
     outputs:
       targets: ${{ steps.targets.outputs.targets }}
+      snapshot-namespace: ${{ steps.targets.outputs.snapshot-namespace }}
     steps:
       - id: targets
         shell: bash
@@ -97,6 +98,9 @@ jobs:
           fi
           jq -e 'length > 0 and all(.[]; (.ref|type)=="string" and (.ref|length)>0 and (.correlator|type)=="string" and (.correlator|length)>0)' <<< "${targets}" >/dev/null
           echo "targets=${targets}" >> "${GITHUB_OUTPUT}"
+          # Isolate artifacts even when concurrent callers use identical inputs.
+          namespace="$(cat /proc/sys/kernel/random/uuid)"
+          echo "snapshot-namespace=${namespace}" >> "${GITHUB_OUTPUT}"
   scan:
     needs: prepare
     runs-on: ${{ inputs.runs-on }}
@@ -197,7 +201,7 @@ jobs:
           && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
           && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         with:
-          name: ${{ inputs.snapshot-artifact-prefix }}-dependency-snapshot-${{ matrix.id }}
+          name: ${{ inputs.snapshot-artifact-prefix }}-${{ needs.prepare.outputs.snapshot-namespace }}-dependency-snapshot-${{ matrix.id }}
           path: ${{ runner.temp }}/dependency-snapshot.json
           retention-days: 1
           overwrite: true
@@ -230,7 +234,7 @@ jobs:
       - name: Download dependency snapshot
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
-          name: ${{ inputs.snapshot-artifact-prefix }}-dependency-snapshot-${{ matrix.id }}
+          name: ${{ inputs.snapshot-artifact-prefix }}-${{ needs.prepare.outputs.snapshot-namespace }}-dependency-snapshot-${{ matrix.id }}
           path: ${{ runner.temp }}/dependency-snapshot
       - name: Validate and publish dependency snapshot
         env:
