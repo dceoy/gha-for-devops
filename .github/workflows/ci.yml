@@ -223,10 +223,10 @@ jobs:
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
       - name: Regenerate README.md
         run: ./.github/scripts/update-readme.sh
-      - name: Verify README.md is up to date
+      - name: Verify README.md and README.md.tmpl are up to date
         run: |
-          if ! git diff --quiet -- README.md; then
-            echo '::error::README.md is out of date. Run ./.github/scripts/update-readme.sh and commit the generated result.'
-            git --no-pager diff -- README.md
+          if ! git diff --quiet -- README.md README.md.tmpl; then
+            echo '::error::README.md or README.md.tmpl is out of date. Run ./.github/scripts/update-readme.sh and commit the generated result.'
+            git --no-pager diff -- README.md README.md.tmpl
             exit 1
           fi
