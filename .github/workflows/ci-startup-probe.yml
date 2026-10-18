@@ -1,0 +1,18 @@
+---
+name: CI startup probe
+on:
+  push:
+    branches:
+      - feat/security-workflows-1087
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe workflow startup
+        run: echo "Workflow dispatcher and runner started successfully."

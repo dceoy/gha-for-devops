@@ -186,7 +186,7 @@ defaults:
 jobs:
   security-scan:
     if: inputs.use-semgrep
-    uses: ./.github/workflows/source-security-scan.yml
+    uses: $/.github/workflows/source-security-scan.yml
     with:
       runs-on: ${{ inputs.security-runs-on }}
       use-osv-scanner: false
