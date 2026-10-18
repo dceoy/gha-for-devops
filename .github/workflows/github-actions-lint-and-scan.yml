@@ -185,17 +185,29 @@ defaults:
     working-directory: .
 jobs:
   security-scan:
-    if: inputs.use-semgrep
+    if: inputs.use-semgrep || inputs.use-checkov
     uses: $/.github/workflows/source-security-scan.yml
     with:
       runs-on: ${{ inputs.security-runs-on }}
       use-osv-scanner: false
       use-trivy: false
       use-semgrep: ${{ inputs.use-semgrep }}
+      package-path: ${{ inputs.search-path }}
+      use-checkov: ${{ inputs.use-checkov }}
+      checkov-framework: ${{ inputs.checkov-framework }}
+      checkov-skip-framework: ${{ inputs.checkov-skip-framework }}
+      checkov-check: ${{ inputs.checkov-check }}
+      checkov-skip-check: ${{ inputs.checkov-skip-check }}
+      checkov-config-file: ${{ inputs.checkov-config-file }}
+      checkov-output-format: ${{ inputs.checkov-output-format }}
+      checkov-output-file-path: ${{ inputs.checkov-output-file-path }}
+      checkov-soft-fail: ${{ inputs.checkov-soft-fail }}
       semgrep-working-directory: ${{ inputs.search-path }}
       semgrep-includes: |
         *.yml
         *.yaml
+    secrets:
+      BC_API_KEY: ${{ secrets.BC_API_KEY }}
   github-actions-lint-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
@@ -405,17 +417,3 @@ jobs:
           advanced-security: ${{ inputs.zizmor-advanced-security }}
           annotations: ${{ ! inputs.zizmor-advanced-security }}
           config: ${{ inputs.zizmor-config }}
-      - name: Run Checkov
-        if: inputs.use-checkov
-        uses: bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931  # v12.3131.0
-        with:
-          directory: ${{ inputs.search-path }}
-          framework: ${{ inputs.checkov-framework }}
-          skip_framework: ${{ inputs.checkov-skip-framework }}
-          check: ${{ inputs.checkov-check }}
-          skip_check: ${{ inputs.checkov-skip-check }}
-          config_file: ${{ inputs.checkov-config-file }}
-          output_format: ${{ inputs.checkov-output-format }}
-          output_file_path: ${{ inputs.checkov-output-file-path }}
-          soft_fail: ${{ inputs.checkov-soft-fail }}
-          api-key: ${{ secrets.BC_API_KEY }}  # zizmor: ignore[secrets-outside-env] caller-provided secret

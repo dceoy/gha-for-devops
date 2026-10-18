@@ -59,6 +59,39 @@ on:
         type: boolean
         default: false
         description: Restrict Semgrep targets to git-tracked files matching semgrep-file-names
+      trivy-config:
+        type: string
+        default: ""
+      trivy-exit-code:
+        type: number
+        default: 1
+      use-checkov:
+        type: boolean
+        default: false
+      checkov-framework:
+        type: string
+        default: ""
+      checkov-skip-framework:
+        type: string
+        default: ""
+      checkov-check:
+        type: string
+        default: ""
+      checkov-skip-check:
+        type: string
+        default: ""
+      checkov-config-file:
+        type: string
+        default: ""
+      checkov-output-format:
+        type: string
+        default: github_failed_only
+      checkov-output-file-path:
+        type: string
+        default: ""
+      checkov-soft-fail:
+        type: boolean
+        default: false
       trivy-report-artifact-name:
         type: string
         default: ""
@@ -67,6 +100,9 @@ on:
         type: string
         default: ubuntu-slim
         description: Runner label for Docker-free Trivy and Semgrep scans
+    secrets:
+      BC_API_KEY:
+        required: false
 permissions:
   contents: read
 jobs:
@@ -144,7 +180,39 @@ jobs:
           format: sarif
           limit-severities-for-sarif: true
           output: ${{ runner.temp }}/source-security-trivy.sarif
-          exit-code: 1
+          exit-code: ${{ inputs.trivy-exit-code }}
+          trivy-config: ${{ inputs.trivy-config }}
+      - name: Summarize Trivy findings
+        if: ${{ !cancelled() && inputs.use-trivy }}
+        env:
+          REPORT: ${{ runner.temp }}/source-security-trivy.sarif
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '## Trivy source scan' >> "${GITHUB_STEP_SUMMARY}"
+          if ! command -v jq > /dev/null 2>&1; then
+            echo '::warning::jq is unavailable; the Trivy summary cannot be generated. See the scanner logs.'
+            echo 'jq is unavailable; the Trivy summary cannot be generated. See the scanner logs.' >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+          if [[ ! -s "${REPORT}" ]] || ! jq -e '.runs | type == "array"' "${REPORT}" > /dev/null 2>&1; then
+            echo 'Trivy did not generate a valid SARIF report. See the scanner logs.' >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+          # Metadata only: messages and snippets can contain matched secrets.
+          jq -r '
+            [.runs[]?.results[]?] as $results |
+            "Findings: \($results | length). Showing up to 100 locations.",
+            "<table><tr><th>Rule</th><th>Level</th><th>Location</th></tr>",
+            ($results[:100][] |
+              .locations[0].physicalLocation as $location |
+              "<tr><td>\((.ruleId // "unknown")[:256] | @html)</td>" +
+              "<td>\((.level // "warning")[:32] | @html)</td>" +
+              "<td>\(($location.artifactLocation.uri // "unknown")[:512] | @html):" +
+              "\(($location.region.startLine // 0) | tostring | .[:16] | @html)</td></tr>"),
+            "</table>",
+            "Messages and code snippets are omitted to avoid exposing matched secrets."
+          ' "${REPORT}" >> "${GITHUB_STEP_SUMMARY}"
       - name: Upload Trivy SARIF report
         if: ${{ !cancelled() && inputs.use-trivy && inputs.trivy-report-artifact-name != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
@@ -199,3 +267,24 @@ jobs:
       - name: Enforce security scan results
         if: ${{ !cancelled() && (steps.trivy.outcome == 'failure' || steps.semgrep.outcome == 'failure') }}
         run: exit 1
+  checkov:
+    if: inputs.use-checkov
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931  # v12.3131.0
+        with:
+          directory: ${{ inputs.package-path }}
+          framework: ${{ inputs.checkov-framework }}
+          skip_framework: ${{ inputs.checkov-skip-framework }}
+          check: ${{ inputs.checkov-check }}
+          skip_check: ${{ inputs.checkov-skip-check }}
+          config_file: ${{ inputs.checkov-config-file }}
+          output_format: ${{ inputs.checkov-output-format }}
+          output_file_path: ${{ inputs.checkov-output-file-path }}
+          soft_fail: ${{ inputs.checkov-soft-fail }}
+          api-key: ${{ secrets.BC_API_KEY }}  # zizmor: ignore[secrets-outside-env] caller-provided secret

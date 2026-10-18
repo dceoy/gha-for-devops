@@ -11,6 +11,10 @@ export UV_EXCLUDE_NEWER="${COOLDOWN_DAYS} days"
 export NPM_CONFIG_MIN_RELEASE_AGE="${COOLDOWN_DAYS}"
 export PNPM_CONFIG_MINIMUM_RELEASE_AGE=$((COOLDOWN_DAYS * 24 * 60))
 
+# Validate the narrowly scoped not-affected assessment before scanning dependencies.
+SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+bash "${SCRIPT_DIRECTORY}/check-qa-dependencies.sh"
+
 # Scan dependency manifests and lockfiles before running QA tools.
 osv_status=0
 osv-scanner scan source --recursive --include-git-root . || osv_status=$?
@@ -109,21 +113,21 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
   fi
 else
   if [[ "${N_HTML_FILES}" -gt 0 ]]; then
-    pnpm dlx prettier --write './**/*.{html,htm}'
+    pnpm exec prettier --write './**/*.{html,htm}'
   fi
   if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
-    pnpm dlx prettier --write './**/*.{md,mdx}'
+    pnpm exec prettier --write './**/*.{md,mdx}'
   fi
 fi
 
 if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
-  if [[ -f .markdownlint-cli2.jsonc ]]; then
-    git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t pnpm dlx markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
+  if [[ -f .markdownlint.jsonc ]]; then
+    git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t pnpm exec markdownlint --fix --config .markdownlint.jsonc
   else
     (
-      trap 'rm -f .markdownlint-cli2.jsonc' EXIT
-      printf '%s\n' '{"config":{"MD013":false,"MD033":false,"MD041":false}}' > .markdownlint-cli2.jsonc
-      git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t pnpm dlx markdownlint-cli2 --fix --config .markdownlint-cli2.jsonc
+      trap 'rm -f .markdownlint.jsonc' EXIT
+      printf '%s\n' '{"MD013":false,"MD033":false,"MD041":false}' > .markdownlint.jsonc
+      git ls-files -z -- '*.md' '*.mdx' | xargs -0 -t pnpm exec markdownlint --fix --config .markdownlint.jsonc
     )
   fi
 fi
@@ -161,13 +165,17 @@ done < <(git ls-files -- 'go.mod' '*/go.mod')
 if [[ -d '.github/workflows' ]]; then
   ZIZMOR_PATHS=('.github/workflows')
   [[ -d '.github/actions' ]] && ZIZMOR_PATHS+=('.github/actions')
-  uvx zizmor --fix=safe "${ZIZMOR_PATHS[@]}"
+  uv run --locked zizmor --fix=safe "${ZIZMOR_PATHS[@]}"
   N_WORKFLOW_YAML_FILES=$(git ls-files -- '.github/workflows/**.yml' '.github/workflows/**.yaml' | wc -l)
   if [[ "${N_WORKFLOW_YAML_FILES}" -gt 0 ]]; then
+    # Reuse this repository's tested compatibility exceptions for newer GitHub.com syntax.
+    ACTIONLINT_SCRIPT="$(yq -r '.jobs."github-actions-lint-scan".steps[] | select(.name == "Execute actionlint") | .run' .github/workflows/github-actions-lint-and-scan.yml)"
+    [[ -n "${ACTIONLINT_SCRIPT}" && "${ACTIONLINT_SCRIPT}" != null ]]
+    ACTIONLINT_COMPATIBILITY_MODE=true ACTIONLINT_EXTRA_IGNORE_REGEX='' \
+      GITHUB_SERVER_URL="${GITHUB_SERVER_URL:-https://github.com}" SEARCH_PATH=.github/workflows \
+      bash -euo pipefail -c "${ACTIONLINT_SCRIPT}"
     git ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml' \
-      | xargs -0 -t actionlint
-    git ls-files -z -- '.github/workflows/*.yml' '.github/workflows/*.yaml' \
-      | xargs -0 -t uvx yamllint -d '{"extends": "relaxed", "rules": {"line-length": "disable"}}'
+      | xargs -0 -t uv run --locked yamllint -d '{"extends": "relaxed", "rules": {"line-length": "disable"}}'
   fi
 fi
 
@@ -180,7 +188,7 @@ fi
 
 N_DOCKER_FILES=$(git ls-files -- 'Dockerfile' '*/Dockerfile' | wc -l)
 if [[ -d '.github/workflows' ]] || [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N_DOCKER_FILES}" -gt 0 ]]; then
-  uvx checkov --framework=all --output=github_failed_only --directory=.
+  uv run --locked checkov --framework=all --output=github_failed_only --directory=.
 fi
 if [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N_DOCKER_FILES}" -gt 0 ]]; then
   trivy filesystem --scanners vuln,secret,misconfig --skip-dirs .venv --skip-dirs .terraform --skip-dirs .terragrunt-cache --skip-dirs node_modules --skip-dirs .git .
@@ -188,5 +196,6 @@ fi
 
 N_SEMGREP_FILES=$(git ls-files -- '*.py' '*.go' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.mts' '*.cts' '*.sh' '*.bash' '*.bats' '*.tf' '*.hcl' '*.yml' '*.yaml' '*.html' '*.htm' 'Dockerfile*' '*.dockerfile' | wc -l)
 if [[ "${N_SEMGREP_FILES}" -gt 0 ]]; then
-  uvx semgrep scan --config p/default --metrics off --error .
+  # Process workers avoid native OCaml thread startup failures on constrained runners.
+  uv run --locked semgrep scan --x-parmap --jobs 2 --config p/default --metrics off --error .
 fi

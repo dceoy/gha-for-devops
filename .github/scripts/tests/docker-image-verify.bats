@@ -4,7 +4,7 @@ bats_require_minimum_version 1.5.0
 
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
-  WORKFLOW="${REPO_ROOT}/.github/workflows/docker-image-verify.yml"
+  WORKFLOW="${REPO_ROOT}/.github/workflows/container-security.yml"
   BUILD_WORKFLOW="${REPO_ROOT}/.github/workflows/docker-build-and-push.yml"
   yq -r '.jobs.verify.steps[] | select(.name == "Validate verification policy") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/validate.sh"
   yq -r '.jobs.verify.steps[] | select(.id == "cosign") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/verify.sh"
@@ -29,9 +29,10 @@ validate() {
 }
 
 @test "Verification workflow is read-only, pinned, and requires identity and issuer policy" {
-  [ "$(yq -r '.permissions | keys | join(",")' "${WORKFLOW}")" = contents ]
+  [ "$(yq -r '.jobs.verify.permissions | keys | join(",")' "${WORKFLOW}")" = contents ]
   grep -Fq 'sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6' "${WORKFLOW}"
-  [ "$(yq -r '.on.workflow_call.inputs."image-ref".required' "${WORKFLOW}")" = true ]
+  [ "$(yq -r '.on.workflow_call.inputs."image-refs-json".required' "${WORKFLOW}")" = true ]
+  [ "$(yq -r '.on.workflow_call.inputs."verify-signatures".default' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."certificate-oidc-issuer".default' "${WORKFLOW}")" = https://token.actions.githubusercontent.com ]
   [ "$(yq -r '.on.workflow_call.inputs."certificate-identity".default' "${WORKFLOW}")" = "" ]
   [ "$(yq -r '.on.workflow_call.inputs."certificate-identity-regexp".default' "${WORKFLOW}")" = "" ]

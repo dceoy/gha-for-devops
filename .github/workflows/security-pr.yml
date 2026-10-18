@@ -1,0 +1,41 @@
+---
+name: Security PR checks
+on:
+  workflow_call:
+    inputs:
+      package-path:
+        type: string
+        default: .
+      use-osv-scanner:
+        type: boolean
+        default: true
+      use-trivy:
+        type: boolean
+        default: true
+      use-semgrep:
+        type: boolean
+        default: true
+      use-git-history:
+        type: boolean
+        default: true
+      trivy-report-artifact-name:
+        type: string
+        default: ""
+permissions:
+  contents: read
+jobs:
+  source:
+    if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
+    uses: $/.github/workflows/source-security-scan.yml
+    with:
+      package-path: ${{ inputs.package-path }}
+      semgrep-working-directory: ${{ inputs.package-path }}
+      use-osv-scanner: ${{ inputs.use-osv-scanner }}
+      use-trivy: ${{ inputs.use-trivy }}
+      use-semgrep: ${{ inputs.use-semgrep }}
+      trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
+  history:
+    if: inputs.use-git-history && (github.event_name == 'pull_request' || github.event_name == 'push')
+    uses: $/.github/workflows/git-secret-scan.yml
+    with:
+      scan-mode: ${{ github.event_name == 'push' && github.event.created && 'full' || 'range' }}
