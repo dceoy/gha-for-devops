@@ -1,135 +1,199 @@
 #!/usr/bin/env bats
+# shellcheck disable=SC2016,SC2030,SC2031
 
 bats_require_minimum_version 1.5.0
 
 setup() {
-  REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
-  SOURCE="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
-  SUBMISSION="${REPO_ROOT}/.github/workflows/dependency-submission.yml"
-  yq -r '.jobs.scan.steps[] | select(.name == "Summarize Trivy findings") | .run' "${SOURCE}" > "${BATS_TEST_TMPDIR}/summary.sh"
-  for id in validate publish; do
-    yq -r ".jobs.submit.steps[] | select(.id == \"${id}\") | .run" "${SUBMISSION}" > "${BATS_TEST_TMPDIR}/${id}.sh"
-  done
-  export REPORT="${BATS_TEST_TMPDIR}/report.sarif"
-  export GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary"
+  REPO_ROOT="$(git -C "$BATS_TEST_DIRNAME" rev-parse --show-toplevel)"
+  TRIVY="$REPO_ROOT/.github/workflows/trivy-scan.yml"
+  SOURCE="$REPO_ROOT/.github/workflows/source-security-scan.yml"
+  CONTAINER="$REPO_ROOT/.github/workflows/container-security.yml"
+  PUBLISH_SCRIPT="$BATS_TEST_TMPDIR/publish.sh"
+  yq -r '.jobs.submit.steps[] | select(.name == "Validate and publish dependency snapshot") | .run' "$TRIVY" > "$PUBLISH_SCRIPT"
+  export GITHUB_STEP_SUMMARY="$BATS_TEST_TMPDIR/summary"
 }
 
-@test "Trivy summary exposes rule locations without messages, snippets, or HTML injection" {
-  cat > "${REPORT}" << 'JSON'
-{"runs":[{"results":[{"ruleId":"CVE-2026-1234","level":"error","message":{"text":"SECRET_SENTINEL"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"package<unsafe>.lock"},"region":{"startLine":42,"snippet":{"text":"SECRET_SENTINEL"}}}}]},{"ruleId":"secret-rule","level":"warning","message":{"text":"SECRET_SENTINEL"}}]}]}
-JSON
-  run bash "${BATS_TEST_TMPDIR}/summary.sh"
-  [ "${status}" -eq 0 ]
-  grep -Fq 'Findings: 2' "${GITHUB_STEP_SUMMARY}"
-  grep -Fq 'CVE-2026-1234' "${GITHUB_STEP_SUMMARY}"
-  grep -Fq 'package&lt;unsafe&gt;.lock:42' "${GITHUB_STEP_SUMMARY}"
-  grep -Fq 'secret-rule' "${GITHUB_STEP_SUMMARY}"
-  run ! grep -Fq SECRET_SENTINEL "${GITHUB_STEP_SUMMARY}"
-  run ! grep -Fq '<unsafe>' "${GITHUB_STEP_SUMMARY}"
+prepare_conversion_config() {
+  mkdir -p "$BATS_TEST_TMPDIR/ci"
+  printf 'severity: [CRITICAL]\nexit-code: 23\n' > "$BATS_TEST_TMPDIR/trivy.yaml"
+  printf 'severity: [CRITICAL]\nexit-code: 23\nignorefile: ci/strict.ignore\n' > "$BATS_TEST_TMPDIR/ci/trivy.yaml"
+  touch "$BATS_TEST_TMPDIR/ci/strict.ignore"
+  printf 'CVE-2026-1234\n' > "$BATS_TEST_TMPDIR/.trivyignore"
 }
 
-@test "Trivy summary bounds both finding count and field lengths" {
-  jq -n '{runs:[{results:[range(0;200) | {ruleId:("x" * 10000),level:("x" * 10000),locations:[{physicalLocation:{artifactLocation:{uri:("x" * 10000)},region:{startLine:1}}}]}]}]}' > "${REPORT}"
-  run bash "${BATS_TEST_TMPDIR}/summary.sh"
-  [ "${status}" -eq 0 ]
-  grep -Fq 'Findings: 200' "${GITHUB_STEP_SUMMARY}"
-  [ "$(grep -c '<tr><td>' "${GITHUB_STEP_SUMMARY}")" -eq 100 ]
-  [ "$(wc -c < "${GITHUB_STEP_SUMMARY}")" -lt 100000 ]
+use_conversion_config() {
+  local config
+  config="$(STEP_NAME="$1" yq -r '.jobs.scan.steps[] | select(.name == strenv(STEP_NAME)) | .env.TRIVY_CONFIG // ""' "$TRIVY")"
+  export TRIVY_CONFIG="${config//'${{ inputs.trivy-config }}'/$BATS_TEST_TMPDIR/ci/trivy.yaml}"
 }
 
-@test "Trivy summary reports zero findings for an empty result set" {
-  printf '%s\n' '{"runs":[{"results":[]}]}' > "${REPORT}"
-  run bash "${BATS_TEST_TMPDIR}/summary.sh"
-  [ "${status}" -eq 0 ]
-  grep -Fq 'Findings: 0' "${GITHUB_STEP_SUMMARY}"
+@test "Trivy scan runs each category once and converts reports" {
+  [ "$(yq -r '[.jobs.scan.steps[] | select(.uses | contains("aquasecurity/trivy-action@"))] | length' "$TRIVY")" = 1 ]
+  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with.format' "$TRIVY")" = json ]
+  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with."list-all-pkgs"' "$TRIVY")" = true ]
+  [ "$(yq -r '.on.workflow_call.inputs."trivy-scanners".default' "$TRIVY")" = 'vuln,secret,misconfig' ]
+  grep -Fq 'trivy convert --format github' "$TRIVY"
+  grep -Fq 'trivy convert --scanners "${TRIVY_SCANNERS}" --format "${REPORT_FORMAT}"' "$TRIVY"
 }
 
-@test "Trivy summary handles unavailable or malformed reports without echoing them" {
-  local report_data
-  for report_data in '' 'SECRET_SENTINEL invalid JSON' '{"runs":null}'; do
-    printf '%s' "${report_data}" > "${REPORT}"
-    run bash "${BATS_TEST_TMPDIR}/summary.sh"
-    [ "${status}" -eq 0 ]
-    grep -Fq 'did not generate a valid SARIF report' "${GITHUB_STEP_SUMMARY}"
-    run ! grep -Fq SECRET_SENTINEL "${GITHUB_STEP_SUMMARY}"
-    : > "${GITHUB_STEP_SUMMARY}"
-  done
+@test "Only the integrated publisher is writable and gated to trusted events" {
+  [ "$(yq -r '.jobs.scan.permissions.contents' "$TRIVY")" = read ]
+  [ "$(yq -r '.jobs.submit.permissions.contents' "$TRIVY")" = null ]
+  [ "$(yq -r '.jobs.scan.permissions.contents' "$TRIVY")" = read ]
+  [ "$(yq -r '.permissions.contents' "$SOURCE")" = read ]
+  [ "$(yq -r '.permissions.contents' "$CONTAINER")" = read ]
+  [ "$(yq -r '.jobs.scan.permissions | keys | join(",")' "$CONTAINER")" = contents ]
+  [ "$(yq -r '.jobs."trivy-scan".uses' "$SOURCE")" = '$/.github/workflows/trivy-scan.yml' ]
+  [ "$(yq -r '.jobs.scan.uses' "$CONTAINER")" = '$/.github/workflows/trivy-scan.yml' ]
+  [ ! -e "$REPO_ROOT/.github/workflows/dependency-submission.yml" ]
+  local cond
+  cond="$(yq -r '.jobs.submit.if' "$TRIVY")"
+  [[ "$cond" == *"inputs.submit-dependencies"* ]]
+  [[ "$cond" == *"github.event_name == 'push'"* ]]
+  [[ "$cond" == *"github.event_name == 'schedule'"* ]]
+  [[ "$cond" == *"github.event_name == 'workflow_dispatch'"* ]]
+  [[ "$cond" == *"github.event.repository.default_branch"* ]]
 }
 
-@test "Dependency submission rejects untrusted events before accessing repository content" {
-  [ "$(yq -r '.jobs.submit.steps[0].id' "${SUBMISSION}")" = validate ]
-  local event
-  for event in pull_request pull_request_target workflow_run; do
-    run env EVENT_NAME="${event}" SCAN_TYPE=filesystem IMAGE_REF= IMAGE_ARTIFACT_NAME= SNAPSHOT_CORRELATOR=source bash "${BATS_TEST_TMPDIR}/validate.sh"
-    [ "${status}" -eq 1 ]
-    [[ "${output}" == *'requires a trusted'* ]]
-  done
-}
-
-@test "Dependency submission accepts trusted filesystem and image inventory requests" {
-  local event scan_type image artifact
-  while read -r event scan_type image artifact; do
-    run env EVENT_NAME="${event}" SCAN_TYPE="${scan_type}" IMAGE_REF="${image//NONE/}" IMAGE_ARTIFACT_NAME="${artifact//NONE/}" SNAPSHOT_CORRELATOR=stable-target bash "${BATS_TEST_TMPDIR}/validate.sh"
-    [ "${status}" -eq 0 ]
-  done << 'CASES'
-push filesystem NONE NONE
-schedule image ghcr.io/example/app:latest NONE
-workflow_dispatch image local-image:test image-tar
-CASES
-}
-
-@test "Dependency submission rejects invalid target requests" {
-  local scan_type image artifact correlator
-  while read -r scan_type image artifact correlator; do
-    run env EVENT_NAME=push SCAN_TYPE="${scan_type}" IMAGE_REF="${image//NONE/}" IMAGE_ARTIFACT_NAME="${artifact//NONE/}" SNAPSHOT_CORRELATOR="${correlator//NONE/}" bash "${BATS_TEST_TMPDIR}/validate.sh"
-    [ "${status}" -eq 1 ]
-  done << 'CASES'
-unsupported NONE NONE source
-image NONE NONE source
-image local-image:test ../escape source
-filesystem NONE image-tar source
-filesystem NONE NONE NONE
-CASES
-}
-
-@test "Dependency submission sends the snapshot and propagates HTTP and transport failures" {
-  mkdir -p "${BATS_TEST_TMPDIR}/bin"
-  cat > "${BATS_TEST_TMPDIR}/bin/curl" << 'SH'
+@test "Publisher validates snapshots and propagates HTTP errors" {
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  cat > "$BATS_TEST_TMPDIR/bin/curl" << 'SH'
 #!/usr/bin/env bash
-printf '%s\n' "$@" > "${CURL_ARGS}"
-exit "${CURL_STATUS}"
+printf '%s\n' "$@" > "$CURL_ARGS"
+exit "$CURL_STATUS"
 SH
-  chmod +x "${BATS_TEST_TMPDIR}/bin/curl"
-  export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
-  export CURL_ARGS="${BATS_TEST_TMPDIR}/curl-args"
-  export SNAPSHOT_FILE="${BATS_TEST_TMPDIR}/snapshot.json"
-  export SNAPSHOT_CORRELATOR='stable-image-target'
-  printf '%s\n' '{"version":0,"sha":"abc","job":{"correlator":"default"},"manifests":{}}' > "${SNAPSHOT_FILE}"
-  local expected_status
-  for expected_status in 0 22 7; do
-    : > "${GITHUB_STEP_SUMMARY}"
-    run env CURL_STATUS="${expected_status}" GH_TOKEN=test-token GITHUB_API_URL=https://api.github.com GITHUB_REPOSITORY=owner/repo bash "${BATS_TEST_TMPDIR}/publish.sh"
-    [ "${status}" -eq "${expected_status}" ]
-    [ "$(jq -r '.job.correlator' "${SNAPSHOT_FILE}.submit")" = stable-image-target ]
-    [ "$(jq -r '.sha' "${SNAPSHOT_FILE}.submit")" = abc ]
-    grep -Fxq -- '--fail' "${CURL_ARGS}"
-    grep -Fxq -- '--data-binary' "${CURL_ARGS}"
-    grep -Fxq -- "@${SNAPSHOT_FILE}.submit" "${CURL_ARGS}"
-    grep -Fxq 'https://api.github.com/repos/owner/repo/dependency-graph/snapshots' "${CURL_ARGS}"
-    grep -Fxq 'Authorization: Bearer test-token' "${CURL_ARGS}"
+  chmod +x "$BATS_TEST_TMPDIR/bin/curl"
+  export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+  export CURL_ARGS="$BATS_TEST_TMPDIR/curl-args"
+  export SNAPSHOT="$BATS_TEST_TMPDIR/snapshot.json"
+  printf '%s\n' '{"version":0,"detector":{"name":"trivy"},"job":{"correlator":"stable-image-target"},"manifests":{}}' > "$SNAPSHOT"
+  local code
+  for code in 0 22 7; do
+    : > "$GITHUB_STEP_SUMMARY"
+    run env CURL_STATUS="$code" GH_TOKEN=test-token GITHUB_API_URL=https://api.github.com GITHUB_REPOSITORY=owner/repo bash "$PUBLISH_SCRIPT"
+    [ "$status" -eq "$code" ]
+    grep -Fxq -- '--fail-with-body' "$CURL_ARGS"
+    grep -Fxq -- '--data-binary' "$CURL_ARGS"
+    grep -Fxq -- "@$SNAPSHOT" "$CURL_ARGS"
+    grep -Fxq -- 'Authorization: Bearer test-token' "$CURL_ARGS"
   done
-  [ ! -s "${GITHUB_STEP_SUMMARY}" ]
+  printf '%s\n' '{"version":0,"detector":{"name":"trivy"},"job":{"correlator":""},"manifests":{}}' > "$SNAPSHOT"
+  rm -f "$CURL_ARGS"
+  run env CURL_STATUS=0 GH_TOKEN=test-token GITHUB_API_URL=https://api.github.com GITHUB_REPOSITORY=owner/repo bash "$PUBLISH_SCRIPT"
+  [ "$status" -ne 0 ]
+  [ ! -e "$CURL_ARGS" ]
 }
 
-@test "Only the separate dependency publication job requires write permission" {
-  [ "$(yq -r '.jobs.submit.permissions.contents' "${SUBMISSION}")" = write ]
-  [ "$(yq -r '.jobs.submit.steps[] | select(.name == "Generate dependency snapshot") | .with.format' "${SUBMISSION}")" = github ]
-  [ "$(yq -r '.jobs.submit.steps[] | select(.name == "Generate dependency snapshot") | .with."list-all-pkgs"' "${SUBMISSION}")" = true ]
-  local workflow
-  for workflow in source-security-scan container-security docker-lint-and-scan terraform-lint-and-scan security-pr; do
-    [ "$(yq -r '.permissions.contents' "${REPO_ROOT}/.github/workflows/${workflow}.yml")" = read ]
-    run ! grep -Fq 'contents: write' "${REPO_ROOT}/.github/workflows/${workflow}.yml"
+@test "Stable correlator is injected into each converted snapshot" {
+  [ "$(yq -r '.jobs.prepare.steps[] | select(.id == "targets") | .env.CORRELATOR' "$TRIVY")" = '${{ inputs.snapshot-correlator }}' ]
+  grep -Fq 'jq -e --arg correlator "${SNAPSHOT_CORRELATOR}"' "$TRIVY"
+  grep -Fq '.job.correlator=$correlator' "$TRIVY"
+}
+
+@test "Conversions retain requested findings despite repository severity and exit settings" {
+  export RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json"
+  export REPORT="$BATS_TEST_TMPDIR/report"
+  export SNAPSHOT="$BATS_TEST_TMPDIR/snapshot.json"
+  export SNAPSHOT_CORRELATOR=source-root
+  export TRIVY_SCANNERS=vuln TRIVY_SEVERITY=HIGH,CRITICAL
+  cat > "$RAW_REPORT" << 'JSON'
+{"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"package-lock.json","Class":"lang-pkgs","Type":"npm","Packages":[{"ID":"lodash@4.17.20","Name":"lodash","Version":"4.17.20"}],"Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash","PkgID":"lodash@4.17.20","InstalledVersion":"4.17.20","FixedVersion":"4.17.21","Severity":"HIGH","Title":"fixture vulnerability"}]}]}
+JSON
+  prepare_conversion_config
+  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
+  yq -r '.jobs.scan.steps[] | select(.name == "Convert dependency snapshot without rescanning") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/snapshot.sh"
+  cd "$BATS_TEST_TMPDIR"
+  use_conversion_config "Convert report from JSON"
+  local format
+  for format in table sarif; do
+    run env REPORT_FORMAT="$format" bash "$BATS_TEST_TMPDIR/report.sh"
+    [ "$status" -eq 0 ]
+    grep -Fq CVE-2026-1234 "$REPORT"
   done
+  use_conversion_config "Convert dependency snapshot without rescanning"
+  [ -n "$TRIVY_CONFIG" ]
+  run bash "$BATS_TEST_TMPDIR/snapshot.sh"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.job.correlator' "$SNAPSHOT")" = source-root ]
+  [ "$(jq -r '.manifests["package-lock.json"].resolved.lodash.package_url' "$SNAPSHOT")" = pkg:npm/lodash@4.17.20 ]
+}
+
+@test "Findings enforcement honors requested severity and exit code over repository config" {
+  export RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json"
+  export TRIVY_SCANNERS=vuln TRIVY_SEVERITY=HIGH,CRITICAL
+  printf '%s\n' '{"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"fixture","Class":"lang-pkgs","Type":"npm","Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash","InstalledVersion":"4.17.20","Severity":"HIGH"}]}]}' > "$RAW_REPORT"
+  prepare_conversion_config
+  yq -r '.jobs.scan.steps[] | select(.name == "Enforce findings policy") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/enforce.sh"
+  cd "$BATS_TEST_TMPDIR"
+  use_conversion_config "Enforce findings policy"
+  local code
+  for code in 0 7; do
+    run env EXIT_CODE="$code" bash "$BATS_TEST_TMPDIR/enforce.sh"
+    [ "$status" -eq "$code" ]
+  done
+}
+
+@test "Summaries remain actionable for failing scans with report artifacts omitted" {
+  export RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report"
+  export TRIVY_SCANNERS=vuln,secret,misconfig TRIVY_SEVERITY=HIGH,CRITICAL
+  cat > "$RAW_REPORT" << 'JSON'
+{"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"package-lock<script>.json","Class":"lang-pkgs","Type":"npm","Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash<&>","InstalledVersion":"4.17.20","Severity":"HIGH","Title":"SECRET_SENTINEL","Description":"SECRET_SENTINEL"}]},{"Target":"Dockerfile<script>","Class":"config","Type":"dockerfile","Misconfigurations":[{"ID":"DS002","AVDID":"AVD-DS-0002","Severity":"HIGH","Title":"SECRET_SENTINEL","Message":"SECRET_SENTINEL","CauseMetadata":{"StartLine":42,"EndLine":42}}]},{"Target":"secret.env","Class":"secret","Secrets":[{"RuleID":"generic-api-key","Severity":"HIGH","Title":"SECRET_SENTINEL","Match":"SECRET_SENTINEL","StartLine":1,"EndLine":1}]}]}
+JSON
+  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
+  yq -r '.jobs.scan.steps[] | select(.name == "Enforce findings policy") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/enforce.sh"
+  [ "$(yq -r '.on.workflow_call.inputs."trivy-report-artifact-name".default' "$SOURCE")" = null ]
+  [ "$(yq -r '.on.workflow_call.inputs."trivy-report-artifact-name".default' "$CONTAINER")" = null ]
+  local format
+  for format in table sarif; do
+    echo "format: $format"
+    : > "$GITHUB_STEP_SUMMARY"
+    run env REPORT_FORMAT="$format" bash "$BATS_TEST_TMPDIR/report.sh"
+    [ "$status" -eq 0 ]
+    run env EXIT_CODE=7 bash "$BATS_TEST_TMPDIR/enforce.sh"
+    [ "$status" -eq 7 ]
+    grep -Fq CVE-2026-1234 "$GITHUB_STEP_SUMMARY"
+    grep -Fq 'lodash&lt;&amp;&gt;' "$GITHUB_STEP_SUMMARY"
+    grep -Fq 'package-lock&lt;script&gt;.json' "$GITHUB_STEP_SUMMARY"
+    grep -Fq AVD-DS-0002 "$GITHUB_STEP_SUMMARY"
+    grep -Fq 'Dockerfile&lt;script&gt;:42' "$GITHUB_STEP_SUMMARY"
+    run ! grep -Fq '<script>' "$GITHUB_STEP_SUMMARY"
+    run ! grep -Fq SECRET_SENTINEL "$GITHUB_STEP_SUMMARY"
+  done
+}
+
+@test "Summary rows and untrusted metadata are bounded across finding categories" {
+  export RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report"
+  export TRIVY_SCANNERS=vuln,misconfig TRIVY_SEVERITY=HIGH,CRITICAL
+  jq -n '{SchemaVersion:2,ArtifactName:"fixture",ArtifactType:"filesystem",Results:[
+    {Target:("p" * 600),Class:"lang-pkgs",Type:"npm",Vulnerabilities:[range(99) | {VulnerabilityID:("CVE-" + tostring),PkgName:("x" * 300),InstalledVersion:"1.0",Severity:"HIGH"}]},
+    {Target:"Dockerfile",Class:"config",Type:"dockerfile",Misconfigurations:[{ID:"DS002",AVDID:"AVD-DS-0002",Severity:"HIGH"},{ID:"DS003",AVDID:"AVD-DS-0003",Severity:"HIGH"}]}]}' > "$RAW_REPORT"
+  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
+  run env REPORT_FORMAT=table bash "$BATS_TEST_TMPDIR/report.sh"
+  [ "$status" -eq 0 ]
+  [ "$(grep -c '<tr><td>' "$GITHUB_STEP_SUMMARY")" -eq 100 ]
+  grep -Fq AVD-DS-0002 "$GITHUB_STEP_SUMMARY"
+  run ! grep -Fq AVD-DS-0003 "$GITHUB_STEP_SUMMARY"
+  run ! grep -Eq 'x{257}|p{513}' "$GITHUB_STEP_SUMMARY"
+}
+
+@test "Table summary omits matching secret values" {
+  local script
+  script="$BATS_TEST_TMPDIR/report.sh"
+  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$script"
+  export TRIVY_SEVERITY=HIGH,CRITICAL TRIVY_SCANNERS=vuln,secret,misconfig REPORT_FORMAT=table RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report.txt"
+  printf '%s\n' '{"Results":[{"Target":"SECRET_PATH","Secrets":[{"Title":"SECRET_SENTINEL"}],"Vulnerabilities":[{"VulnerabilityID":"CVE-1"}]}]}' > "$RAW_REPORT"
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  cat > "$BATS_TEST_TMPDIR/bin/trivy" << 'SH'
+#!/usr/bin/env bash
+printf '%s\n' SECRET_SENTINEL > "$REPORT"
+SH
+  chmod +x "$BATS_TEST_TMPDIR/bin/trivy"
+  export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+  run bash "$script"
+  [ "$status" -eq 0 ]
+  grep -Fq 'Vulnerabilities: 1' "$GITHUB_STEP_SUMMARY"
+  grep -Fq 'Secrets: 1' "$GITHUB_STEP_SUMMARY"
+  run ! grep -Fq SECRET_SENTINEL "$GITHUB_STEP_SUMMARY"
 }
 
 @test "Security wrappers keep Semgrep within the selected package" {

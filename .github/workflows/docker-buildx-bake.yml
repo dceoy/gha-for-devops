@@ -63,6 +63,10 @@ on:
         type: boolean
         description: Submit digest-pinned dependency snapshots for pushed Bake targets on trusted default-branch runs
         default: false
+      snapshot-artifact-prefix:
+        type: string
+        default: docker-bake
+        description: Unique prefix for dependency snapshots in the workflow run
       scan-before-build:
         required: false
         type: boolean
@@ -325,47 +329,36 @@ jobs:
           retention-days: ${{ inputs.image-artifact-retention-days }}
           overwrite: ${{ inputs.image-artifact-overwrite }}
   postbuild-scan:
-    if: >
+    if: >-
       inputs.scan-after-build
-    needs:
-      - bake
-    uses: $/.github/workflows/container-security.yml
+      || (
+        inputs.submit-dependencies
+        && inputs.push
+        && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      )
+    needs: bake
+    permissions:
+      contents: write
+      packages: read
+    uses: $/.github/workflows/trivy-scan.yml
     with:
-      verify-signatures: false  # Tag/tarball scan; verify digest-pinned images for deployment
+      scan-type: image
       image-refs-json: ${{ needs.bake.outputs.image-refs-json }}
+      image-targets-json: ${{ inputs.submit-dependencies && inputs.push && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && needs.bake.outputs.dependency-snapshot-matrix != '[]' && needs.bake.outputs.dependency-snapshot-matrix || '' }}
       image-artifact-name: ${{ inputs.image-artifact-name }}
+      registry: ${{ inputs.registry || '' }}
+      registry-user: ${{ inputs.registry-user }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
       trivy-severity: ${{ inputs.trivy-severity }}
       trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
       trivy-exit-code: ${{ inputs.trivy-image-exit-code }}
-      trivy-config: ${{ inputs.trivy-config }}
+      trivy-config: ${{ inputs.trivy-config || '' }}
       trivy-timeout: ${{ inputs.trivy-timeout }}
+      report-format: table
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name && format('{0}-image', inputs.trivy-report-artifact-name) || '' }}
+      submit-dependencies: ${{ inputs.submit-dependencies && inputs.push }}
+      snapshot-artifact-prefix: ${{ inputs.snapshot-artifact-prefix }}
       runs-on: ${{ inputs.runs-on }}
-  dependency-submission:
-    if: >-
-      inputs.submit-dependencies
-      && inputs.push
-      && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-      && needs.bake.result == 'success'
-      && needs.bake.outputs.dependency-snapshot-matrix != ''
-      && needs.bake.outputs.dependency-snapshot-matrix != '[]'
-    needs:
-      - bake
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.bake.outputs.dependency-snapshot-matrix) }}
-    permissions:
-      contents: write
-      packages: read
-    uses: $/.github/workflows/dependency-submission.yml
-    with:
-      scan-type: image
-      image-ref: ${{ matrix.image_ref }}
-      registry: ${{ inputs.registry }}
-      registry-user: ${{ inputs.registry-user }}
-      snapshot-correlator: ${{ matrix.correlator }}
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}

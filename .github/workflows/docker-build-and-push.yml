@@ -73,6 +73,10 @@ on:
         type: boolean
         description: Submit a digest-pinned image dependency snapshot on trusted default-branch builds
         default: false
+      snapshot-artifact-prefix:
+        type: string
+        default: docker-image
+        description: Unique prefix for intermediate dependency snapshots in this workflow run
       scan-before-build:
         required: false
         type: boolean
@@ -365,43 +369,36 @@ jobs:
           retention-days: ${{ inputs.image-artifact-retention-days }}
           overwrite: true
   postbuild-scan:
-    if: >
-      inputs.scan-after-build && (! (failure() || cancelled()))
-    needs:
-      - build-and-push
-    uses: $/.github/workflows/container-security.yml
+    if: >-
+      inputs.scan-after-build
+      || (
+        inputs.submit-dependencies
+        && inputs.push
+        && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      )
+    needs: build-and-push
+    permissions:
+      contents: write
+      packages: read
+    uses: $/.github/workflows/trivy-scan.yml
     with:
-      verify-signatures: false  # Tag/tarball scan; verify digest-pinned images for deployment
+      scan-type: image
       image-refs-json: ${{ needs.build-and-push.outputs.image-ref && format('[{0}]', toJSON(needs.build-and-push.outputs.image-ref)) || '[]' }}
+      image-targets-json: ${{ inputs.submit-dependencies && inputs.push && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && needs.build-and-push.outputs.build-push-digest != '' && format('[{{"image_ref":{0},"correlator":{1}}}]', toJSON(format('{0}@{1}', needs.build-and-push.outputs.image-ref, needs.build-and-push.outputs.build-push-digest)), toJSON(format('docker-image-{0}-{1}', inputs.registry || 'default', inputs.image-name))) || '' }}
       image-artifact-name: ${{ inputs.image-artifact-name }}
+      registry: ${{ inputs.registry || '' }}
+      registry-user: ${{ inputs.registry-user }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
       trivy-severity: ${{ inputs.trivy-severity }}
       trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
       trivy-exit-code: ${{ inputs.trivy-image-exit-code }}
-      trivy-config: ${{ inputs.trivy-config }}
+      trivy-config: ${{ inputs.trivy-config || '' }}
       trivy-timeout: ${{ inputs.trivy-timeout }}
+      report-format: table
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name && format('{0}-image', inputs.trivy-report-artifact-name) || '' }}
+      submit-dependencies: ${{ inputs.submit-dependencies && inputs.push }}
+      snapshot-artifact-prefix: ${{ inputs.snapshot-artifact-prefix }}
       runs-on: ${{ inputs.runs-on }}
-  dependency-submission:
-    if: >-
-      inputs.submit-dependencies
-      && inputs.push
-      && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-      && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-      && needs.build-and-push.result == 'success'
-      && needs.build-and-push.outputs.image-ref != ''
-      && needs.build-and-push.outputs.build-push-digest != ''
-    needs:
-      - build-and-push
-    permissions:
-      contents: write
-      packages: read
-    uses: $/.github/workflows/dependency-submission.yml
-    with:
-      scan-type: image
-      image-ref: ${{ format('{0}@{1}', needs.build-and-push.outputs.image-ref, needs.build-and-push.outputs.build-push-digest) }}
-      registry: ${{ inputs.registry }}
-      registry-user: ${{ inputs.registry-user }}
-      snapshot-correlator: ${{ format('docker-image-{0}-{1}', inputs.registry || 'default', inputs.image-name) }}
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}

@@ -34,8 +34,9 @@ validate() {
   [ "$(yq -r '.on.workflow_call.inputs."image-refs-json".required' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."verify-signatures".default' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."certificate-oidc-issuer".default' "${WORKFLOW}")" = https://token.actions.githubusercontent.com ]
-  [ "$(yq -r '.on.workflow_call.inputs."certificate-identity".default' "${WORKFLOW}")" = "" ]
-  [ "$(yq -r '.on.workflow_call.inputs."certificate-identity-regexp".default' "${WORKFLOW}")" = "" ]
+  for input in certificate-identity certificate-identity-regexp; do
+    [ "$(INPUT="${input}" yq -r '.on.workflow_call.inputs[strenv(INPUT)].default // ""' "${WORKFLOW}")" = "" ]
+  done
 }
 
 @test "Policy validation accepts digest-pinned images with one anchored identity" {
