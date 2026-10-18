@@ -172,14 +172,6 @@ workflows:
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
         - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453'
-    '.github/workflows/python-package-release-on-pypi-and-github.yml':
-        - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
-        - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
-        - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
-        - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
-        - 'pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33'
-        - 'sigstore/gh-action-sigstore-python@790bc6befb9d733738f18d8f895854b453640ec9'
     '.github/workflows/python-package-test.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
@@ -352,11 +344,6 @@ dependencies:
         commit: 'sha1-949feb2413d6458794dcd2491c4babbbce0c15c1'
         owner_id: 44036562
         repo_id: 189476904
-    'actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405':
-        ref: 'v6.2.0'
-        commit: 'sha1-a309ff8b426b58ec0e2a45f0f869d46889d02405'
-        owner_id: 44036562
-        repo_id: 192625525
     'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97':
         ref: 'v7.0.0'
         commit: 'sha1-5fda3b95a4ea91299a34e894583c3862153e4b97'
@@ -554,11 +541,6 @@ dependencies:
         commit: 'sha1-a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
         owner_id: 21320719
         repo_id: 1235693694
-    'pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33':
-        ref: 'v1.14.2'
-        commit: 'sha1-dc37677b2e1c63e2034f94d8a5b11f265b73ba33'
-        owner_id: 647025
-        repo_id: 178055147
     'quarto-dev/quarto-actions@8a96df13519ee81fd526f2dfca5962811136661b':
         ref: 'v2.2.0'
         commit: 'sha1-8a96df13519ee81fd526f2dfca5962811136661b'
@@ -583,11 +565,6 @@ dependencies:
         commit: 'sha1-6f9f17788090df1f26f669e9d70d6ae9567deba6'
         owner_id: 71096353
         repo_id: 351211695
-    'sigstore/gh-action-sigstore-python@790bc6befb9d733738f18d8f895854b453640ec9':
-        ref: 'v3.5.0'
-        commit: 'sha1-790bc6befb9d733738f18d8f895854b453640ec9'
-        owner_id: 71096353
-        repo_id: 508560980
     'slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d':
         ref: 'v4.0.0'
         commit: 'sha1-dcb1066f776dd043e64d0e8ba94ca15cc7e1875d'
