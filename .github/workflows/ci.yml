@@ -74,15 +74,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          fetch-depth: 1
+          fetch-depth: 2
           persist-credentials: false
+      - name: Select Bats test scope
+        if: github.event_name == 'pull_request'
+        id: bats-scope
+        run: |
+          scope=full
+          if git rev-parse -q --verify HEAD^1 > /dev/null && changed_paths="$(git diff --name-only HEAD^1 HEAD)"; then
+            if [[ -n "${changed_paths}" ]] && ! grep -Eqv '^(README\.md(\.tmpl)?|\.github/scripts/(update-readme\.sh|tests/update-readme\.bats))$' <<< "${changed_paths}"; then
+              scope=readme
+            fi
+          fi
+          echo "scope=${scope}" >> "${GITHUB_OUTPUT}"
       - name: Set up mise
         uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
         with:
           version: ${{ env.MISE_VERSION }}
-          install_args: ${{ github.event_name == 'pull_request' && 'yq gomplate' || 'actionlint yq gomplate trivy' }}
+          install_args: ${{ steps.bats-scope.outputs.scope == 'readme' && 'yq gomplate' || 'actionlint yq gomplate trivy' }}
       - name: Set up Go
-        if: github.event_name != 'pull_request'
+        if: steps.bats-scope.outputs.scope != 'readme'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version: stable
@@ -92,10 +103,10 @@ jobs:
         with:
           github-token: ${{ github.token }}
       - name: Run README generator tests
-        if: github.event_name == 'pull_request'
+        if: steps.bats-scope.outputs.scope == 'readme'
         run: bats --print-output-on-failure .github/scripts/tests/update-readme.bats
       - name: Run full Bats tests
-        if: github.event_name != 'pull_request'
+        if: steps.bats-scope.outputs.scope != 'readme'
         run: bats --print-output-on-failure .github/scripts/tests/*.bats
   github-actions-lint-and-scan:
     if: >
