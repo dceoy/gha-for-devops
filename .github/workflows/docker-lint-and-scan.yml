@@ -133,7 +133,6 @@ defaults:
     working-directory: .
 jobs:
   security-scan:
-    if: true  # Trivy runs even when optional scanners are disabled
     uses: $/.github/workflows/source-security-scan.yml
     with:
       runs-on: ${{ inputs.security-runs-on }}
