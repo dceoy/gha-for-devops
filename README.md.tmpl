@@ -25,7 +25,7 @@ For production use, pin a release tag or commit SHA instead of `@main`. Configur
 Each workflow below exposes `workflow_call`; see its file for supported inputs, secrets, permissions, and defaults.
 
 | Workflow File | Description |
-| --- | --- |
+| ------------- | ----------- |
 
 {{- range (datasource "workflows") }}
 | [{{ .file }}](.github/workflows/{{ .file }}) | {{ .name }} |
