@@ -18,11 +18,11 @@ jobs:
     uses: dceoy/gha-for-devops/.github/workflows/yaml-lint.yml@main
 ```
 
-For production use, pin a release tag or commit SHA instead of `@main`. Configure inputs with `with:`, pass credentials via `secrets:`, and grant the required `permissions:`. Consult each workflow file for its interface and defaults.
+Pin a release tag or commit SHA in production. Set inputs with `with:`, credentials with `secrets:`, and required `permissions:`. See each workflow file for defaults.
 
 ## Reusable Workflows
 
-Each workflow below exposes `workflow_call`; see its file for supported inputs, secrets, permissions, and defaults.
+Each workflow supports `workflow_call`.
 
 | Workflow File                                                                                                    | Description                                                       |
 | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
@@ -91,7 +91,7 @@ Each workflow below exposes `workflow_call`; see its file for supported inputs, 
 
 ## Security Workflows
 
-Choose by **execution use case**, not by the individual scanner:
+Choose a workflow for your use case:
 
 | Use case                       | Reusable workflow        | Default checks                                              |
 | ------------------------------ | ------------------------ | ----------------------------------------------------------- |
@@ -112,15 +112,15 @@ jobs:
       package-path: .
 ```
 
-For scheduled or manually triggered audits, call `security-audit.yml`. Specify project-specific `codeql-languages`; enable the more expensive Joern scan with `use-joern: true`. Deep audits skip pull-request events. Callers using the default CodeQL and Scorecard jobs must grant `contents: read`, `actions: read`, and `security-events: write`.
+Call `security-audit.yml` for scheduled or manual audits. Set `codeql-languages` for your project and `use-joern: true` to enable Joern. The default CodeQL and Scorecard jobs require `contents: read`, `actions: read`, and `security-events: write`.
 
-For release verification, call `container-security.yml` with `image-refs-json` (JSON array of immutable `@sha256:` references) and `certificate-identity` or `certificate-identity-regexp`. Signature verification runs only after successful image scanning. Set `verify-signatures: false` explicitly for non-release/tag-based scans. Container security scans run with `contents: read`. Docker build workflows can opt in to Dependency Graph reporting through their own publication jobs; other callers can use `dependency-submission.yml` directly. Before deployment, use digest-pinned image references and an expected signer identity.
+Call `container-security.yml` with `image-refs-json` containing digest-pinned image references and either `certificate-identity` or `certificate-identity-regexp`. It scans images before verifying signatures and requires `contents: read`. Set `verify-signatures: false` to scan without signature verification.
 
-Language-specific `*-lint-and-scan.yml` workflows continue handling language tooling, while OSV-Scanner, Trivy, Semgrep, and Checkov share the `source-security-scan.yml` implementation. The shared Trivy scan emits a bounded job summary of rule IDs, levels, and locations by default. Messages and code snippets are omitted because they may contain matched secrets. Set `trivy-report-artifact-name` only when you want to retain the full SARIF artifact, which may contain sensitive matches.
+Language-specific lint workflows use `source-security-scan.yml` for shared security checks. Trivy summaries omit messages and code snippets to avoid exposing secrets. Set `trivy-report-artifact-name` to retain full SARIF, which may contain sensitive matches.
 
-Docker image builds can publish immutable, digest-pinned inventories without adding another job to the caller. Set `submit-dependencies: true` and `push: true` on `docker-build-and-push.yml` or `docker-buildx-bake.yml`. Publication runs only on trusted events targeting the default branch and remains opt-in by default. Bake publishes a separate snapshot for each pushed target with a digest in its build metadata. The caller must allow `contents: write` (and `packages: read` for GHCR) and pass `DOCKER_TOKEN` for registry access. Do not also submit the same image in a separate caller job.
+To submit Docker dependencies, set `submit-dependencies: true` and `push: true` on `docker-build-and-push.yml` or `docker-buildx-bake.yml`. Submission requires a trusted event targeting the default branch, `contents: write`, registry credentials via `DOCKER_TOKEN`, and `packages: read` for GHCR. Bake submits a snapshot per pushed target.
 
-Dependency Graph submission is an explicit, separate job for trusted `push`, `schedule`, or `workflow_dispatch` runs; PR events are rejected. Only the publication job requires `contents: write`. For example, on a trusted default-branch push (pin the workflow reference in production):
+For separate Dependency Graph submissions, call `dependency-submission.yml` on trusted `push`, `schedule`, or `workflow_dispatch` events:
 
 ```yaml
 jobs:
@@ -134,17 +134,15 @@ jobs:
       snapshot-correlator: source-root
 ```
 
-Use `scan-type: image` with `image-ref` for container inventories; optionally supply `registry`, `registry-user`, and the `DOCKER_TOKEN` secret for private registries. For an unpublished local image, pass `image-artifact-name` naming a current-run artifact containing `<name>.tar`. Give each source directory or image target a distinct, stable `snapshot-correlator` so submissions do not replace each other; keep the key unchanged across image digests. HTTP submission failures fail the job. Filesystem inventories include supported package dependencies; Dockerfile and Terraform misconfiguration findings remain in security scans.
+For container inventories, use `scan-type: image` with `image-ref`. Private registries also accept `registry`, `registry-user`, and `DOCKER_TOKEN`. For local images, set `image-artifact-name` to a current-run artifact containing `<name>.tar`. Use a distinct, stable `snapshot-correlator` per source directory or image target, and avoid duplicate submissions.
 
-Security trust boundaries remain explicit: TruffleHog reports no secret values, public OpenSSF Scorecard publication stays in the non-reusable repository-local `scorecard.yml`, OWASP ZAP is limited to explicitly authorized non-production targets, and Cosign verification requires a known signer identity. Cosign and BuildKit provenance do not establish SLSA compliance on their own.
-
-**Breaking changes:** `docker-image-scan.yml`, `docker-image-verify.yml`, and `microsoft-defender-for-devops.yml` were removed. Migrate release callers to `container-security.yml` and drop the old `secrets: GH_TOKEN` mapping, which the replacement does not accept. Use `dependency-submission.yml` if Dependency Graph SBOM submission is still needed; use the shared source checks and CodeQL for static analysis.
+Use OWASP ZAP only on explicitly authorized non-production targets. Public Scorecard publication uses the repository-local `scorecard.yml`. Cosign verification requires a known signer; signatures and build provenance alone do not establish SLSA compliance.
 
 ## Local QA
 
-Install local tools with `uv sync --locked` and `pnpm install --frozen-lockfile`, then run `pnpm qa`. Python and Node QA commands use the committed lockfiles, including fixed transitive dependencies. Dependency resolution retains the seven-day release cooldown.
+Install tools with `uv sync --locked` and `pnpm install --frozen-lockfile`, then run `pnpm qa`. Dependencies use committed lockfiles and a seven-day release cooldown.
 
-The root `osv-scanner.toml` records one temporary not-affected assessment for Checkov 3.3.26 and `ecdsa` 0.19.2: Checkov only loads public keys and verifies signatures, which the [upstream Minerva advisory](https://github.com/tlsfuzzer/python-ecdsa/security/advisories/GHSA-wj6h-64fc-37mp) explicitly excludes. The package itself is not patched. A guard checks the reviewed artifact hashes, sole dependent, and absence of root runtime dependencies before QA; any change requires reassessment. This advisory-specific exception expires on 2026-11-17 and does not propagate to nested project directories.
+The root `osv-scanner.toml` temporarily marks Checkov 3.3.26's use of `ecdsa` 0.19.2 as unaffected by the [Minerva advisory](https://github.com/tlsfuzzer/python-ecdsa/security/advisories/GHSA-wj6h-64fc-37mp): Checkov only verifies signatures with public keys. The package remains unpatched. QA validates this assessment's scope and artifact hashes. The exception expires on 2026-11-17 and applies only to the root project.
 
 ## License
 
