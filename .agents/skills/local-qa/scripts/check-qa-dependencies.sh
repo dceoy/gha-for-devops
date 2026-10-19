@@ -27,10 +27,10 @@ yq -p toml -o json uv.lock | jq -e '
   all(.package[] | select(.name == "checkov" or .name == "ecdsa");
     .source == {registry: "https://pypi.org/simple"} and
     if .name == "checkov" then
-      .version == "3.3.26" and
+      .version == "3.3.28" and
       ([.sdist.hash] + [.wheels[].hash] == [
-        "sha256:90df926e9acf102452ba28bebe910738d76d84b5ce5974475fadae4bc319ddcf",
-        "sha256:3b4157e4a308ed72e86352b65331045d7b8172f7a4492741db85de6cf1a49b42"
+        "sha256:df5cc64db4c8626da5abf3b67e6bbd3c70d9425ad2b2f28391e61e02a483a34e",
+        "sha256:895094b92ac0cce92660485409919a11ef05bfa94913b0b2b29f1ff2d9e79cd2"
       ])
     else
       .version == "0.19.2" and

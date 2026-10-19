@@ -23,10 +23,10 @@ setup() {
     [ "${status}" -eq 1 ]
     [[ "${output}" == *'Reassess'* ]]
   done << 'CASES'
-3.3.26 3.3.27
+3.3.28 3.3.29
 0.19.2 0.19.3
-3b4157e4a308ed72e86352b65331045d7b8172f7a4492741db85de6cf1a49b42 changed-wheel
-90df926e9acf102452ba28bebe910738d76d84b5ce5974475fadae4bc319ddcf changed-sdist
+895094b92ac0cce92660485409919a11ef05bfa94913b0b2b29f1ff2d9e79cd2 changed-wheel
+df5cc64db4c8626da5abf3b67e6bbd3c70d9425ad2b2f28391e61e02a483a34e changed-sdist
 840f5dc5e375c68f36c1a7a5b9caad28f95daa65185c9253c0c08dd952bb7399 changed-wheel
 62635b0ac1ca2e027f82122b5b81cb706edc38cd91c63dda28e4f3455a2bf930 changed-sdist
 CASES
