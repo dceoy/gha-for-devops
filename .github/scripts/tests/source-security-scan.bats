@@ -11,12 +11,28 @@ setup() {
 
 prepare_osv_stub() {
   export OSV_ARGS="${BATS_TEST_TMPDIR}/osv-args"
+  export MISE_ARGS="${BATS_TEST_TMPDIR}/mise-args"
   cat > "${BATS_TEST_TMPDIR}/osv-scanner" << 'SH'
 #!/usr/bin/env bash
-printf '%s\0' "$@" > "${OSV_ARGS}"
+printf '%s\\0' "$@" > "${OSV_ARGS}"
 exit "${OSV_EXIT_CODE:-0}"
 SH
-  chmod +x "${BATS_TEST_TMPDIR}/osv-scanner"
+  cat > "${BATS_TEST_TMPDIR}/mise" << 'SH'
+#!/usr/bin/env bash
+printf '%s\\0' "$@" > "${MISE_ARGS}"
+case "$1" in
+  install)
+    [[ "$2" == "osv-scanner@${OSV_SCANNER_VERSION}" ]]
+    ;;
+  exec)
+    [[ "$2" == "osv-scanner@${OSV_SCANNER_VERSION}" && "$3" == -- && "$4" == osv-scanner ]] || exit 1
+    shift 4
+    exec osv-scanner "$@"
+    ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "${BATS_TEST_TMPDIR}/osv-scanner" "${BATS_TEST_TMPDIR}/mise"
 }
 
 run_osv_scan() {
@@ -26,117 +42,46 @@ run_osv_scan() {
   cd "${BATS_TEST_TMPDIR}" || return
   run env "SCAN_PATH=${target}" "REQUIREMENTS_TXT_PATH=${requirements}" \
     "GITHUB_WORKSPACE=${BATS_TEST_TMPDIR}" \
-    "RUNNER_TEMP=${BATS_TEST_TMPDIR}" \
+    "PATH=${BATS_TEST_TMPDIR}:${PATH}" \
+    "OSV_SCANNER_VERSION=2.7.0" \
     "$@" bash -euo pipefail "${OSV_SCRIPT}"
 }
 
-prepare_download_stub() {
-  mkdir -p "${BATS_TEST_TMPDIR}/bin" "${BATS_TEST_TMPDIR}/download" "${BATS_TEST_TMPDIR}/fixtures"
-  export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
-  export FIXTURE_ASSETS="${BATS_TEST_TMPDIR}/fixtures"
-  export CURL_URLS="${BATS_TEST_TMPDIR}/curl-urls"
-  (cd "${REPO_ROOT}" && yq -r '.jobs."osv-scan".steps[] | select(.name == "Download OSV-Scanner") | .run' "${WORKFLOW}") > "${BATS_TEST_TMPDIR}/download.sh"
-  local arch
-  for arch in amd64 arm64; do
-    printf '#!/usr/bin/env bash\n# fixture %s\nexit 0\n' "${arch}" > "${FIXTURE_ASSETS}/osv-scanner_linux_${arch}"
-  done
-  # Exercise Renovate's configured extraction and version/digest replacement together.
-  node --input-type=module - "${REPO_ROOT}" "${BATS_TEST_TMPDIR}/download.sh" "${FIXTURE_ASSETS}" "${FIXTURE_VERSION:-v2.7.0}" << 'JS'
+@test "OSV-Scanner version is tracked by Renovate and installed with mise" {
+  prepare_osv_stub
+  [ "$(yq -r '.jobs."osv-scan".env.OSV_SCANNER_VERSION' "${WORKFLOW}")" = 2.7.0 ]
+  [ "$(yq -r '.jobs."osv-scan".env.MISE_VERSION' "${WORKFLOW}")" = 2026.8.5 ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .uses' "${WORKFLOW}")" = jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.install' "${WORKFLOW}")" = false ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.version' "${WORKFLOW}")" = '${{ env.MISE_VERSION }}' ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.cache' "${WORKFLOW}")" = false ]
+  yq -r '.jobs."osv-scan".steps[] | select(.name == "Install OSV-Scanner") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/install.sh"
+  run env "OSV_SCANNER_VERSION=2.7.0" "MISE_ARGS=${MISE_ARGS}" "PATH=${BATS_TEST_TMPDIR}:${PATH}" bash -euo pipefail "${BATS_TEST_TMPDIR}/install.sh"
+  [ "${status}" -eq 0 ]
+  mapfile -d '' -t args < "${MISE_ARGS}"
+  [ "${args[0]}" = install ]
+  [ "${args[1]}" = osv-scanner@2.7.0 ]
+  run ! grep -Fq 'checksum=' "${WORKFLOW}"
+  run ! grep -Fq 'github-release-attachments' "${WORKFLOW}"
+}
+
+@test "Renovate extracts the pinned OSV-Scanner and mise versions" {
+  node --input-type=module - "${REPO_ROOT}" << 'JS'
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
-const [root, script, assets, version] = process.argv.slice(2);
-const config = JSON.parse(readFileSync(`${root}/.github/renovate.json`, 'utf8'));
-const manager = config.customManagers.find(m => m.datasourceTemplate === 'github-release-attachments');
-assert.ok(new RegExp(manager.managerFilePatterns[0].slice(1, -1)).test('.github/workflows/source-security-scan.yml'));
-const regex = new RegExp(manager.matchStrings[0], 'g');
-const source = readFileSync(script, 'utf8');
-const matches = [...source.matchAll(regex)];
-assert.equal(matches.length, 2);
-const arches = ['amd64', 'arm64'];
-let index = 0;
-writeFileSync(script, source.replace(regex, (match, ...args) => {
-  const groups = args.at(-1);
-  assert.equal(groups.depName, 'google/osv-scanner');
-  assert.match(groups.currentValue, /^v\d+\.\d+\.\d+$/);
-  const digest = createHash('sha256').update(readFileSync(`${assets}/osv-scanner_linux_${arches[index++]}`)).digest('hex');
-  return match.replace(groups.currentValue, version).replace(groups.currentDigest, digest);
-}));
+import { readFileSync } from 'node:fs';
+const root = process.argv[2];
+const cfg = JSON.parse(readFileSync(`${root}/.github/renovate.json`, 'utf8'));
+const workflow = readFileSync(`${root}/.github/workflows/source-security-scan.yml`, 'utf8');
+const manager = cfg.customManagers.find(m => m.description === 'Update tool versions declared in GitHub Actions workflow env blocks');
+assert.ok(manager);
+const matches = [...workflow.matchAll(new RegExp(manager.matchStrings[0], 'g'))];
+for (const [name, version] of [['google/osv-scanner', '2.7.0'], ['jdx/mise', '2026.8.5']]) {
+  assert.ok(matches.some(m => m.groups.depName === name && m.groups.currentValue === version), name);
+}
 JS
-  cat > "${BATS_TEST_TMPDIR}/bin/curl" << 'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-url="${!#}"
-printf '%s\n' "${url}" >> "${CURL_URLS}"
-while [[ "$1" != --output ]]; do shift; done
-output="$2"
-case "${url}" in
-  https://github.com/google/osv-scanner/releases/download/"${FIXTURE_VERSION:-v2.7.0}"/osv-scanner_linux_amd64 | https://github.com/google/osv-scanner/releases/download/"${FIXTURE_VERSION:-v2.7.0}"/osv-scanner_linux_arm64) ;;
-  *) exit 1 ;;
-esac
-cp "${FIXTURE_ASSETS}/${url##*/}" "${output}"
-if [[ "${TAMPER_BINARY:-false}" == true ]]; then
-  printf '# tampered\n' >> "${output}"
-fi
-SH
-  chmod +x "${BATS_TEST_TMPDIR}/bin/curl"
-  cd "${BATS_TEST_TMPDIR}/download" || return
 }
 
-@test "OSV release installer verifies pinned Linux binaries for supported architectures" {
-  local version runner_arch asset_arch
-  while read -r version runner_arch asset_arch; do
-    export FIXTURE_VERSION="${version}"
-    prepare_download_stub
-    echo "architecture=${runner_arch}"
-    rm -f "${BATS_TEST_TMPDIR}/osv-scanner" "${CURL_URLS}"
-    run env RUNNER_OS=Linux "RUNNER_ARCH=${runner_arch}" \
-      "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
-    [ "${status}" -eq 0 ]
-    [ -x "${BATS_TEST_TMPDIR}/osv-scanner" ]
-    cmp "${FIXTURE_ASSETS}/osv-scanner_linux_${asset_arch}" "${BATS_TEST_TMPDIR}/osv-scanner"
-    [ "$(cat "${CURL_URLS}")" = "https://github.com/google/osv-scanner/releases/download/${version}/osv-scanner_linux_${asset_arch}" ]
-  done << 'CASES'
-v2.7.0 X64 amd64
-v2.7.0 ARM64 arm64
-v99.0.0 X64 amd64
-v99.0.0 ARM64 arm64
-CASES
-}
-
-@test "OSV release installer rejects tampered binaries before installing" {
-  prepare_download_stub
-  local arch
-  for arch in X64 ARM64; do
-    echo "architecture=${arch}"
-    rm -f "${BATS_TEST_TMPDIR}/osv-scanner" "${CURL_URLS}"
-    run env RUNNER_OS=Linux "RUNNER_ARCH=${arch}" \
-      TAMPER_BINARY=true "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
-    [ "${status}" -ne 0 ]
-    [ ! -e "${BATS_TEST_TMPDIR}/osv-scanner" ]
-    [[ "${output}" == *"FAILED"* ]]
-  done
-}
-
-@test "OSV release installer rejects unsupported platforms before downloading" {
-  prepare_download_stub
-  local os arch
-  while read -r os arch; do
-    echo "platform=${os}/${arch}"
-    rm -f "${BATS_TEST_TMPDIR}/osv-scanner" "${CURL_URLS}"
-    run env "RUNNER_OS=${os}" "RUNNER_ARCH=${arch}" \
-      "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
-    [ "${status}" -ne 0 ]
-    [ ! -e "${BATS_TEST_TMPDIR}/osv-scanner" ]
-    [ ! -e "${CURL_URLS}" ]
-    [[ "${output}" == *"No trusted OSV checksum"* ]]
-  done << 'CASES'
-Darwin ARM64
-Linux ARM
-CASES
-}
-
-@test "Source scanner downloads native OSV and delegates Trivy to the read-only core" {
+@test "Source scanner uses mise for OSV and delegates Trivy to the read-only core" {
   [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "$WORKFLOW")" = ubuntu-slim ]
   [ "$(yq -r '.jobs."osv-scan".runs-on' "$WORKFLOW")" = "\${{ inputs.runs-on }}" ]
   [ "$(yq -r '.jobs."trivy-scan".uses' "$WORKFLOW")" = '$/.github/workflows/trivy-scan.yml' ]
@@ -146,7 +91,7 @@ CASES
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "$WORKFLOW")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "$WORKFLOW")" = 1 ]
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "$WORKFLOW")" = false ]
-  run ! grep -Fq 'mise' "$WORKFLOW"
+  grep -Fq 'mise exec "osv-scanner@${OSV_SCANNER_VERSION}" -- osv-scanner' "$WORKFLOW"
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .uses' "$WORKFLOW")" = actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with."go-version"' "$WORKFLOW")" = stable ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with.cache' "$WORKFLOW")" = false ]
