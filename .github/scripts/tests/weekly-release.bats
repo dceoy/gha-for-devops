@@ -83,6 +83,16 @@ MOCK
   chmod +x "${BATS_TEST_TMPDIR}/bin/gh"
 }
 
+@test 'YAML parser setup installs the pinned tool outside the caller checkout' {
+  local setup_inputs parser_version
+  setup_inputs="$(yq -o=json '.jobs.plan.steps[] | select(.name == "Set up YAML parser") | .with' "${WORKFLOW_FILE}")"
+  [ "$(jq -r '.working_directory' <<< "${setup_inputs}")" = "\${{ runner.temp }}" ]
+  [ "$(jq -r 'has("mise_toml")' <<< "${setup_inputs}")" = false ]
+  parser_version="$(jq -r '.install_args' <<< "${setup_inputs}")"
+  [ "${parser_version}" = yq@4.53.3 ]
+  [ "$(yq -r '.jobs.plan.steps[] | select(.name == "Add pinned YAML parser to PATH") | .run' "${WORKFLOW_FILE}")" = "mise where ${parser_version} >> \"\${GITHUB_PATH}\"" ]
+}
+
 @test 'patch release is planned without requiring an earlier push CI run' {
   run bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]

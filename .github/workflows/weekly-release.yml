@@ -36,9 +36,7 @@ jobs:
         with:
           version: 2026.8.5
           working_directory: ${{ runner.temp }}
-          mise_toml: |
-            [tools]
-            yq = "4.53.3"
+          install_args: yq@4.53.3
       - name: Add pinned YAML parser to PATH
         run: mise where yq@4.53.3 >> "${GITHUB_PATH}"
       - name: Decide whether to release
