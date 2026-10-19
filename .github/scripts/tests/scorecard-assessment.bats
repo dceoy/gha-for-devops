@@ -20,7 +20,7 @@ JSON
 }
 
 run_summary() {
-  run env RESULT_FILE="${BATS_TEST_TMPDIR}/scorecard.json" MIN_SCORE="$1" bash "${BATS_TEST_TMPDIR}/summary.sh"
+  run env RESULT_FILE="${BATS_TEST_TMPDIR}/scorecard.json" MIN_SCORE="$1" bash -euo pipefail "${BATS_TEST_TMPDIR}/summary.sh"
 }
 
 @test "Reusable Scorecard profile never publishes and uses minimal permissions" {
@@ -68,18 +68,18 @@ run_summary() {
 }
 
 @test "min-score input is validated" {
-  run env MIN_SCORE=abc bash "${BATS_TEST_TMPDIR}/validate.sh"
+  run env MIN_SCORE=abc bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
   [ "${status}" -eq 1 ]
-  run env MIN_SCORE=11 bash "${BATS_TEST_TMPDIR}/validate.sh"
+  run env MIN_SCORE=11 bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
   [ "${status}" -eq 1 ]
-  run env MIN_SCORE=10.1 bash "${BATS_TEST_TMPDIR}/validate.sh"
+  run env MIN_SCORE=10.1 bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
   [ "${status}" -eq 1 ]
-  run env MIN_SCORE=10.999 bash "${BATS_TEST_TMPDIR}/validate.sh"
+  run env MIN_SCORE=10.999 bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
   [ "${status}" -eq 1 ]
-  run env MIN_SCORE=10.0 bash "${BATS_TEST_TMPDIR}/validate.sh"
+  run env MIN_SCORE=10.0 bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
   [ "${status}" -eq 0 ]
-  run env MIN_SCORE=7.5 bash "${BATS_TEST_TMPDIR}/validate.sh"
+  run env MIN_SCORE=7.5 bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
   [ "${status}" -eq 0 ]
-  run env MIN_SCORE= bash "${BATS_TEST_TMPDIR}/validate.sh"
+  run env MIN_SCORE= bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
   [ "${status}" -eq 0 ]
 }

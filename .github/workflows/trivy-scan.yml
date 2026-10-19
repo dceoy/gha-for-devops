@@ -67,6 +67,10 @@ on:
     secrets:
       DOCKER_TOKEN:
         required: false
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
 jobs:
   prepare:
     runs-on: ubuntu-slim
@@ -77,7 +81,6 @@ jobs:
       snapshot-namespace: ${{ steps.targets.outputs.snapshot-namespace }}
     steps:
       - id: targets
-        shell: bash
         env:
           SCAN_TYPE: ${{ inputs.scan-type }}
           SCAN_REF: ${{ inputs.scan-ref }}
@@ -85,7 +88,6 @@ jobs:
           IMAGE_TARGETS: ${{ inputs.image-targets-json }}
           CORRELATOR: ${{ inputs.snapshot-correlator }}
         run: |
-          set -euo pipefail
           if [[ "${SCAN_TYPE}" == filesystem ]]; then
             targets="$(jq -cn --arg ref "${SCAN_REF}" --arg correlator "${CORRELATOR}" '[{id:"0",ref:$ref,correlator:$correlator}]')"
           elif [[ "${SCAN_TYPE}" == image && -n "${IMAGE_TARGETS}" ]]; then
@@ -124,7 +126,6 @@ jobs:
         if: inputs.scan-type == 'image' && inputs.image-artifact-name != ''
         env:
           IMAGE_TAR: ${{ runner.temp }}/image/${{ inputs.image-artifact-name }}.tar
-        shell: bash
         run: docker load -i "${IMAGE_TAR}"
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         if: inputs.scan-type == 'image' && inputs.registry != ''
@@ -158,9 +159,7 @@ jobs:
           TRIVY_CONFIG: ${{ inputs.trivy-config }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
           REPORT: ${{ runner.temp }}/trivy-report
-        shell: bash
         run: |
-          set -euo pipefail
           case "${REPORT_FORMAT}" in table | sarif) ;; *) exit 1 ;; esac
           trivy convert --scanners "${TRIVY_SCANNERS}" --format "${REPORT_FORMAT}" --severity "${TRIVY_SEVERITY}" --exit-code 0 --output "${REPORT}" "${RAW_REPORT}"
           # Allowlisted metadata only: messages, titles and snippets can contain secrets.
@@ -197,7 +196,6 @@ jobs:
           inputs.submit-dependencies
           && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
           && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        shell: bash
         env:
           SNAPSHOT_CORRELATOR: ${{ matrix.correlator }}
           TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
@@ -205,7 +203,6 @@ jobs:
           RAW_REPORT: ${{ runner.temp }}/trivy.json
           SNAPSHOT: ${{ runner.temp }}/dependency-snapshot.json
         run: |
-          set -euo pipefail
           trivy convert --format github --severity "${TRIVY_SEVERITY}" --exit-code 0 --output "${SNAPSHOT}.raw" "${RAW_REPORT}"
           jq -e --arg correlator "${SNAPSHOT_CORRELATOR}" '.job.correlator=$correlator | select(.version==0 and (.manifests|type=="object"))' "${SNAPSHOT}.raw" > "${SNAPSHOT}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
@@ -226,7 +223,6 @@ jobs:
           TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
           TRIVY_CONFIG: ${{ inputs.trivy-config }}
           RAW_REPORT: ${{ runner.temp }}/trivy.json
-        shell: bash
         run: trivy convert --scanners "${TRIVY_SCANNERS}" --format table --severity "${TRIVY_SEVERITY}" --output /dev/null --exit-code "${EXIT_CODE}" "${RAW_REPORT}"
   submit:
     if: >-
@@ -254,9 +250,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SNAPSHOT: ${{ runner.temp }}/dependency-snapshot/dependency-snapshot.json
-        shell: bash
         run: |
-          set -euo pipefail
           jq -e '.version == 0 and (.detector.name | type == "string") and
             (.job.correlator | type == "string" and length > 0) and
             (.manifests | type == "object")' "${SNAPSHOT}" > /dev/null

@@ -112,6 +112,10 @@ on:
         required: false
 permissions:
   contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
 jobs:
   osv-scan:
     permissions:
@@ -128,9 +132,7 @@ jobs:
           persist-credentials: false
       - name: Download OSV-Scanner
         working-directory: ${{ runner.temp }}
-        shell: bash
         run: |
-          set -euo pipefail
           case "${RUNNER_OS}/${RUNNER_ARCH}" in
             Linux/X64) arch=amd64 ;;
             Linux/ARM64) arch=arm64 ;;
@@ -154,9 +156,7 @@ jobs:
         env:
           SCAN_PATH: ${{ inputs.package-path }}
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
-        shell: bash
         run: |
-          set -euo pipefail
           if [[ ! -d "${SCAN_PATH}" ]]; then
             echo "::error::Scan directory not found: ${SCAN_PATH}"
             exit 1
@@ -213,7 +213,6 @@ jobs:
           SEMGREP_FILE_NAMES: ${{ inputs.semgrep-file-names }}
           SEMGREP_RESTRICT_TO_FILES: ${{ inputs.semgrep-restrict-to-files }}
         run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          set -euo pipefail
           args=(semgrep scan --config p/default --metrics off --error)
           while IFS= read -r pattern; do
             if [[ -n "${pattern}" ]]; then

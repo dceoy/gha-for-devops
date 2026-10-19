@@ -82,7 +82,7 @@ SH
   local code
   for code in 0 22 7; do
     : > "$GITHUB_STEP_SUMMARY"
-    run env CURL_STATUS="$code" GH_TOKEN=test-token GITHUB_API_URL=https://api.github.com GITHUB_REPOSITORY=owner/repo bash "$PUBLISH_SCRIPT"
+    run env CURL_STATUS="$code" GH_TOKEN=test-token GITHUB_API_URL=https://api.github.com GITHUB_REPOSITORY=owner/repo bash -euo pipefail "$PUBLISH_SCRIPT"
     [ "$status" -eq "$code" ]
     grep -Fxq -- '--fail-with-body' "$CURL_ARGS"
     grep -Fxq -- '--data-binary' "$CURL_ARGS"
@@ -91,7 +91,7 @@ SH
   done
   printf '%s\n' '{"version":0,"detector":{"name":"trivy"},"job":{"correlator":""},"manifests":{}}' > "$SNAPSHOT"
   rm -f "$CURL_ARGS"
-  run env CURL_STATUS=0 GH_TOKEN=test-token GITHUB_API_URL=https://api.github.com GITHUB_REPOSITORY=owner/repo bash "$PUBLISH_SCRIPT"
+  run env CURL_STATUS=0 GH_TOKEN=test-token GITHUB_API_URL=https://api.github.com GITHUB_REPOSITORY=owner/repo bash -euo pipefail "$PUBLISH_SCRIPT"
   [ "$status" -ne 0 ]
   [ ! -e "$CURL_ARGS" ]
 }
@@ -118,13 +118,13 @@ JSON
   use_conversion_config "Convert report from JSON"
   local format
   for format in table sarif; do
-    run env REPORT_FORMAT="$format" bash "$BATS_TEST_TMPDIR/report.sh"
+    run env REPORT_FORMAT="$format" bash -euo pipefail "$BATS_TEST_TMPDIR/report.sh"
     [ "$status" -eq 0 ]
     grep -Fq CVE-2026-1234 "$REPORT"
   done
   use_conversion_config "Convert dependency snapshot without rescanning"
   [ -n "$TRIVY_CONFIG" ]
-  run bash "$BATS_TEST_TMPDIR/snapshot.sh"
+  run bash -euo pipefail "$BATS_TEST_TMPDIR/snapshot.sh"
   [ "$status" -eq 0 ]
   [ "$(jq -r '.job.correlator' "$SNAPSHOT")" = source-root ]
   [ "$(jq -r '.manifests["package-lock.json"].resolved.lodash.package_url' "$SNAPSHOT")" = pkg:npm/lodash@4.17.20 ]
@@ -140,7 +140,7 @@ JSON
   use_conversion_config "Enforce findings policy"
   local code
   for code in 0 7; do
-    run env EXIT_CODE="$code" bash "$BATS_TEST_TMPDIR/enforce.sh"
+    run env EXIT_CODE="$code" bash -euo pipefail "$BATS_TEST_TMPDIR/enforce.sh"
     [ "$status" -eq "$code" ]
   done
 }
@@ -159,9 +159,9 @@ JSON
   for format in table sarif; do
     echo "format: $format"
     : > "$GITHUB_STEP_SUMMARY"
-    run env REPORT_FORMAT="$format" bash "$BATS_TEST_TMPDIR/report.sh"
+    run env REPORT_FORMAT="$format" bash -euo pipefail "$BATS_TEST_TMPDIR/report.sh"
     [ "$status" -eq 0 ]
-    run env EXIT_CODE=7 bash "$BATS_TEST_TMPDIR/enforce.sh"
+    run env EXIT_CODE=7 bash -euo pipefail "$BATS_TEST_TMPDIR/enforce.sh"
     [ "$status" -eq 7 ]
     grep -Fq CVE-2026-1234 "$GITHUB_STEP_SUMMARY"
     grep -Fq 'lodash&lt;&amp;&gt;' "$GITHUB_STEP_SUMMARY"
@@ -180,7 +180,7 @@ JSON
     {Target:("p" * 600),Class:"lang-pkgs",Type:"npm",Vulnerabilities:[range(99) | {VulnerabilityID:("CVE-" + tostring),PkgName:("x" * 300),InstalledVersion:"1.0",Severity:"HIGH"}]},
     {Target:"Dockerfile",Class:"config",Type:"dockerfile",Misconfigurations:[{ID:"DS002",AVDID:"AVD-DS-0002",Severity:"HIGH"},{ID:"DS003",AVDID:"AVD-DS-0003",Severity:"HIGH"}]}]}' > "$RAW_REPORT"
   yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
-  run env REPORT_FORMAT=table bash "$BATS_TEST_TMPDIR/report.sh"
+  run env REPORT_FORMAT=table bash -euo pipefail "$BATS_TEST_TMPDIR/report.sh"
   [ "$status" -eq 0 ]
   [ "$(grep -c '<tr><td>' "$GITHUB_STEP_SUMMARY")" -eq 100 ]
   grep -Fq AVD-DS-0002 "$GITHUB_STEP_SUMMARY"
@@ -201,7 +201,7 @@ printf '%s\n' SECRET_SENTINEL > "$REPORT"
 SH
   chmod +x "$BATS_TEST_TMPDIR/bin/trivy"
   export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
-  run bash "$script"
+  run bash -euo pipefail "$script"
   [ "$status" -eq 0 ]
   grep -Fq 'Vulnerabilities: 1' "$GITHUB_STEP_SUMMARY"
   grep -Fq 'Secrets: 1' "$GITHUB_STEP_SUMMARY"
@@ -221,7 +221,7 @@ SH
   [ "$(yq -r '.jobs.history.with."scan-mode"' "${REPO_ROOT}/.github/workflows/security-pr.yml")" = '${{ github.event_name == '\''push'\'' && github.event.created && '\''full'\'' || '\''range'\'' }}' ]
   yq -r '.jobs.trufflehog.steps[] | select(.id == "range") | .run' "${REPO_ROOT}/.github/workflows/git-secret-scan.yml" > "${BATS_TEST_TMPDIR}/range.sh"
   cd "${REPO_ROOT}"
-  run env SCAN_MODE=full BASE_INPUT= PR_BASE= PUSH_BEFORE=0000000000000000000000000000000000000000 GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/range-output" bash "${BATS_TEST_TMPDIR}/range.sh"
+  run env SCAN_MODE=full BASE_INPUT= PR_BASE= PUSH_BEFORE=0000000000000000000000000000000000000000 GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/range-output" bash -euo pipefail "${BATS_TEST_TMPDIR}/range.sh"
   [ "${status}" -eq 0 ]
   grep -Fxq 'skip=false' "${BATS_TEST_TMPDIR}/range-output"
 }

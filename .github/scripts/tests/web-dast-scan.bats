@@ -33,7 +33,7 @@ validate() {
   # usage: validate KEY=VALUE...; defaults describe a valid passive baseline request
   run env EVENT_NAME=workflow_call IS_FORK= TARGET_URL=https://staging.example.test/app CONFIRMED=true \
     SCAN_MODE=baseline API_DEFINITION= API_FORMAT=openapi ACTIVE_SCAN=false ENVIRONMENT= FAIL_ON_RISK=high \
-    "$@" bash "${BATS_TEST_TMPDIR}/validate.sh"
+    "$@" bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
 }
 
 @test "Web DAST workflow is read-only, pinned, passive by default, and creates no issues" {
@@ -103,7 +103,7 @@ validate() {
 
 run_zap() {
   run env TARGET_URL=https://staging.example.test SCAN_MODE=baseline API_DEFINITION= API_FORMAT=openapi \
-    ACTIVE_SCAN=false SPIDER_MINUTES=2 SCAN_TIMEOUT=7 ZAP_IMAGE=zap@sha256:x "$@" bash "${BATS_TEST_TMPDIR}/zap.sh"
+    ACTIVE_SCAN=false SPIDER_MINUTES=2 SCAN_TIMEOUT=7 ZAP_IMAGE=zap@sha256:x "$@" bash -euo pipefail "${BATS_TEST_TMPDIR}/zap.sh"
 }
 
 @test "Baseline runs the passive script with host networking and no alert-based exit" {
@@ -198,7 +198,7 @@ run_zap() {
 {"site":[{"alerts":[{"pluginid":"20002","name":"Leak","riskcode":"2","count":"3","url":"https://staging.example.test/callback?session_id=PRIVATEVALUE","evidence":"Authorization: Bearer abc.def-ghi\\r\\nCookie: sid=SESSIONSECRET\\r\\nGET /x?api_key=KEY123&ok=1 token=TOKEN456 ${jwt_header}.${jwt_payload}.sig"}]}]}
 JSON
   printf '<p>Set-Cookie: session=HTMLSECRET; Path=/</p>' > "${workdir}/report.html"
-  run env WORKDIR="${workdir}" bash "${BATS_TEST_TMPDIR}/redact.sh"
+  run env WORKDIR="${workdir}" bash -euo pipefail "${BATS_TEST_TMPDIR}/redact.sh"
   [ "${status}" -eq 0 ]
   [ ! -e "${workdir}" ]
   local out="${RUNNER_TEMP}/zap-report"
@@ -212,7 +212,7 @@ JSON
   local workdir="${RUNNER_TEMP}/zap-wrk"
   mkdir -p "${workdir}"
   printf '{"site":[{"alerts":[{"riskcode":"PRIVATEVALUE"}]}]}' > "${workdir}/report.json"
-  run env WORKDIR="${workdir}" bash "${BATS_TEST_TMPDIR}/redact.sh"
+  run env WORKDIR="${workdir}" bash -euo pipefail "${BATS_TEST_TMPDIR}/redact.sh"
   [ "${status}" -ne 0 ]
 }
 
@@ -227,7 +227,7 @@ JSON
 }
 
 run_enforce() {
-  run env REPORT="${BATS_TEST_TMPDIR}/report.json" FAIL_ON_RISK="$1" bash "${BATS_TEST_TMPDIR}/enforce.sh"
+  run env REPORT="${BATS_TEST_TMPDIR}/report.json" FAIL_ON_RISK="$1" bash -euo pipefail "${BATS_TEST_TMPDIR}/enforce.sh"
 }
 
 @test "Severity policy fails only at or above the chosen risk" {

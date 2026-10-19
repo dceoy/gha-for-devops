@@ -34,6 +34,10 @@ on:
 permissions:
   contents: read
   actions: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
 jobs:
   scorecard:
     runs-on: ubuntu-latest
@@ -42,7 +46,6 @@ jobs:
         env:
           MIN_SCORE: ${{ inputs.min-score }}
         run: |
-          set -euo pipefail
           if [[ -n "${MIN_SCORE}" ]] && ! [[ "${MIN_SCORE}" =~ ^([0-9](\.[0-9]+)?|10(\.0+)?)$ ]]; then
             echo "::error::min-score must be a number between 0 and 10."
             exit 1
@@ -71,9 +74,7 @@ jobs:
         env:
           RESULT_FILE: ${{ runner.temp }}/scorecard.json
           MIN_SCORE: ${{ inputs.min-score }}
-        shell: bash
         run: |
-          set -euo pipefail
           score="$(jq -r '.score' "${RESULT_FILE}")"
           {
             echo "## OpenSSF Scorecard (private assessment, not published)"

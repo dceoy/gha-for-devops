@@ -27,7 +27,7 @@ run_osv_scan() {
   run env "SCAN_PATH=${target}" "REQUIREMENTS_TXT_PATH=${requirements}" \
     "GITHUB_WORKSPACE=${BATS_TEST_TMPDIR}" \
     "RUNNER_TEMP=${BATS_TEST_TMPDIR}" \
-    "$@" bash "${OSV_SCRIPT}"
+    "$@" bash -euo pipefail "${OSV_SCRIPT}"
 }
 
 prepare_download_stub() {
@@ -64,7 +64,7 @@ SH
   local arch
   for arch in X64 ARM64; do
     run env RUNNER_OS=Linux "RUNNER_ARCH=${arch}" OSV_SCANNER_VERSION=2.7.0 \
-      "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash "${BATS_TEST_TMPDIR}/download.sh"
+      "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
     [ "${status}" -eq 0 ]
     [ -x "${BATS_TEST_TMPDIR}/osv-scanner" ]
     rm "${BATS_TEST_TMPDIR}/osv-scanner"
@@ -76,7 +76,7 @@ SH
   local mode
   for mode in mismatch missing malformed duplicate; do
     run env RUNNER_OS=Linux RUNNER_ARCH=X64 OSV_SCANNER_VERSION=2.7.0 \
-      "CHECKSUM_MODE=${mode}" "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash "${BATS_TEST_TMPDIR}/download.sh"
+      "CHECKSUM_MODE=${mode}" "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
     [ "${status}" -ne 0 ]
     [ ! -e "${BATS_TEST_TMPDIR}/osv-scanner" ]
   done
