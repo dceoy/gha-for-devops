@@ -3,14 +3,15 @@
 setup() {
   # Exercise the actual inline run blocks from the standalone release workflow.
   export WORKFLOW_FILE="${BATS_TEST_DIRNAME}/../../workflows/weekly-release.yml"
+  export RELEASE_SCRIPT="${BATS_TEST_DIRNAME}/../weekly-release.sh"
   export PLAN_SCRIPT="${BATS_TEST_TMPDIR}/plan.sh"
   export PUBLISH_SCRIPT="${BATS_TEST_TMPDIR}/publish.sh"
-  yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${WORKFLOW_FILE}" > "${PLAN_SCRIPT}"
-  yq -r '.jobs.publish.steps[] | select(.id == "publish") | .run' "${WORKFLOW_FILE}" > "${PUBLISH_SCRIPT}"
+  printf 'exec bash "%s" plan\n' "${RELEASE_SCRIPT}" > "${PLAN_SCRIPT}"
+  printf 'exec bash "%s" publish\n' "${RELEASE_SCRIPT}" > "${PUBLISH_SCRIPT}"
   export TEST_DIR="${BATS_TEST_TMPDIR}/candidate"
   mkdir -p "${TEST_DIR}/.github/workflows" "${TEST_DIR}/.github/scripts"
   cd "${TEST_DIR}" || exit
-  bash -n "${PLAN_SCRIPT}" "${PUBLISH_SCRIPT}"
+  bash -n "${RELEASE_SCRIPT}" "${PLAN_SCRIPT}" "${PUBLISH_SCRIPT}"
   git init -q -b main
   git config user.email ci@example.invalid
   git config user.name 'Release test'
@@ -81,6 +82,11 @@ case "$1 $2" in
 esac
 MOCK
   chmod +x "${BATS_TEST_TMPDIR}/bin/gh"
+}
+
+@test 'weekly release executes the repository script' {
+  [ "$(yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/weekly-release.sh plan' ]
+  [ "$(yq -r '.jobs.publish.steps[] | select(.id == "publish") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/weekly-release.sh publish' ]
 }
 
 @test 'weekly release runs only on the weekly schedule or manual dispatch' {
