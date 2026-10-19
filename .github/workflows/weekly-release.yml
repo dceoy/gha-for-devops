@@ -1,11 +1,9 @@
 ---
 name: Weekly release
 on:
-  workflow_call:
-    secrets:
-      GH_TOKEN:
-        required: false
-        description: Optional App or PAT token for mise update PR checks; the default GITHUB_TOKEN does not trigger them
+  schedule:
+    - cron: '15 0 * * 1'  # Mondays 09:15 JST (UTC+09:00)
+  workflow_dispatch:
 concurrency:
   group: weekly-release-${{ github.repository }}
   cancel-in-progress: false
@@ -35,10 +33,7 @@ jobs:
         uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
         with:
           version: 2026.8.5
-          working_directory: ${{ runner.temp }}
-          install_args: yq@4.53.3
-      - name: Add pinned YAML parser to PATH
-        run: mise where yq@4.53.3 >> "${GITHUB_PATH}"
+          install_args: yq
       - name: Decide whether to release
         id: plan
         env:

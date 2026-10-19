@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 setup() {
-  # Exercise the actual inline run blocks from the reusable workflow.
+  # Exercise the actual inline run blocks from the standalone release workflow.
   export WORKFLOW_FILE="${BATS_TEST_DIRNAME}/../../workflows/weekly-release.yml"
   export PLAN_SCRIPT="${BATS_TEST_TMPDIR}/plan.sh"
   export PUBLISH_SCRIPT="${BATS_TEST_TMPDIR}/publish.sh"
@@ -83,14 +83,26 @@ MOCK
   chmod +x "${BATS_TEST_TMPDIR}/bin/gh"
 }
 
-@test 'YAML parser setup installs the pinned tool outside the caller checkout' {
-  local setup_inputs parser_version
+@test 'weekly release runs only on the weekly schedule or manual dispatch' {
+  [ "$(yq -o=json '.on' "${WORKFLOW_FILE}" | jq -c 'keys | sort')" = '["schedule","workflow_dispatch"]' ]
+  [ "$(yq -r '.on.schedule[0].cron' "${WORKFLOW_FILE}")" = '15 0 * * 1' ]
+}
+
+@test 'CI no longer calls or schedules weekly releases' {
+  local ci_workflow="${BATS_TEST_DIRNAME}/../../workflows/ci.yml"
+  [ "$(yq -o=json '.on' "${ci_workflow}" | jq -r 'has("schedule")')" = false ]
+  [ "$(yq -o=json '.jobs' "${ci_workflow}" | jq -r 'has("weekly-release")')" = false ]
+  [ "$(yq -o=json '.on.workflow_dispatch.inputs.workflow.options' "${ci_workflow}" | jq -r 'index("weekly-release")')" = null ]
+}
+
+@test 'YAML parser is installed from the repository mise configuration' {
+  local setup_inputs
   setup_inputs="$(yq -o=json '.jobs.plan.steps[] | select(.name == "Set up YAML parser") | .with' "${WORKFLOW_FILE}")"
-  [ "$(jq -r '.working_directory' <<< "${setup_inputs}")" = "\${{ runner.temp }}" ]
+  [ "$(jq -r '.install_args' <<< "${setup_inputs}")" = yq ]
+  [ "$(jq -r 'has("working_directory")' <<< "${setup_inputs}")" = false ]
   [ "$(jq -r 'has("mise_toml")' <<< "${setup_inputs}")" = false ]
-  parser_version="$(jq -r '.install_args' <<< "${setup_inputs}")"
-  [ "${parser_version}" = yq@4.53.3 ]
-  [ "$(yq -r '.jobs.plan.steps[] | select(.name == "Add pinned YAML parser to PATH") | .run' "${WORKFLOW_FILE}")" = "mise where ${parser_version} >> \"\${GITHUB_PATH}\"" ]
+  [ "$(yq -r '[.jobs.plan.steps[] | select(.name == "Add pinned YAML parser to PATH")] | length' "${WORKFLOW_FILE}")" = 0 ]
+  grep -qx 'yq = "latest"' "${BATS_TEST_DIRNAME}/../../../mise.toml"
 }
 
 @test 'patch release is planned without requiring an earlier push CI run' {
