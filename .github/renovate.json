@@ -1,16 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
   "minimumReleaseAge": "7 days",
   "customManagers": [
     {
       "customType": "regex",
       "description": "Update tool versions declared in GitHub Actions workflow env blocks",
-      "fileMatch": [
-        "^\\.github/workflows/.+\\.ya?ml$"
-      ],
+      "fileMatch": ["^\\.github/workflows/.+\\.ya?ml$"],
       "matchStrings": [
         "[ \\t]*# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[A-Za-z0-9_./-]+)(?: versioning=(?<versioning>[a-z0-9-]+))?[ \\t]*\\r?\\n[ \\t]*\\S+_VERSION:[ \\t]*['\"]?(?<currentValue>v?[0-9A-Za-z.+_-]+)['\"]?[ \\t]*(?:\\r\\n|\\r|\\n|$)"
       ],
@@ -19,9 +15,7 @@
     {
       "customType": "regex",
       "description": "Update annotated reusable workflow input default versions",
-      "fileMatch": [
-        "^\\.github/workflows/.+\\.ya?ml$"
-      ],
+      "fileMatch": ["^\\.github/workflows/.+\\.ya?ml$"],
       "matchStrings": [
         "[ \\t]*# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[A-Za-z0-9_./-]+)(?: versioning=(?<versioning>[a-z0-9-]+))?[ \\t]*\\r?\\n[ \\t]*default:[ \\t]*['\"]?(?<currentValue>v?[0-9A-Za-z.+_-]+)['\"]?[ \\t]*(?:\\r\\n|\\r|\\n|$)"
       ],
@@ -30,9 +24,7 @@
     {
       "customType": "regex",
       "description": "Update digest-pinned Docker image variables in GitHub Actions workflows",
-      "managerFilePatterns": [
-        "/^\\.github\\/workflows\\/.+\\.ya?ml$/"
-      ],
+      "managerFilePatterns": ["/^\\.github\\/workflows\\/.+\\.ya?ml$/"],
       "matchStrings": [
         "[ \\t]*[A-Z][A-Z0-9_]*_IMAGE:[ \\t]*(?<depName>[a-z0-9][a-z0-9./_-]*):(?<currentValue>[A-Za-z0-9_][A-Za-z0-9._+-]*)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
@@ -42,9 +34,7 @@
     {
       "customType": "regex",
       "description": "Update SHA-pinned GitHub Actions in README examples",
-      "managerFilePatterns": [
-        "/^README\\.md(?:\\.tmpl)?$/"
-      ],
+      "managerFilePatterns": ["/^README\\.md(?:\\.tmpl)?$/"],
       "matchStrings": [
         "uses:[ \\t]+(?<depName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@(?<currentDigest>[a-f0-9]{40})[ \\t]+#[ \\t]+(?<currentValue>v[0-9]+(?:\\.[0-9]+){0,2})"
       ],
@@ -55,36 +45,24 @@
   "packageRules": [
     {
       "description": "Automatically merge minor and patch-level updates",
-      "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "digest"
-      ],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
       "automerge": true,
       "automergeType": "branch"
     },
     {
       "description": "Require review for workflow tool versions updated by regex managers",
-      "matchManagers": [
-        "custom.regex"
-      ],
+      "matchManagers": ["custom.regex"],
       "automerge": false
     },
     {
       "description": "Require review for mise-managed tool versions",
-      "matchManagers": [
-        "mise"
-      ],
+      "matchManagers": ["mise"],
       "automerge": false
     },
     {
       "description": "Allow GHCR Docker digest updates without release timestamps",
-      "matchDatasources": [
-        "docker"
-      ],
-      "matchPackageNames": [
-        "ghcr.io/**"
-      ],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/**"],
       "minimumReleaseAgeBehaviour": "timestamp-optional"
     }
   ]
