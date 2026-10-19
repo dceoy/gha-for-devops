@@ -14,6 +14,18 @@
     },
     {
       "customType": "regex",
+      "description": "Update OSV-Scanner release versions together with architecture-specific checksums",
+      "managerFilePatterns": [
+        "/^\\.github\\/workflows\\/source-security-scan\\.yml$/"
+      ],
+      "matchStrings": [
+        "[ \\t]*# renovate: datasource=github-release-attachments depName=(?<depName>google/osv-scanner)[ \\t]*\\r?\\n[ \\t]*version=(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)[ \\t]*\\r?\\n[ \\t]*checksum=(?<currentDigest>[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "github-release-attachments",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
       "description": "Update annotated reusable workflow input default versions",
       "fileMatch": ["^\\.github/workflows/.+\\.ya?ml$"],
       "matchStrings": [
