@@ -35,15 +35,34 @@ prepare_download_stub() {
   export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
   export FIXTURE_ASSETS="${BATS_TEST_TMPDIR}/fixtures"
   export CURL_URLS="${BATS_TEST_TMPDIR}/curl-urls"
-  yq -r '.jobs."osv-scan".steps[] | select(.name == "Download OSV-Scanner") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/download.sh"
-  local arch pinned_checksum fixture_checksum
+  (cd "${REPO_ROOT}" && yq -r '.jobs."osv-scan".steps[] | select(.name == "Download OSV-Scanner") | .run' "${WORKFLOW}") > "${BATS_TEST_TMPDIR}/download.sh"
+  local arch
   for arch in amd64 arm64; do
     printf '#!/usr/bin/env bash\n# fixture %s\nexit 0\n' "${arch}" > "${FIXTURE_ASSETS}/osv-scanner_linux_${arch}"
-    fixture_checksum="$(sha256sum "${FIXTURE_ASSETS}/osv-scanner_linux_${arch}" | cut -d ' ' -f 1)"
-    pinned_checksum="$(awk -v arch="${arch}" '$0 ~ "arch=" arch "$" {getline; sub(/^[[:space:]]*checksum=/, ""); print}' "${BATS_TEST_TMPDIR}/download.sh")"
-    [[ "${pinned_checksum}" =~ ^[a-f0-9]{64}$ ]]
-    sed -i "s/${pinned_checksum}/${fixture_checksum}/" "${BATS_TEST_TMPDIR}/download.sh"
   done
+  # Exercise Renovate's configured extraction and version/digest replacement together.
+  node --input-type=module - "${REPO_ROOT}" "${BATS_TEST_TMPDIR}/download.sh" "${FIXTURE_ASSETS}" "${FIXTURE_VERSION:-v2.7.0}" << 'JS'
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+const [root, script, assets, version] = process.argv.slice(2);
+const config = JSON.parse(readFileSync(`${root}/.github/renovate.json`, 'utf8'));
+const manager = config.customManagers.find(m => m.datasourceTemplate === 'github-release-attachments');
+assert.ok(new RegExp(manager.managerFilePatterns[0].slice(1, -1)).test('.github/workflows/source-security-scan.yml'));
+const regex = new RegExp(manager.matchStrings[0], 'g');
+const source = readFileSync(script, 'utf8');
+const matches = [...source.matchAll(regex)];
+assert.equal(matches.length, 2);
+const arches = ['amd64', 'arm64'];
+let index = 0;
+writeFileSync(script, source.replace(regex, (match, ...args) => {
+  const groups = args.at(-1);
+  assert.equal(groups.depName, 'google/osv-scanner');
+  assert.match(groups.currentValue, /^v\d+\.\d+\.\d+$/);
+  const digest = createHash('sha256').update(readFileSync(`${assets}/osv-scanner_linux_${arches[index++]}`)).digest('hex');
+  return match.replace(groups.currentValue, version).replace(groups.currentDigest, digest);
+}));
+JS
   cat > "${BATS_TEST_TMPDIR}/bin/curl" << 'SH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -52,7 +71,7 @@ printf '%s\n' "${url}" >> "${CURL_URLS}"
 while [[ "$1" != --output ]]; do shift; done
 output="$2"
 case "${url}" in
-  https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_amd64 | https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_arm64) ;;
+  https://github.com/google/osv-scanner/releases/download/"${FIXTURE_VERSION:-v2.7.0}"/osv-scanner_linux_amd64 | https://github.com/google/osv-scanner/releases/download/"${FIXTURE_VERSION:-v2.7.0}"/osv-scanner_linux_arm64) ;;
   *) exit 1 ;;
 esac
 cp "${FIXTURE_ASSETS}/${url##*/}" "${output}"
@@ -65,20 +84,23 @@ SH
 }
 
 @test "OSV release installer verifies pinned Linux binaries for supported architectures" {
-  prepare_download_stub
-  local runner_arch asset_arch
-  while read -r runner_arch asset_arch; do
+  local version runner_arch asset_arch
+  while read -r version runner_arch asset_arch; do
+    export FIXTURE_VERSION="${version}"
+    prepare_download_stub
     echo "architecture=${runner_arch}"
     rm -f "${BATS_TEST_TMPDIR}/osv-scanner" "${CURL_URLS}"
-    run env RUNNER_OS=Linux "RUNNER_ARCH=${runner_arch}" OSV_SCANNER_VERSION=2.7.0 \
+    run env RUNNER_OS=Linux "RUNNER_ARCH=${runner_arch}" \
       "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
     [ "${status}" -eq 0 ]
     [ -x "${BATS_TEST_TMPDIR}/osv-scanner" ]
     cmp "${FIXTURE_ASSETS}/osv-scanner_linux_${asset_arch}" "${BATS_TEST_TMPDIR}/osv-scanner"
-    [ "$(cat "${CURL_URLS}")" = "https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_${asset_arch}" ]
+    [ "$(cat "${CURL_URLS}")" = "https://github.com/google/osv-scanner/releases/download/${version}/osv-scanner_linux_${asset_arch}" ]
   done << 'CASES'
-X64 amd64
-ARM64 arm64
+v2.7.0 X64 amd64
+v2.7.0 ARM64 arm64
+v99.0.0 X64 amd64
+v99.0.0 ARM64 arm64
 CASES
 }
 
@@ -88,7 +110,7 @@ CASES
   for arch in X64 ARM64; do
     echo "architecture=${arch}"
     rm -f "${BATS_TEST_TMPDIR}/osv-scanner" "${CURL_URLS}"
-    run env RUNNER_OS=Linux "RUNNER_ARCH=${arch}" OSV_SCANNER_VERSION=2.7.0 \
+    run env RUNNER_OS=Linux "RUNNER_ARCH=${arch}" \
       TAMPER_BINARY=true "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
     [ "${status}" -ne 0 ]
     [ ! -e "${BATS_TEST_TMPDIR}/osv-scanner" ]
@@ -96,22 +118,21 @@ CASES
   done
 }
 
-@test "OSV release installer rejects unpinned versions and unsupported platforms before downloading" {
+@test "OSV release installer rejects unsupported platforms before downloading" {
   prepare_download_stub
-  local version os arch
-  while read -r version os arch; do
-    echo "tuple=${version}/${os}/${arch}"
+  local os arch
+  while read -r os arch; do
+    echo "platform=${os}/${arch}"
     rm -f "${BATS_TEST_TMPDIR}/osv-scanner" "${CURL_URLS}"
-    run env "RUNNER_OS=${os}" "RUNNER_ARCH=${arch}" "OSV_SCANNER_VERSION=${version}" \
+    run env "RUNNER_OS=${os}" "RUNNER_ARCH=${arch}" \
       "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
     [ "${status}" -ne 0 ]
     [ ! -e "${BATS_TEST_TMPDIR}/osv-scanner" ]
     [ ! -e "${CURL_URLS}" ]
     [[ "${output}" == *"No trusted OSV checksum"* ]]
   done << 'CASES'
-2.7.1 Linux X64
-2.7.0 Darwin ARM64
-2.7.0 Linux ARM
+Darwin ARM64
+Linux ARM
 CASES
 }
 
