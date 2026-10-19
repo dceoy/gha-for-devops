@@ -31,75 +31,7 @@ validate() {
 @test "Verification workflow is read-only, pinned, and requires identity and issuer policy" {
   [ "$(yq -r '.jobs.verify.permissions | keys | join(",")' "${WORKFLOW}")" = contents ]
   yq -r '.jobs.verify.steps[] | select(.name == "Install cosign") | .uses' "${WORKFLOW}" \
-    | grep -Eq '^sigstore/cosign-installer@[a-f0-9]{40}
-  [ "$(yq -r '.on.workflow_call.inputs."image-refs-json".required' "${WORKFLOW}")" = true ]
-  [ "$(yq -r '.on.workflow_call.inputs."verify-signatures".default' "${WORKFLOW}")" = true ]
-  [ "$(yq -r '.on.workflow_call.inputs."certificate-oidc-issuer".default' "${WORKFLOW}")" = https://token.actions.githubusercontent.com ]
-  for input in certificate-identity certificate-identity-regexp; do
-    [ "$(INPUT="${input}" yq -r '.on.workflow_call.inputs[strenv(INPUT)].default // ""' "${WORKFLOW}")" = "" ]
-  done
-}
-
-@test "Policy validation accepts digest-pinned images with one anchored identity" {
-  validate "${IMAGE}" "" "${REGEXP}" "${ISSUER}"
-  [ "${status}" -eq 0 ]
-  validate "${IMAGE}" "https://github.com/o/r/.github/workflows/w.yml@refs/heads/main" "" "${ISSUER}"
-  [ "${status}" -eq 0 ]
-}
-
-@test "Policy validation rejects tags, missing or ambiguous identity, and unanchored patterns" {
-  validate "ghcr.io/example/app:latest" "" "${REGEXP}" "${ISSUER}"
-  [ "${status}" -eq 1 ]
-  [[ "${output}" == *"pinned by digest"* ]]
-  validate "ghcr.io/example/app:1.0@${DIGEST}x" "" "${REGEXP}" "${ISSUER}"
-  [ "${status}" -eq 1 ]
-  validate "${IMAGE}" "" "" "${ISSUER}"
-  [ "${status}" -eq 1 ]
-  [[ "${output}" == *"identity is required"* ]]
-  validate "${IMAGE}" "id" "${REGEXP}" "${ISSUER}"
-  [ "${status}" -eq 1 ]
-  validate "${IMAGE}" "" ".*" "${ISSUER}"
-  [ "${status}" -eq 1 ]
-  [[ "${output}" == *"anchored"* ]]
-  validate "${IMAGE}" "" "${REGEXP}" "http://insecure.example"
-  [ "${status}" -eq 1 ]
-}
-
-@test "Cosign is called with the exact identity and issuer policy" {
-  run env IMAGE_REF="${IMAGE}" IDENTITY="https://github.com/o/r/.github/workflows/w.yml@refs/heads/main" IDENTITY_REGEXP="" ISSUER="${ISSUER}" bash -euo pipefail "${BATS_TEST_TMPDIR}/verify.sh"
-  [ "${status}" -eq 0 ]
-  mapfile -t args < "${COSIGN_ARGS}"
-  [ "${args[0]}" = verify ]
-  [[ " ${args[*]} " == *" --certificate-identity https://github.com/o/r/.github/workflows/w.yml@refs/heads/main "* ]]
-  [[ " ${args[*]} " == *" --certificate-oidc-issuer ${ISSUER} "* ]]
-  [[ " ${args[*]} " != *"--certificate-identity-regexp"* ]]
-  [ "${args[-1]}" = "${IMAGE}" ]
-
-  run env IMAGE_REF="${IMAGE}" IDENTITY="" IDENTITY_REGEXP="${REGEXP}" ISSUER="${ISSUER}" bash -euo pipefail "${BATS_TEST_TMPDIR}/verify.sh"
-  [ "${status}" -eq 0 ]
-  mapfile -t args < "${COSIGN_ARGS}"
-  [[ " ${args[*]} " == *" --certificate-identity-regexp "* ]]
-}
-
-@test "Unsigned or incorrectly signed images fail the job" {
-  run env COSIGN_EXIT_CODE=1 IMAGE_REF="${IMAGE}" IDENTITY="" IDENTITY_REGEXP="${REGEXP}" ISSUER="${ISSUER}" bash -euo pipefail "${BATS_TEST_TMPDIR}/verify.sh"
-  [ "${status}" -eq 1 ]
-}
-
-@test "Build workflow keeps its reusable-workflow signer identity and digest-based verification" {
-  # shellcheck disable=SC2016
-  grep -Fq 'cosign sign --yes "{}@${DIGEST}"' "${BUILD_WORKFLOW}"
-  grep -Fq 'https://github.com/dceoy/gha-for-devops/\\.github/workflows/docker-build-and-push\\.yml@(refs/.+|[0-9a-f]{40})' "${BUILD_WORKFLOW}"
-  grep -Fq -- '--certificate-oidc-issuer https://token.actions.githubusercontent.com' "${BUILD_WORKFLOW}"
-  # shellcheck disable=SC2016
-  grep -Fq '"${tag}@${DIGEST}"' "${BUILD_WORKFLOW}"
-  [ "$(yq -r '.on.workflow_call.inputs.cosign.default' "${BUILD_WORKFLOW}")" = false ]
-  [ "$(yq -r '.on.workflow_call.inputs.provenance.default' "${BUILD_WORKFLOW}")" = false ]
-  [ "$(yq -r '.jobs | to_entries | .[] | select(.value.steps != null) | .value.permissions."id-token"' "${BUILD_WORKFLOW}" | grep -c write)" -ge 1 ]
-  # The documented policy values must match the build workflow's signer identity.
-  grep -Fq 'docker-build-and-push\.yml@(refs/.+|[0-9a-f]{40})' "${WORKFLOW}"
-}
-
+    | grep -Eq '^sigstore/cosign-installer@[a-f0-9]{40}$'
   [ "$(yq -r '.on.workflow_call.inputs."image-refs-json".required' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."verify-signatures".default' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."certificate-oidc-issuer".default' "${WORKFLOW}")" = https://token.actions.githubusercontent.com ]

@@ -29,62 +29,7 @@ run_summary() {
   [ "$(yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = false ]
   [ "$(yq -r '.permissions | has("id-token")' "${REUSABLE}")" = false ]
   yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .uses' "${REUSABLE}" \
-    | grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}
-  [ "$(yq -r '.on.workflow_call.inputs."min-score".default' "${REUSABLE}")" = "" ]
-  [ "$(yq -r '.on.workflow_call.secrets.SCORECARD_TOKEN.required' "${REUSABLE}")" = false ]
-}
-
-@test "Result upload is not gated on hashFiles outside the workspace" {
-  run ! grep -Fq 'hashFiles' "${REUSABLE}"
-  [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard result") | .if' "${REUSABLE}")" != "" ]
-}
-
-@test "Dedicated Scorecard workflow follows the official publishing constraints" {
-  [ "$(yq -r '.permissions' "${DEDICATED}")" = read-all ]
-  [ "$(yq -r '.on | has("workflow_call")' "${DEDICATED}")" = false ]
-  [ "$(yq -r '.on | has("schedule")' "${DEDICATED}")" = true ]
-  [ "$(yq -r '.on | has("workflow_dispatch")' "${DEDICATED}")" = true ]
-  [ "$(yq -r '.jobs.analysis.permissions."id-token"' "${DEDICATED}")" = write ]
-  [ "$(yq -r '.jobs.analysis.permissions."security-events"' "${DEDICATED}")" = write ]
-  [ "$(yq -r '.jobs.analysis.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${DEDICATED}")" = true ]
-  run ! grep -Eq '^\s*uses: .*@(v[0-9]|main|master)' "${DEDICATED}"
-}
-
-@test "Score alone does not fail the job and failing checks are listed" {
-  run_summary ""
-  [ "${status}" -eq 0 ]
-  grep -Fq 'Aggregate score: 6.4' "${GITHUB_STEP_SUMMARY}"
-  grep -Fq 'not a vulnerability count' "${GITHUB_STEP_SUMMARY}"
-  grep -Fq '[Code-Review]' "${GITHUB_STEP_SUMMARY}"
-  grep -Fq 'inconclusive' "${GITHUB_STEP_SUMMARY}"
-  run ! grep -Fq 'Pinned-Dependencies' "${GITHUB_STEP_SUMMARY}"
-}
-
-@test "min-score gates the job only when set" {
-  run_summary 7
-  [ "${status}" -eq 1 ]
-  [[ "${output}" == *"below min-score 7"* ]]
-  run_summary 6.4
-  [ "${status}" -eq 0 ]
-}
-
-@test "min-score input is validated" {
-  run env MIN_SCORE=abc bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
-  [ "${status}" -eq 1 ]
-  run env MIN_SCORE=11 bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
-  [ "${status}" -eq 1 ]
-  run env MIN_SCORE=10.1 bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
-  [ "${status}" -eq 1 ]
-  run env MIN_SCORE=10.999 bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
-  [ "${status}" -eq 1 ]
-  run env MIN_SCORE=10.0 bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
-  [ "${status}" -eq 0 ]
-  run env MIN_SCORE=7.5 bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
-  [ "${status}" -eq 0 ]
-  run env MIN_SCORE= bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
-  [ "${status}" -eq 0 ]
-}
-
+    | grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}$'
   [ "$(yq -r '.on.workflow_call.inputs."min-score".default' "${REUSABLE}")" = "" ]
   [ "$(yq -r '.on.workflow_call.secrets.SCORECARD_TOKEN.required' "${REUSABLE}")" = false ]
 }
