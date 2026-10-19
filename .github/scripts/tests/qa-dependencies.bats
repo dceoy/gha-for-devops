@@ -15,22 +15,28 @@ setup() {
   [[ "${output}" == *'unaffected signature verification'* ]]
 }
 
-@test "QA assessment rejects changed reviewed versions and artifacts" {
-  local lock_json original replacement package
+@test "QA assessment tolerates Checkov lockfile version updates" {
+  local checkov_version
+  checkov_version="$(yq -p toml -o json "${REPO_ROOT}/uv.lock" | jq -r '.package[] | select(.name == "checkov") | .version')"
+  sed "s/version = \"${checkov_version}\"/version = \"${checkov_version}.1\"/" "${REPO_ROOT}/uv.lock" > uv.lock
+  run bash "${GUARD}"
+  [ "${status}" -eq 0 ]
+}
+
+@test "QA assessment rejects changed reviewed ecdsa versions and artifacts" {
+  local lock_json original replacement
   lock_json="$(yq -p toml -o json "${REPO_ROOT}/uv.lock")"
-  for package in checkov ecdsa; do
-    while read -r original replacement; do
-      sed "s/${original}/${replacement}/g" "${REPO_ROOT}/uv.lock" > uv.lock
-      run bash "${GUARD}"
-      [ "${status}" -eq 1 ]
-      [[ "${output}" == *'Reassess'* ]]
-    done < <(jq -r --arg name "${package}" '
-      .package[] | select(.name == $name) |
-      "\(.version) \(.version).1",
-      "\(.sdist.hash | sub("^sha256:"; "")) changed-sdist",
-      "\(.wheels[].hash | sub("^sha256:"; "")) changed-wheel"
-    ' <<< "${lock_json}")
-  done
+  while read -r original replacement; do
+    sed "s/${original}/${replacement}/g" "${REPO_ROOT}/uv.lock" > uv.lock
+    run bash "${GUARD}"
+    [ "${status}" -eq 1 ]
+    [[ "${output}" == *'Reassess'* ]]
+  done < <(jq -r '
+    .package[] | select(.name == "ecdsa") |
+    "\(.version) \(.version).1",
+    "\(.sdist.hash | sub("^sha256:"; "")) changed-sdist",
+    "\(.wheels[].hash | sub("^sha256:"; "")) changed-wheel"
+  ' <<< "${lock_json}")
 }
 
 @test "QA assessment rejects runtime dependencies in the root project" {

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Fail closed when the reviewed, verification-only ecdsa assessment changes.
+# Checkov versions are owned by uv.lock and require human review before merge.
 set -euo pipefail
 
 fail() {
@@ -26,13 +27,7 @@ yq -p toml -o json uv.lock | jq -e '
   ([.package[] | select(.name == "ecdsa")] | length == 1) and
   all(.package[] | select(.name == "checkov" or .name == "ecdsa");
     .source == {registry: "https://pypi.org/simple"} and
-    if .name == "checkov" then
-      .version == "3.3.28" and
-      ([.sdist.hash] + [.wheels[].hash] == [
-        "sha256:df5cc64db4c8626da5abf3b67e6bbd3c70d9425ad2b2f28391e61e02a483a34e",
-        "sha256:895094b92ac0cce92660485409919a11ef05bfa94913b0b2b29f1ff2d9e79cd2"
-      ])
-    else
+    if .name == "ecdsa" then
       .version == "0.19.2" and
       ([.sdist.hash] + [.wheels[].hash] == [
         "sha256:62635b0ac1ca2e027f82122b5b81cb706edc38cd91c63dda28e4f3455a2bf930",

@@ -60,6 +60,11 @@
       "automerge": false
     },
     {
+      "description": "Require review for Python dependency updates, including Checkov's reviewed ecdsa usage",
+      "matchManagers": ["uv", "pep621"],
+      "automerge": false
+    },
+    {
       "description": "Allow GHCR Docker digest updates without release timestamps",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["ghcr.io/**"],
