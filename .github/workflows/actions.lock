@@ -191,6 +191,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
         - 'bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931'
+        - 'jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca'
     '.github/workflows/terraform-deploy-to-aws.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
