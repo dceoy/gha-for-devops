@@ -34,7 +34,7 @@ run_osv_scan() {
 
 @test "Source scanner installs isolated native OSV and delegates Trivy to the read-only core" {
   [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "$WORKFLOW")" = ubuntu-slim ]
-  [ "$(yq -r '.jobs."osv-scan".runs-on' "$WORKFLOW")" = '${{ inputs.runs-on }}' ]
+  [ "$(yq -r '.jobs."osv-scan".runs-on' "$WORKFLOW")" = "\${{ inputs.runs-on }}" ]
   [ "$(yq -r '.jobs."trivy-scan".uses' "$WORKFLOW")" = '$/.github/workflows/trivy-scan.yml' ]
   [ "$(yq -r '.jobs."trivy-scan".with."scan-type"' "$WORKFLOW")" = filesystem ]
   [ "$(yq -r '.jobs."trivy-scan".with."report-format"' "$WORKFLOW")" = sarif ]
@@ -42,9 +42,9 @@ run_osv_scan() {
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "$WORKFLOW")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "$WORKFLOW")" = 1 ]
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "$WORKFLOW")" = false ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up OSV-Scanner") | .with.working_directory' "$WORKFLOW")" = '${{ runner.temp }}' ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up OSV-Scanner") | .with.install_args' "$WORKFLOW")" = 'osv-scanner@${{ env.OSV_SCANNER_VERSION }}' ]
-  ! grep -Fq 'OSV_IMAGE:' "$WORKFLOW"
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up OSV-Scanner") | .with.working_directory' "$WORKFLOW")" = "\${{ runner.temp }}" ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up OSV-Scanner") | .with.install_args' "$WORKFLOW")" = "osv-scanner@\${{ env.OSV_SCANNER_VERSION }}" ]
+  run ! grep -Fq 'OSV_IMAGE:' "$WORKFLOW"
   run ! grep -Fq 'aquasecurity/trivy-action@' "$WORKFLOW"
   grep -Fq 'steps.semgrep.outcome' "$WORKFLOW"
 }
