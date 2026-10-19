@@ -5,6 +5,7 @@ bats_require_minimum_version 1.5.0
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
+  OSV_VERSION="$(yq -r '.jobs."osv-scan".env.OSV_SCANNER_VERSION' "${WORKFLOW}")"
   MISE_VERSION="$(yq -r '.jobs."osv-scan".env.MISE_VERSION' "${WORKFLOW}")"
   OSV_SCRIPT="${BATS_TEST_TMPDIR}/osv.sh"
   yq -r '.jobs."osv-scan".steps[] | select(.id == "osv") | .run' "${WORKFLOW}" > "${OSV_SCRIPT}"
@@ -25,10 +26,10 @@ prepare_mise_stub() {
   mkdir -p "${BATS_TEST_TMPDIR}/stub-bin"
   cat > "${BATS_TEST_TMPDIR}/stub-bin/mise" << 'SH'
 #!/usr/bin/env bash
-printf '%s|%s|%s\n' "${PWD}" "${MISE_LOCKED:-}" "$*" >> "${MISE_LOG}"
+printf '%s|%s\n' "${PWD}" "$*" >> "${MISE_LOG}"
 case "$1" in
   trust) ;;
-  install) cp mise.lock "${MISE_LOG}.lock" ;;
+  install) cp mise.toml "${MISE_LOG}.toml" ;;
   which) [[ "$2" == osv-scanner ]] && echo "${PWD}/installs/osv-scanner" ;;
   *) exit 1 ;;
 esac
@@ -47,9 +48,10 @@ run_osv_scan() {
     "$@" bash -euo pipefail "${OSV_SCRIPT}"
 }
 
-@test "OSV-Scanner is installed by mise outside the checkout from a trusted per-platform lock" {
+@test "OSV-Scanner is installed by mise outside the checkout and run directly" {
   prepare_mise_stub
   local step='.jobs."osv-scan".steps[] | select(.name == "Install OSV-Scanner")'
+  [[ "${OSV_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
   [[ "${MISE_VERSION}" =~ ^[0-9]{4}\.[0-9]+\.[0-9]+$ ]]
   [[ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .uses' "${WORKFLOW}")" =~ ^jdx/mise-action@[a-f0-9]{40}$ ]]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.install' "${WORKFLOW}")" = false ]
@@ -57,62 +59,39 @@ run_osv_scan() {
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.cache' "${WORKFLOW}")" = false ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.working_directory' "${WORKFLOW}")" = "\${{ runner.temp }}" ]
   [ "$(yq -r "${step} | .\"working-directory\"" "${WORKFLOW}")" = "\${{ runner.temp }}" ]
-  [ "$(yq -r "${step} | .env.MISE_LOCKED" "${WORKFLOW}")" = true ]
   yq -r "${step} | .run" "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/install.sh"
-  local case_row os_arch platform asset checksum
-  for case_row in "X64 linux-x64 osv-scanner_linux_amd64" "ARM64 linux-arm64 osv-scanner_linux_arm64"; do
-    read -r os_arch platform asset <<< "${case_row}"
-    rm -f "${MISE_LOG}" "${MISE_LOG}.lock"
-    mkdir -p "${BATS_TEST_TMPDIR}/checkout" "${BATS_TEST_TMPDIR}/runner-temp"
-    : > "${BATS_TEST_TMPDIR}/github-env"
-    run env "PATH=${BATS_TEST_TMPDIR}/stub-bin:${PATH}" "RUNNER_OS=Linux" "RUNNER_ARCH=${os_arch}" \
-      "RUNNER_TEMP=${BATS_TEST_TMPDIR}/runner-temp" "GITHUB_ENV=${BATS_TEST_TMPDIR}/github-env" \
-      "MISE_LOCKED=true" bash -euo pipefail "${BATS_TEST_TMPDIR}/install.sh"
-    [ "${status}" -eq 0 ]
-    checksum="$(grep -E "^\[tools\.\"aqua:google/osv-scanner\"\.\"platforms\.${platform}\"\]" -A1 "${MISE_LOG}.lock" | sed -n 's/^checksum = "sha256:\([a-f0-9]\{64\}\)"$/\1/p')"
-    [[ "${checksum}" =~ ^[a-f0-9]{64}$ ]]
-    grep -Fq "url = \"https://github.com/google/osv-scanner/releases/download/v" "${MISE_LOG}.lock"
-    grep -Fq "/${asset}\"" "${MISE_LOG}.lock"
-    # Every mise call runs in the trusted directory, never in the caller checkout, with locked installs.
-    while IFS='|' read -r dir locked _; do
-      [ "${dir}" = "${BATS_TEST_TMPDIR}/runner-temp/osv-scanner-mise" ]
-      [ "${locked}" = true ]
-    done < "${MISE_LOG}"
-    grep -Fq "|install" "${MISE_LOG}"
-    grep -Fxq "OSV_SCANNER_BIN=${BATS_TEST_TMPDIR}/runner-temp/osv-scanner-mise/installs/osv-scanner" "${BATS_TEST_TMPDIR}/github-env"
-  done
-  run env "PATH=${BATS_TEST_TMPDIR}/stub-bin:${PATH}" "RUNNER_OS=Linux" "RUNNER_ARCH=ARM" \
+  mkdir -p "${BATS_TEST_TMPDIR}/runner-temp"
+  : > "${BATS_TEST_TMPDIR}/github-env"
+  run env "PATH=${BATS_TEST_TMPDIR}/stub-bin:${PATH}" "OSV_SCANNER_VERSION=${OSV_VERSION}" \
     "RUNNER_TEMP=${BATS_TEST_TMPDIR}/runner-temp" "GITHUB_ENV=${BATS_TEST_TMPDIR}/github-env" \
     bash -euo pipefail "${BATS_TEST_TMPDIR}/install.sh"
-  [ "${status}" -eq 1 ]
-  [[ "${output}" == *"No trusted OSV checksum"* ]]
+  [ "${status}" -eq 0 ]
+  # Every mise call runs in the trusted directory, never in the caller checkout.
+  while IFS='|' read -r dir _; do
+    [ "${dir}" = "${BATS_TEST_TMPDIR}/runner-temp/osv-scanner-mise" ]
+  done < "${MISE_LOG}"
+  grep -Fq '|install' "${MISE_LOG}"
+  grep -Fxq "\"aqua:google/osv-scanner\" = \"${OSV_VERSION}\"" "${MISE_LOG}.toml"
+  grep -Fxq "OSV_SCANNER_BIN=${BATS_TEST_TMPDIR}/runner-temp/osv-scanner-mise/installs/osv-scanner" "${BATS_TEST_TMPDIR}/github-env"
   run ! grep -Fq 'mise exec' "${WORKFLOW}"
+  run ! grep -Fq 'checksum=' "${WORKFLOW}"
 }
 
-@test "Renovate extracts the OSV-Scanner release versions with checksums and the mise version" {
+@test "Renovate extracts the pinned OSV-Scanner and mise versions" {
   node --input-type=module - "${REPO_ROOT}" << 'JS'
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const root = process.argv[2];
 const cfg = JSON.parse(readFileSync(`${root}/.github/renovate.json`, 'utf8'));
 const workflow = readFileSync(`${root}/.github/workflows/source-security-scan.yml`, 'utf8');
-const find = description => cfg.customManagers.find(m => m.description === description);
-const envManager = find('Update tool versions declared in GitHub Actions workflow env blocks');
-const osvManager = find('Update OSV-Scanner release versions together with architecture-specific checksums');
-assert.ok(envManager && osvManager);
-const miseVersion = workflow.match(/^\s*MISE_VERSION:\s*(\S+)/m)?.[1];
-assert.match(miseVersion ?? '', /^\d+(?:\.\d+){2}$/);
-const envMatches = [...workflow.matchAll(new RegExp(envManager.matchStrings[0], 'g'))];
-assert.ok(envMatches.some(m => m.groups.depName === 'jdx/mise' && m.groups.currentValue === miseVersion));
-assert.equal(osvManager.datasourceTemplate, 'github-release-attachments');
-const osvMatches = [...workflow.matchAll(new RegExp(osvManager.matchStrings[0], 'g'))];
-assert.equal(osvMatches.length, 2);
-for (const m of osvMatches) {
-  assert.equal(m.groups.depName, 'google/osv-scanner');
-  assert.match(m.groups.currentValue, /^v\d+(?:\.\d+){2}$/);
-  assert.match(m.groups.currentDigest, /^[a-f0-9]{64}$/);
+const manager = cfg.customManagers.find(m => m.description === 'Update tool versions declared in GitHub Actions workflow env blocks');
+assert.ok(manager);
+const matches = [...workflow.matchAll(new RegExp(manager.matchStrings[0], 'g'))];
+for (const [name, envVar] of [['google/osv-scanner', 'OSV_SCANNER_VERSION'], ['jdx/mise', 'MISE_VERSION']]) {
+  const version = workflow.match(new RegExp(`^\\s*${envVar}:\\s*(\\S+)`, 'm'))?.[1];
+  assert.match(version ?? '', /^\d+(?:\.\d+){2}$/);
+  assert.ok(matches.some(m => m.groups.depName === name && m.groups.currentValue === version), name);
 }
-assert.equal(new Set(osvMatches.map(m => m.groups.currentValue)).size, 1);
 JS
 }
 

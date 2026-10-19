@@ -123,6 +123,8 @@ jobs:
     if: inputs.use-osv-scanner
     runs-on: ${{ inputs.runs-on }}
     env:
+      # renovate: datasource=github-releases depName=google/osv-scanner
+      OSV_SCANNER_VERSION: 2.7.0
       # renovate: datasource=github-releases depName=jdx/mise
       MISE_VERSION: 2026.8.5
       MISE_USE_VERSIONS_HOST_TRACK: 'false'
@@ -143,41 +145,12 @@ jobs:
         working-directory: ${{ runner.temp }}
         env:
           MISE_GITHUB_TOKEN: ${{ github.token }}
-          MISE_LOCKED: 'true'
         run: |
-          # Renovate updates each release version together with its pinned checksum.
-          case "${RUNNER_OS}/${RUNNER_ARCH}" in
-            Linux/X64)
-              platform=linux-x64
-              asset=osv-scanner_linux_amd64
-              # renovate: datasource=github-release-attachments depName=google/osv-scanner
-              version=v2.7.0
-              checksum=160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b
-              ;;
-            Linux/ARM64)
-              platform=linux-arm64
-              asset=osv-scanner_linux_arm64
-              # renovate: datasource=github-release-attachments depName=google/osv-scanner
-              version=v2.7.0
-              checksum=4061ef4c021ed3c47f203b818f337e351336cc5cd67c0274fc36bd1dfc728dd7
-              ;;
-            *) echo "::error::No trusted OSV checksum for ${RUNNER_OS}/${RUNNER_ARCH}"; exit 1 ;;
-          esac
-          tool=aqua:google/osv-scanner
           mise_dir="${RUNNER_TEMP}/osv-scanner-mise"
           mkdir -p "${mise_dir}"
           cd "${mise_dir}"
           export MISE_CEILING_PATHS="${RUNNER_TEMP}"
-          printf '[tools]\n"%s" = "%s"\n' "${tool}" "${version#v}" > mise.toml
-          cat > mise.lock << EOF
-          [[tools."${tool}"]]
-          version = "${version#v}"
-          backend = "${tool}"
-
-          [tools."${tool}"."platforms.${platform}"]
-          checksum = "sha256:${checksum}"
-          url = "https://github.com/google/osv-scanner/releases/download/${version}/${asset}"
-          EOF
+          printf '[tools]\n"aqua:google/osv-scanner" = "%s"\n' "${OSV_SCANNER_VERSION}" > mise.toml
           mise trust "${mise_dir}/mise.toml"
           mise install
           echo "OSV_SCANNER_BIN=$(mise which osv-scanner)" >> "${GITHUB_ENV}"
