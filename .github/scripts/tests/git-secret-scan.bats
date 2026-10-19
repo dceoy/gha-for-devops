@@ -86,7 +86,7 @@ step_output() {
   git commit -q --allow-empty -m "main moves on"
   MAIN_TIP="$(git rev-parse HEAD)"
   git checkout -q "${FEATURE}"
-  run env SCAN_MODE=range BASE_INPUT= PR_BASE="${MAIN_TIP}" PUSH_BEFORE= bash "${BATS_TEST_TMPDIR}/range.sh"
+  run env SCAN_MODE=range BASE_INPUT= PR_BASE="${MAIN_TIP}" PUSH_BEFORE= bash -euo pipefail "${BATS_TEST_TMPDIR}/range.sh"
   [ "${status}" -eq 0 ]
   [ "$(step_output base)" = "${MAIN_TIP}" ]
   [ "$(step_output skip)" = false ]
@@ -95,35 +95,35 @@ step_output() {
 @test "Range resolution handles commit ranges, empty ranges, and bad input" {
   make_repo
   cd "${REPO}"
-  run env SCAN_MODE=range BASE_INPUT="${BASE}" PR_BASE= PUSH_BEFORE= bash "${BATS_TEST_TMPDIR}/range.sh"
+  run env SCAN_MODE=range BASE_INPUT="${BASE}" PR_BASE= PUSH_BEFORE= bash -euo pipefail "${BATS_TEST_TMPDIR}/range.sh"
   [ "${status}" -eq 0 ]
   [ "$(step_output base)" = "${BASE}" ]
   [ "$(step_output head)" = "${HEAD_SHA}" ]
   [ "$(step_output skip)" = false ]
 
   : > "${GITHUB_OUTPUT}"
-  run env SCAN_MODE=range BASE_INPUT= PR_BASE="${HEAD_SHA}" PUSH_BEFORE= bash "${BATS_TEST_TMPDIR}/range.sh"
+  run env SCAN_MODE=range BASE_INPUT= PR_BASE="${HEAD_SHA}" PUSH_BEFORE= bash -euo pipefail "${BATS_TEST_TMPDIR}/range.sh"
   [ "${status}" -eq 0 ]
   [ "$(step_output skip)" = true ]
 
   : > "${GITHUB_OUTPUT}"
-  run env SCAN_MODE=full BASE_INPUT= PR_BASE= PUSH_BEFORE= bash "${BATS_TEST_TMPDIR}/range.sh"
+  run env SCAN_MODE=full BASE_INPUT= PR_BASE= PUSH_BEFORE= bash -euo pipefail "${BATS_TEST_TMPDIR}/range.sh"
   [ "${status}" -eq 0 ]
   [ -z "$(step_output base)" ]
   [ "$(step_output skip)" = false ]
 
-  run env SCAN_MODE=range BASE_INPUT= PR_BASE= PUSH_BEFORE=0000000000000000000000000000000000000000 bash "${BATS_TEST_TMPDIR}/range.sh"
+  run env SCAN_MODE=range BASE_INPUT= PR_BASE= PUSH_BEFORE=0000000000000000000000000000000000000000 bash -euo pipefail "${BATS_TEST_TMPDIR}/range.sh"
   [ "${status}" -eq 1 ]
   [[ "${output}" == *"need a base"* ]]
-  run env SCAN_MODE=range BASE_INPUT=1111111111111111111111111111111111111111 PR_BASE= PUSH_BEFORE= bash "${BATS_TEST_TMPDIR}/range.sh"
+  run env SCAN_MODE=range BASE_INPUT=1111111111111111111111111111111111111111 PR_BASE= PUSH_BEFORE= bash -euo pipefail "${BATS_TEST_TMPDIR}/range.sh"
   [ "${status}" -eq 1 ]
   [[ "${output}" == *"not in the checked-out history"* ]]
-  run env SCAN_MODE=weird BASE_INPUT= PR_BASE= PUSH_BEFORE= bash "${BATS_TEST_TMPDIR}/range.sh"
+  run env SCAN_MODE=weird BASE_INPUT= PR_BASE= PUSH_BEFORE= bash -euo pipefail "${BATS_TEST_TMPDIR}/range.sh"
   [ "${status}" -eq 1 ]
 }
 
 @test "TruffleHog runs offline when verification is off and bounds the range" {
-  run env GITHUB_WORKSPACE="${BATS_TEST_TMPDIR}" TRUFFLEHOG_IMAGE=img@sha256:x SCAN_MODE=range BASE_SHA=aaa HEAD_SHA=bbb VERIFY=false bash "${BATS_TEST_TMPDIR}/trufflehog.sh"
+  run env GITHUB_WORKSPACE="${BATS_TEST_TMPDIR}" TRUFFLEHOG_IMAGE=img@sha256:x SCAN_MODE=range BASE_SHA=aaa HEAD_SHA=bbb VERIFY=false bash -euo pipefail "${BATS_TEST_TMPDIR}/trufflehog.sh"
   [ "${status}" -eq 0 ]
   mapfile -t args < "${DOCKER_ARGS}"
   [[ " ${args[*]} " == *" --network none "* ]]
@@ -132,7 +132,7 @@ step_output() {
   [[ " ${args[*]} " != *" --fail "* ]]
   [[ " ${args[*]} " == *"type=bind,source=${BATS_TEST_TMPDIR},target=/repo,readonly"* ]]
 
-  run env GITHUB_WORKSPACE="${BATS_TEST_TMPDIR}" TRUFFLEHOG_IMAGE=img@sha256:x SCAN_MODE=full BASE_SHA= HEAD_SHA=bbb VERIFY=true bash "${BATS_TEST_TMPDIR}/trufflehog.sh"
+  run env GITHUB_WORKSPACE="${BATS_TEST_TMPDIR}" TRUFFLEHOG_IMAGE=img@sha256:x SCAN_MODE=full BASE_SHA= HEAD_SHA=bbb VERIFY=true bash -euo pipefail "${BATS_TEST_TMPDIR}/trufflehog.sh"
   [ "${status}" -eq 0 ]
   mapfile -t args < "${DOCKER_ARGS}"
   [[ " ${args[*]} " != *" --network none "* ]]
@@ -140,7 +140,7 @@ step_output() {
 }
 
 @test "Scanner failure fails the job without a results output" {
-  run env GITHUB_WORKSPACE="${BATS_TEST_TMPDIR}" TRUFFLEHOG_IMAGE=img SCAN_MODE=full BASE_SHA= HEAD_SHA=bbb VERIFY=true DOCKER_EXIT_CODE=2 DOCKER_STDERR='boom' bash "${BATS_TEST_TMPDIR}/trufflehog.sh"
+  run env GITHUB_WORKSPACE="${BATS_TEST_TMPDIR}" TRUFFLEHOG_IMAGE=img SCAN_MODE=full BASE_SHA= HEAD_SHA=bbb VERIFY=true DOCKER_EXIT_CODE=2 DOCKER_STDERR='boom' bash -euo pipefail "${BATS_TEST_TMPDIR}/trufflehog.sh"
   [ "${status}" -eq 2 ]
   [[ "${output}" == *"TruffleHog failed with exit code 2"* ]]
   run ! grep -q '^results=' "${GITHUB_OUTPUT}"
@@ -160,7 +160,7 @@ JSON
 }
 
 run_report() {
-  run env RESULTS_FILE="${BATS_TEST_TMPDIR}/results.jsonl" FAIL_ON_FINDINGS="$1" FAIL_ON_UNVERIFIED="$2" bash "${BATS_TEST_TMPDIR}/report.sh"
+  run env RESULTS_FILE="${BATS_TEST_TMPDIR}/results.jsonl" FAIL_ON_FINDINGS="$1" FAIL_ON_UNVERIFIED="$2" bash -euo pipefail "${BATS_TEST_TMPDIR}/report.sh"
 }
 
 @test "Verified findings fail and secret values never reach logs or summary" {

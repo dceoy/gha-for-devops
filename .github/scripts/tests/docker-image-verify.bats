@@ -25,7 +25,7 @@ SH
 }
 
 validate() {
-  run env IMAGE_REF="$1" IDENTITY="$2" IDENTITY_REGEXP="$3" ISSUER="$4" bash "${BATS_TEST_TMPDIR}/validate.sh"
+  run env IMAGE_REF="$1" IDENTITY="$2" IDENTITY_REGEXP="$3" ISSUER="$4" bash -euo pipefail "${BATS_TEST_TMPDIR}/validate.sh"
 }
 
 @test "Verification workflow is read-only, pinned, and requires identity and issuer policy" {
@@ -65,7 +65,7 @@ validate() {
 }
 
 @test "Cosign is called with the exact identity and issuer policy" {
-  run env IMAGE_REF="${IMAGE}" IDENTITY="https://github.com/o/r/.github/workflows/w.yml@refs/heads/main" IDENTITY_REGEXP="" ISSUER="${ISSUER}" bash "${BATS_TEST_TMPDIR}/verify.sh"
+  run env IMAGE_REF="${IMAGE}" IDENTITY="https://github.com/o/r/.github/workflows/w.yml@refs/heads/main" IDENTITY_REGEXP="" ISSUER="${ISSUER}" bash -euo pipefail "${BATS_TEST_TMPDIR}/verify.sh"
   [ "${status}" -eq 0 ]
   mapfile -t args < "${COSIGN_ARGS}"
   [ "${args[0]}" = verify ]
@@ -74,14 +74,14 @@ validate() {
   [[ " ${args[*]} " != *"--certificate-identity-regexp"* ]]
   [ "${args[-1]}" = "${IMAGE}" ]
 
-  run env IMAGE_REF="${IMAGE}" IDENTITY="" IDENTITY_REGEXP="${REGEXP}" ISSUER="${ISSUER}" bash "${BATS_TEST_TMPDIR}/verify.sh"
+  run env IMAGE_REF="${IMAGE}" IDENTITY="" IDENTITY_REGEXP="${REGEXP}" ISSUER="${ISSUER}" bash -euo pipefail "${BATS_TEST_TMPDIR}/verify.sh"
   [ "${status}" -eq 0 ]
   mapfile -t args < "${COSIGN_ARGS}"
   [[ " ${args[*]} " == *" --certificate-identity-regexp "* ]]
 }
 
 @test "Unsigned or incorrectly signed images fail the job" {
-  run env COSIGN_EXIT_CODE=1 IMAGE_REF="${IMAGE}" IDENTITY="" IDENTITY_REGEXP="${REGEXP}" ISSUER="${ISSUER}" bash "${BATS_TEST_TMPDIR}/verify.sh"
+  run env COSIGN_EXIT_CODE=1 IMAGE_REF="${IMAGE}" IDENTITY="" IDENTITY_REGEXP="${REGEXP}" ISSUER="${ISSUER}" bash -euo pipefail "${BATS_TEST_TMPDIR}/verify.sh"
   [ "${status}" -eq 1 ]
 }
 

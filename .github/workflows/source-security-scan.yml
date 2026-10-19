@@ -112,26 +112,59 @@ on:
         required: false
 permissions:
   contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
 jobs:
   osv-scan:
     permissions:
       contents: read
     if: inputs.use-osv-scanner
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on }}
+    env:
+      # renovate: datasource=github-releases depName=google/osv-scanner
+      OSV_SCANNER_VERSION: 2.7.0
+      # renovate: datasource=github-releases depName=jdx/mise
+      MISE_VERSION: 2026.8.5
+      MISE_USE_VERSIONS_HOST_TRACK: 'false'
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+      # mise runs only in a trusted directory outside the caller's checkout.
+      - name: Set up mise
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8  # v5.1.2
+        with:
+          version: ${{ env.MISE_VERSION }}
+          install: false
+          cache: false
+          working_directory: ${{ runner.temp }}
+      - name: Install OSV-Scanner
+        working-directory: ${{ runner.temp }}
+        env:
+          MISE_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mise_dir="${RUNNER_TEMP}/osv-scanner-mise"
+          mkdir -p "${mise_dir}"
+          cd "${mise_dir}"
+          export MISE_CEILING_PATHS="${RUNNER_TEMP}"
+          printf '[tools]\n"aqua:google/osv-scanner" = "%s"\n' "${OSV_SCANNER_VERSION}" > mise.toml
+          mise trust "${mise_dir}/mise.toml"
+          mise install
+          echo "OSV_SCANNER_BIN=$(mise which osv-scanner)" >> "${GITHUB_ENV}"
+      - name: Set up Go for call analysis
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version: stable
+          cache: false
       - name: Run OSV-Scanner
         id: osv
         env:
-          OSV_IMAGE: ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0
           SCAN_PATH: ${{ inputs.package-path }}
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
-        shell: bash
         run: |
-          set -euo pipefail
           if [[ ! -d "${SCAN_PATH}" ]]; then
             echo "::error::Scan directory not found: ${SCAN_PATH}"
             exit 1
@@ -154,11 +187,7 @@ jobs:
           fi
           args+=("${SCAN_PATH}")
           status=0
-          docker run --rm \
-            --mount "type=bind,source=${GITHUB_WORKSPACE},target=${GITHUB_WORKSPACE},readonly" \
-            --workdir "${GITHUB_WORKSPACE}" \
-            --env CI=true \
-            "${OSV_IMAGE}" "${args[@]}" || status=$?
+          "${OSV_SCANNER_BIN}" "${args[@]}" || status=$?
           if [[ "${status}" -eq 128 ]]; then
             echo "::notice::OSV-Scanner found no dependencies."
             exit 0
@@ -192,7 +221,6 @@ jobs:
           SEMGREP_FILE_NAMES: ${{ inputs.semgrep-file-names }}
           SEMGREP_RESTRICT_TO_FILES: ${{ inputs.semgrep-restrict-to-files }}
         run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          set -euo pipefail
           args=(semgrep scan --config p/default --metrics off --error)
           while IFS= read -r pattern; do
             if [[ -n "${pattern}" ]]; then

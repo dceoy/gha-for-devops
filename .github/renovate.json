@@ -23,6 +23,16 @@
     },
     {
       "customType": "regex",
+      "description": "Update digest-pinned Docker image variables in GitHub Actions workflows",
+      "managerFilePatterns": ["/^\\.github\\/workflows\\/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "[ \\t]*[A-Z][A-Z0-9_]*_IMAGE:[ \\t]*(?<depName>[a-z0-9][a-z0-9./_-]*):(?<currentValue>[A-Za-z0-9_][A-Za-z0-9._+-]*)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "description": "Update SHA-pinned GitHub Actions in README examples",
       "managerFilePatterns": ["/^README\\.md(?:\\.tmpl)?$/"],
       "matchStrings": [
@@ -48,6 +58,13 @@
       "description": "Require review for mise-managed tool versions",
       "matchManagers": ["mise"],
       "automerge": false
+    },
+    {
+      "description": "Allow GHCR Docker digest updates without release timestamps",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/**"],
+      "minimumReleaseAge": "7 days",
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
     }
   ]
 }

@@ -222,6 +222,8 @@ jobs:
       PYFLAKES_VERSION: 3.4.0
       # renovate: datasource=pypi depName=yamllint versioning=pep440
       YAMLLINT_VERSION: 1.38.0
+      # renovate: datasource=github-releases depName=github/gh-actions-lock
+      GH_ACTIONS_LOCK_VERSION: v0.2.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -234,8 +236,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ACTIONS_LOCK_EXCLUDE_WORKFLOWS: ${{ inputs.actions-lock-exclude-workflows }}
         run: |
-          gh release verify v0.2.0 --repo github/gh-actions-lock
-          gh extension install github/gh-actions-lock --pin v0.2.0
+          gh release verify "${GH_ACTIONS_LOCK_VERSION}" --repo github/gh-actions-lock
+          gh extension install github/gh-actions-lock --pin "${GH_ACTIONS_LOCK_VERSION}"
           workflows=()
           while IFS= read -r -d '' workflow; do
             if ! grep -Fxq -- "${workflow}" <<< "${ACTIONS_LOCK_EXCLUDE_WORKFLOWS}"; then

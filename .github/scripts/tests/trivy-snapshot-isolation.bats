@@ -23,10 +23,10 @@ setup() {
     mkdir -p "${case_dir}/artifacts"
     # Identical inputs model separate caller jobs in the same workflow run.
     env SCAN_TYPE="${scan_type}" SCAN_REF=. IMAGE_REFS='["example/app:latest","example/worker:latest"]' \
-      IMAGE_TARGETS='' CORRELATOR=stable GITHUB_OUTPUT="${case_dir}/a" bash "${BATS_TEST_TMPDIR}/prepare.sh" &
+      IMAGE_TARGETS='' CORRELATOR=stable GITHUB_OUTPUT="${case_dir}/a" bash -euo pipefail "${BATS_TEST_TMPDIR}/prepare.sh" &
     pid_a=$!
     env SCAN_TYPE="${scan_type}" SCAN_REF=. IMAGE_REFS='["example/app:latest","example/worker:latest"]' \
-      IMAGE_TARGETS='' CORRELATOR=stable GITHUB_OUTPUT="${case_dir}/b" bash "${BATS_TEST_TMPDIR}/prepare.sh" &
+      IMAGE_TARGETS='' CORRELATOR=stable GITHUB_OUTPUT="${case_dir}/b" bash -euo pipefail "${BATS_TEST_TMPDIR}/prepare.sh" &
     pid_b=$!
     wait "${pid_a}"
     wait "${pid_b}"

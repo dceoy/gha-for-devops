@@ -133,9 +133,7 @@ jobs:
           IDENTITY: ${{ inputs.certificate-identity }}
           IDENTITY_REGEXP: ${{ inputs.certificate-identity-regexp }}
           ISSUER: ${{ inputs.certificate-oidc-issuer }}
-        shell: bash
         run: |
-          set -euo pipefail
           fail() {
             echo "::error::$1"
             exit 1
@@ -165,9 +163,7 @@ jobs:
           IDENTITY: ${{ inputs.certificate-identity }}
           IDENTITY_REGEXP: ${{ inputs.certificate-identity-regexp }}
           ISSUER: ${{ inputs.certificate-oidc-issuer }}
-        shell: bash
         run: |
-          set -euo pipefail
           args=(verify --certificate-oidc-issuer "${ISSUER}")
           if [[ -n "${IDENTITY}" ]]; then
             args+=(--certificate-identity "${IDENTITY}")
