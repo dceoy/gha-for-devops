@@ -1,16 +1,17 @@
 #!/usr/bin/env bats
 
 setup() {
-  # Exercise the actual inline run blocks from the reusable workflow.
+  # Test the repository release script through its plan and publish entry points.
   export WORKFLOW_FILE="${BATS_TEST_DIRNAME}/../../workflows/weekly-release.yml"
+  export RELEASE_SCRIPT="${BATS_TEST_DIRNAME}/../weekly-release.sh"
   export PLAN_SCRIPT="${BATS_TEST_TMPDIR}/plan.sh"
   export PUBLISH_SCRIPT="${BATS_TEST_TMPDIR}/publish.sh"
-  yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${WORKFLOW_FILE}" > "${PLAN_SCRIPT}"
-  yq -r '.jobs.publish.steps[] | select(.id == "publish") | .run' "${WORKFLOW_FILE}" > "${PUBLISH_SCRIPT}"
+  printf 'exec bash "%s" plan\n' "${RELEASE_SCRIPT}" > "${PLAN_SCRIPT}"
+  printf 'exec bash "%s" publish\n' "${RELEASE_SCRIPT}" > "${PUBLISH_SCRIPT}"
   export TEST_DIR="${BATS_TEST_TMPDIR}/candidate"
   mkdir -p "${TEST_DIR}/.github/workflows" "${TEST_DIR}/.github/scripts"
   cd "${TEST_DIR}" || exit
-  bash -n "${PLAN_SCRIPT}" "${PUBLISH_SCRIPT}"
+  bash -n "${RELEASE_SCRIPT}" "${PLAN_SCRIPT}" "${PUBLISH_SCRIPT}"
   git init -q -b main
   git config user.email ci@example.invalid
   git config user.name 'Release test'
@@ -81,6 +82,33 @@ case "$1 $2" in
 esac
 MOCK
   chmod +x "${BATS_TEST_TMPDIR}/bin/gh"
+}
+
+@test 'weekly release executes the repository script' {
+  [ "$(yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/weekly-release.sh plan' ]
+  [ "$(yq -r '.jobs.publish.steps[] | select(.id == "publish") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/weekly-release.sh publish' ]
+}
+
+@test 'weekly release runs only on the weekly schedule or manual dispatch' {
+  [ "$(yq -o=json '.on' "${WORKFLOW_FILE}" | jq -c 'keys | sort')" = '["schedule","workflow_dispatch"]' ]
+  [ "$(yq -r '.on.schedule[0].cron' "${WORKFLOW_FILE}")" = '15 0 * * 1' ]
+}
+
+@test 'CI no longer calls or schedules weekly releases' {
+  local ci_workflow="${BATS_TEST_DIRNAME}/../../workflows/ci.yml"
+  [ "$(yq -o=json '.on' "${ci_workflow}" | jq -r 'has("schedule")')" = false ]
+  [ "$(yq -o=json '.jobs' "${ci_workflow}" | jq -r 'has("weekly-release")')" = false ]
+  [ "$(yq -o=json '.on.workflow_dispatch.inputs.workflow.options' "${ci_workflow}" | jq -r 'index("weekly-release")')" = null ]
+}
+
+@test 'YAML parser is installed from the repository mise configuration' {
+  local setup_inputs
+  setup_inputs="$(yq -o=json '.jobs.plan.steps[] | select(.name == "Set up YAML parser") | .with' "${WORKFLOW_FILE}")"
+  [ "$(jq -r '.install_args' <<< "${setup_inputs}")" = yq ]
+  [ "$(jq -r 'has("working_directory")' <<< "${setup_inputs}")" = false ]
+  [ "$(jq -r 'has("mise_toml")' <<< "${setup_inputs}")" = false ]
+  [ "$(yq -r '[.jobs.plan.steps[] | select(.name == "Add pinned YAML parser to PATH")] | length' "${WORKFLOW_FILE}")" = 0 ]
+  grep -qx 'yq = "latest"' "${BATS_TEST_DIRNAME}/../../../mise.toml"
 }
 
 @test 'patch release is planned without requiring an earlier push CI run' {
