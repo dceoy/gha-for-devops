@@ -63,6 +63,7 @@
       "description": "Allow GHCR Docker digest updates without release timestamps",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["ghcr.io/**"],
+      "minimumReleaseAge": "7 days",
       "minimumReleaseAgeBehaviour": "timestamp-optional"
     }
   ]

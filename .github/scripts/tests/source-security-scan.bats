@@ -44,6 +44,13 @@ run_osv_scan() {
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "$WORKFLOW")" = false ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up OSV-Scanner") | .with.working_directory' "$WORKFLOW")" = "\${{ runner.temp }}" ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up OSV-Scanner") | .with.install_args' "$WORKFLOW")" = "osv-scanner@\${{ env.OSV_SCANNER_VERSION }}" ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .uses' "$WORKFLOW")" = actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with."go-version"' "$WORKFLOW")" = stable ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with.cache' "$WORKFLOW")" = false ]
+  local setup_index scan_index
+  setup_index="$(yq -r '.jobs."osv-scan".steps | to_entries[] | select(.value.name == "Set up Go for call analysis") | .key' "$WORKFLOW")"
+  scan_index="$(yq -r '.jobs."osv-scan".steps | to_entries[] | select(.value.id == "osv") | .key' "$WORKFLOW")"
+  [ "${setup_index}" -lt "${scan_index}" ]
   run ! grep -Fq 'OSV_IMAGE:' "$WORKFLOW"
   run ! grep -Fq 'aquasecurity/trivy-action@' "$WORKFLOW"
   grep -Fq 'steps.semgrep.outcome' "$WORKFLOW"
