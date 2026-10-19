@@ -119,8 +119,6 @@ jobs:
     if: inputs.use-osv-scanner
     runs-on: '${{ inputs.runs-on }}'
     env:
-      # renovate: datasource=github-releases depName=jdx/mise
-      MISE_VERSION: 2026.8.5
       # renovate: datasource=github-releases depName=google/osv-scanner
       OSV_SCANNER_VERSION: 2.7.0
     steps:
@@ -128,12 +126,24 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up OSV-Scanner
-        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8  # v5.1.2
-        with:
-          version: ${{ env.MISE_VERSION }}
-          working_directory: ${{ runner.temp }}
-          install_args: 'osv-scanner@${{ env.OSV_SCANNER_VERSION }}'
+      - name: Download OSV-Scanner
+        working-directory: ${{ runner.temp }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${RUNNER_OS}/${RUNNER_ARCH}" in
+            Linux/X64) arch=amd64 ;;
+            Linux/ARM64) arch=arm64 ;;
+            *) echo "::error::Unsupported OSV runner: ${RUNNER_OS}/${RUNNER_ARCH}"; exit 1 ;;
+          esac
+          asset="osv-scanner_linux_${arch}"
+          release_url="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}"
+          curl --fail --location --silent --show-error --retry 3 --output "${asset}" "${release_url}/${asset}"
+          curl --fail --location --silent --show-error --retry 3 --output osv-scanner_SHA256SUMS "${release_url}/osv-scanner_SHA256SUMS"
+          checksum="$(awk -v asset="${asset}" '$2 == asset {print $1}' osv-scanner_SHA256SUMS)"
+          [[ "${checksum}" =~ ^[a-fA-F0-9]{64}$ ]]
+          printf '%s  %s\n' "${checksum}" "${asset}" | sha256sum --check --strict
+          install -m 755 "${asset}" "${RUNNER_TEMP}/osv-scanner"
       - name: Set up Go for call analysis
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
@@ -147,11 +157,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          scan_path="${SCAN_PATH}"
-          if [[ "${scan_path}" != /* ]]; then
-            scan_path="${GITHUB_WORKSPACE%/}/${scan_path}"
-          fi
-          if [[ ! -d "${scan_path}" ]]; then
+          if [[ ! -d "${SCAN_PATH}" ]]; then
             echo "::error::Scan directory not found: ${SCAN_PATH}"
             exit 1
           fi
@@ -160,10 +166,10 @@ jobs:
             exit 1
           fi
           args=(scan source --recursive --include-git-root)
-          if [[ -n "${REQUIREMENTS_TXT_PATH}" && ! -f "${scan_path%/}/uv.lock" ]]; then
+          if [[ -n "${REQUIREMENTS_TXT_PATH}" && ! -f "${SCAN_PATH%/}/uv.lock" ]]; then
             requirements_file="${REQUIREMENTS_TXT_PATH}"
             if [[ "${requirements_file}" != /* ]]; then
-              requirements_file="${scan_path%/}/${requirements_file}"
+              requirements_file="${SCAN_PATH%/}/${requirements_file}"
             fi
             if [[ ! -f "${requirements_file}" ]]; then
               echo "::error::Requirements file not found: ${requirements_file}"
@@ -171,9 +177,9 @@ jobs:
             fi
             args+=("--lockfile=requirements.txt:${requirements_file}")
           fi
-          args+=("${scan_path}")
+          args+=("${SCAN_PATH}")
           status=0
-          mise -C "${RUNNER_TEMP}" exec "osv-scanner@${OSV_SCANNER_VERSION}" -- osv-scanner "${args[@]}" || status=$?
+          "${RUNNER_TEMP}/osv-scanner" "${args[@]}" || status=$?
           if [[ "${status}" -eq 128 ]]; then
             echo "::notice::OSV-Scanner found no dependencies."
             exit 0

@@ -10,29 +10,79 @@ setup() {
 }
 
 prepare_osv_stub() {
-  mkdir -p "${BATS_TEST_TMPDIR}/bin"
-  export MISE_ARGS="${BATS_TEST_TMPDIR}/mise-args"
-  export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
-  cat > "${BATS_TEST_TMPDIR}/bin/mise" << 'SH'
+  export OSV_ARGS="${BATS_TEST_TMPDIR}/osv-args"
+  cat > "${BATS_TEST_TMPDIR}/osv-scanner" << 'SH'
 #!/usr/bin/env bash
-printf '%s\0' "$@" > "${MISE_ARGS}"
+printf '%s\0' "$@" > "${OSV_ARGS}"
 exit "${OSV_EXIT_CODE:-0}"
 SH
-  chmod +x "${BATS_TEST_TMPDIR}/bin/mise"
+  chmod +x "${BATS_TEST_TMPDIR}/osv-scanner"
 }
 
 run_osv_scan() {
   local target="$1"
   local requirements="${2:-}"
   shift 2 || :
+  cd "${BATS_TEST_TMPDIR}" || return
   run env "SCAN_PATH=${target}" "REQUIREMENTS_TXT_PATH=${requirements}" \
     "GITHUB_WORKSPACE=${BATS_TEST_TMPDIR}" \
     "RUNNER_TEMP=${BATS_TEST_TMPDIR}" \
-    "OSV_SCANNER_VERSION=2.7.0" \
     "$@" bash "${OSV_SCRIPT}"
 }
 
-@test "Source scanner installs isolated native OSV and delegates Trivy to the read-only core" {
+prepare_download_stub() {
+  mkdir -p "${BATS_TEST_TMPDIR}/bin" "${BATS_TEST_TMPDIR}/download"
+  export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
+  yq -r '.jobs."osv-scan".steps[] | select(.name == "Download OSV-Scanner") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/download.sh"
+  cat > "${BATS_TEST_TMPDIR}/bin/curl" << 'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+url="${!#}"
+while [[ "$1" != --output ]]; do shift; done
+output="$2"
+if [[ "${url}" == */osv-scanner_SHA256SUMS ]]; then
+  for asset in osv-scanner_linux_amd64 osv-scanner_linux_arm64; do
+    [[ -f "${asset}" ]] || continue
+    case "${CHECKSUM_MODE:-valid}" in
+      valid) sha256sum "${asset}" ;;
+      mismatch) printf '%064d  %s\n' 0 "${asset}" ;;
+      missing) : ;;
+      malformed) printf 'invalid  %s\n' "${asset}" ;;
+      duplicate) sha256sum "${asset}" "${asset}" ;;
+    esac
+  done > "${output}"
+else
+  printf '#!/usr/bin/env bash\nexit 0\n' > "${output}"
+fi
+SH
+  chmod +x "${BATS_TEST_TMPDIR}/bin/curl"
+  cd "${BATS_TEST_TMPDIR}/download" || return
+}
+
+@test "OSV release installer verifies Linux binaries for supported architectures" {
+  prepare_download_stub
+  local arch
+  for arch in X64 ARM64; do
+    run env RUNNER_OS=Linux "RUNNER_ARCH=${arch}" OSV_SCANNER_VERSION=2.7.0 \
+      "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash "${BATS_TEST_TMPDIR}/download.sh"
+    [ "${status}" -eq 0 ]
+    [ -x "${BATS_TEST_TMPDIR}/osv-scanner" ]
+    rm "${BATS_TEST_TMPDIR}/osv-scanner"
+  done
+}
+
+@test "OSV release installer rejects invalid checksums before installing" {
+  prepare_download_stub
+  local mode
+  for mode in mismatch missing malformed duplicate; do
+    run env RUNNER_OS=Linux RUNNER_ARCH=X64 OSV_SCANNER_VERSION=2.7.0 \
+      "CHECKSUM_MODE=${mode}" "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash "${BATS_TEST_TMPDIR}/download.sh"
+    [ "${status}" -ne 0 ]
+    [ ! -e "${BATS_TEST_TMPDIR}/osv-scanner" ]
+  done
+}
+
+@test "Source scanner downloads native OSV and delegates Trivy to the read-only core" {
   [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "$WORKFLOW")" = ubuntu-slim ]
   [ "$(yq -r '.jobs."osv-scan".runs-on' "$WORKFLOW")" = "\${{ inputs.runs-on }}" ]
   [ "$(yq -r '.jobs."trivy-scan".uses' "$WORKFLOW")" = '$/.github/workflows/trivy-scan.yml' ]
@@ -42,8 +92,7 @@ run_osv_scan() {
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "$WORKFLOW")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "$WORKFLOW")" = 1 ]
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "$WORKFLOW")" = false ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up OSV-Scanner") | .with.working_directory' "$WORKFLOW")" = "\${{ runner.temp }}" ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up OSV-Scanner") | .with.install_args' "$WORKFLOW")" = "osv-scanner@\${{ env.OSV_SCANNER_VERSION }}" ]
+  run ! grep -Fq 'mise' "$WORKFLOW"
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .uses' "$WORKFLOW")" = actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with."go-version"' "$WORKFLOW")" = stable ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with.cache' "$WORKFLOW")" = false ]
@@ -81,13 +130,7 @@ run_osv_scan() {
     "${target}/renv.lock" "${target}/nested/bom.cdx.json"
   run_osv_scan "${target}" ""
   [ "${status}" -eq 0 ]
-  mapfile -d '' -t args < "${MISE_ARGS}"
-  [ "${args[0]}" = -C ]
-  [ "${args[1]}" = "${BATS_TEST_TMPDIR}" ]
-  [ "${args[2]}" = exec ]
-  [ "${args[3]}" = osv-scanner@2.7.0 ]
-  [ "${args[4]}" = -- ]
-  [ "${args[5]}" = osv-scanner ]
+  mapfile -d '' -t args < "${OSV_ARGS}"
   [ "${args[-1]}" = "${target}" ]
   [ "${args[-2]}" = --include-git-root ]
   [ "${args[-3]}" = --recursive ]
@@ -95,13 +138,13 @@ run_osv_scan() {
   [ "${args[-5]}" = scan ]
 }
 
-@test "OSV resolves caller-relative scan paths before using isolated mise" {
+@test "OSV accepts workspace-relative scan paths" {
   prepare_osv_stub
   mkdir -p "${BATS_TEST_TMPDIR}/relative package"
   run_osv_scan "relative package" ""
   [ "${status}" -eq 0 ]
-  mapfile -d '' -t args < "${MISE_ARGS}"
-  [ "${args[-1]}" = "${BATS_TEST_TMPDIR}/relative package" ]
+  mapfile -d '' -t args < "${OSV_ARGS}"
+  [ "${args[-1]}" = "relative package" ]
 }
 
 @test "OSV handles an empty directory without failing on no dependencies" {
@@ -111,7 +154,7 @@ run_osv_scan() {
   run_osv_scan "${target}" "" OSV_EXIT_CODE=128
   [ "${status}" -eq 0 ]
   [[ "${output}" == *"no dependencies"* ]]
-  mapfile -d '' -t args < "${MISE_ARGS}"
+  mapfile -d '' -t args < "${OSV_ARGS}"
   [ "${args[-1]}" = "${target}" ]
 }
 
@@ -123,7 +166,7 @@ run_osv_scan() {
   touch "${target}/${file}"
   run_osv_scan "${target}" "${file}"
   [ "${status}" -eq 0 ]
-  mapfile -d '' -t args < "${MISE_ARGS}"
+  mapfile -d '' -t args < "${OSV_ARGS}"
   [ "${args[-1]}" = "${target}" ]
   [ "${args[-2]}" = "--lockfile=requirements.txt:${target}/${file}" ]
   [ "${args[-3]}" = --include-git-root ]
@@ -135,7 +178,7 @@ run_osv_scan() {
   mkdir -p "${target}"
   run_osv_scan "${target}" "missing requirements.txt"
   [ "${status}" -eq 1 ]
-  [ ! -f "${MISE_ARGS}" ]
+  [ ! -f "${OSV_ARGS}" ]
 }
 
 @test "OSV defers a requirements override to a present uv.lock" {
@@ -145,7 +188,7 @@ run_osv_scan() {
   touch "${target}/uv.lock"
   run_osv_scan "${target}" "missing requirements.txt"
   [ "${status}" -eq 0 ]
-  mapfile -d '' -t args < "${MISE_ARGS}"
+  mapfile -d '' -t args < "${OSV_ARGS}"
   [ "${args[-1]}" = "${target}" ]
   [ "${args[-2]}" = --include-git-root ]
 }
