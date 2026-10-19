@@ -117,7 +117,7 @@ jobs:
     permissions:
       contents: read
     if: inputs.use-osv-scanner
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: '${{ inputs.runs-on }}'
     env:
       # renovate: datasource=github-releases depName=jdx/mise
       MISE_VERSION: 2026.8.5
@@ -133,7 +133,7 @@ jobs:
         with:
           version: ${{ env.MISE_VERSION }}
           working_directory: ${{ runner.temp }}
-          install_args: osv-scanner@${{ env.OSV_SCANNER_VERSION }}
+          install_args: 'osv-scanner@${{ env.OSV_SCANNER_VERSION }}'
       - name: Run OSV-Scanner
         id: osv
         env:
