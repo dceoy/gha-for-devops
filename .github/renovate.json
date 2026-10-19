@@ -23,6 +23,16 @@
     },
     {
       "customType": "regex",
+      "description": "Update digest-pinned Docker image variables in GitHub Actions workflows",
+      "managerFilePatterns": ["/^\\.github\\/workflows\\/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "[ \\t]*[A-Z][A-Z0-9_]*_IMAGE:[ \\t]*(?<depName>[a-z0-9][a-z0-9./_-]*):(?<currentValue>v?[0-9][A-Za-z0-9._+-]*)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "description": "Update SHA-pinned GitHub Actions in README examples",
       "managerFilePatterns": ["/^README\\.md(?:\\.tmpl)?$/"],
       "matchStrings": [
