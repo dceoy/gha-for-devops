@@ -14,12 +14,12 @@ prepare_osv_stub() {
   export MISE_ARGS="${BATS_TEST_TMPDIR}/mise-args"
   cat > "${BATS_TEST_TMPDIR}/osv-scanner" << 'SH'
 #!/usr/bin/env bash
-printf '%s\\0' "$@" > "${OSV_ARGS}"
+printf '%s\0' "$@" > "${OSV_ARGS}"
 exit "${OSV_EXIT_CODE:-0}"
 SH
   cat > "${BATS_TEST_TMPDIR}/mise" << 'SH'
 #!/usr/bin/env bash
-printf '%s\\0' "$@" > "${MISE_ARGS}"
+printf '%s\0' "$@" > "${MISE_ARGS}"
 case "$1" in
   install)
     [[ "$2" == "osv-scanner@${OSV_SCANNER_VERSION}" ]]
