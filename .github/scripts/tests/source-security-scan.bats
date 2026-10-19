@@ -51,8 +51,8 @@ run_osv_scan() {
 
 @test "OSV-Scanner version is tracked by Renovate and installed with mise" {
   prepare_osv_stub
-  [[ "${OSV_VERSION}" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]
-  [[ "${MISE_VERSION}" =~ ^[0-9]{4}\\.[0-9]+\\.[0-9]+$ ]]
+  [[ "${OSV_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+  [[ "${MISE_VERSION}" =~ ^[0-9]{4}\.[0-9]+\.[0-9]+$ ]]
   [[ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .uses' "${WORKFLOW}")" =~ ^jdx/mise-action@[a-f0-9]{40}$ ]]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.install' "${WORKFLOW}")" = false ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.version' "${WORKFLOW}")" = "\${{ env.MISE_VERSION }}" ]
@@ -79,7 +79,7 @@ assert.ok(manager);
 const matches = [...workflow.matchAll(new RegExp(manager.matchStrings[0], 'g'))];
 for (const [name, envVar] of [['google/osv-scanner', 'OSV_SCANNER_VERSION'], ['jdx/mise', 'MISE_VERSION']]) {
   const version = workflow.match(new RegExp(`^\\s*${envVar}:\\s*(\\S+)`, 'm'))?.[1];
-  assert.match(version ?? '', /^\\d+(?:\\.\\d+){2}$/);
+  assert.match(version ?? '', /^\d+(?:\.\d+){2}$/);
   assert.ok(matches.some(m => m.groups.depName === name && m.groups.currentValue === version), name);
 }
 JS
