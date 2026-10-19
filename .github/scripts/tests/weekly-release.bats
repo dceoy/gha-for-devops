@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 setup() {
-  # Exercise the actual inline run blocks from the standalone release workflow.
+  # Test the repository release script through its plan and publish entry points.
   export WORKFLOW_FILE="${BATS_TEST_DIRNAME}/../../workflows/weekly-release.yml"
   export RELEASE_SCRIPT="${BATS_TEST_DIRNAME}/../weekly-release.sh"
   export PLAN_SCRIPT="${BATS_TEST_TMPDIR}/plan.sh"
