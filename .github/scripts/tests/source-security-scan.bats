@@ -11,14 +11,14 @@ setup() {
 
 prepare_osv_stub() {
   mkdir -p "${BATS_TEST_TMPDIR}/bin"
-  export DOCKER_ARGS="${BATS_TEST_TMPDIR}/docker-args"
+  export MISE_ARGS="${BATS_TEST_TMPDIR}/mise-args"
   export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
-  cat > "${BATS_TEST_TMPDIR}/bin/docker" << 'SH'
+  cat > "${BATS_TEST_TMPDIR}/bin/mise" << 'SH'
 #!/usr/bin/env bash
-printf '%s\0' "$@" > "${DOCKER_ARGS}"
-exit "${DOCKER_EXIT_CODE:-0}"
+printf '%s\0' "$@" > "${MISE_ARGS}"
+exit "${OSV_EXIT_CODE:-0}"
 SH
-  chmod +x "${BATS_TEST_TMPDIR}/bin/docker"
+  chmod +x "${BATS_TEST_TMPDIR}/bin/mise"
 }
 
 run_osv_scan() {
@@ -27,13 +27,14 @@ run_osv_scan() {
   shift 2 || :
   run env "SCAN_PATH=${target}" "REQUIREMENTS_TXT_PATH=${requirements}" \
     "GITHUB_WORKSPACE=${BATS_TEST_TMPDIR}" \
-    "OSV_IMAGE=ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0" \
+    "RUNNER_TEMP=${BATS_TEST_TMPDIR}" \
+    "OSV_SCANNER_VERSION=2.7.0" \
     "$@" bash "${OSV_SCRIPT}"
 }
 
-@test "Source scanner isolates OSV on ubuntu-latest and delegates Trivy to the read-only core" {
+@test "Source scanner installs isolated native OSV and delegates Trivy to the read-only core" {
   [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "$WORKFLOW")" = ubuntu-slim ]
-  [ "$(yq -r '.jobs."osv-scan".runs-on' "$WORKFLOW")" = ubuntu-latest ]
+  [ "$(yq -r '.jobs."osv-scan".runs-on' "$WORKFLOW")" = '${{ inputs.runs-on }}' ]
   [ "$(yq -r '.jobs."trivy-scan".uses' "$WORKFLOW")" = '$/.github/workflows/trivy-scan.yml' ]
   [ "$(yq -r '.jobs."trivy-scan".with."scan-type"' "$WORKFLOW")" = filesystem ]
   [ "$(yq -r '.jobs."trivy-scan".with."report-format"' "$WORKFLOW")" = sarif ]
@@ -41,7 +42,9 @@ run_osv_scan() {
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "$WORKFLOW")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "$WORKFLOW")" = 1 ]
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "$WORKFLOW")" = false ]
-  grep -Fq 'ghcr.io/google/osv-scanner:v2.7.0@sha256:' "$WORKFLOW"
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up OSV-Scanner") | .with.working_directory' "$WORKFLOW")" = '${{ runner.temp }}' ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up OSV-Scanner") | .with.install_args' "$WORKFLOW")" = 'osv-scanner@${{ env.OSV_SCANNER_VERSION }}' ]
+  ! grep -Fq 'OSV_IMAGE:' "$WORKFLOW"
   run ! grep -Fq 'aquasecurity/trivy-action@' "$WORKFLOW"
   grep -Fq 'steps.semgrep.outcome' "$WORKFLOW"
 }
@@ -71,7 +74,13 @@ run_osv_scan() {
     "${target}/renv.lock" "${target}/nested/bom.cdx.json"
   run_osv_scan "${target}" ""
   [ "${status}" -eq 0 ]
-  mapfile -d '' -t args < "${DOCKER_ARGS}"
+  mapfile -d '' -t args < "${MISE_ARGS}"
+  [ "${args[0]}" = -C ]
+  [ "${args[1]}" = "${BATS_TEST_TMPDIR}" ]
+  [ "${args[2]}" = exec ]
+  [ "${args[3]}" = osv-scanner@2.7.0 ]
+  [ "${args[4]}" = -- ]
+  [ "${args[5]}" = osv-scanner ]
   [ "${args[-1]}" = "${target}" ]
   [ "${args[-2]}" = --include-git-root ]
   [ "${args[-3]}" = --recursive ]
@@ -79,14 +88,23 @@ run_osv_scan() {
   [ "${args[-5]}" = scan ]
 }
 
+@test "OSV resolves caller-relative scan paths before using isolated mise" {
+  prepare_osv_stub
+  mkdir -p "${BATS_TEST_TMPDIR}/relative package"
+  run_osv_scan "relative package" ""
+  [ "${status}" -eq 0 ]
+  mapfile -d '' -t args < "${MISE_ARGS}"
+  [ "${args[-1]}" = "${BATS_TEST_TMPDIR}/relative package" ]
+}
+
 @test "OSV handles an empty directory without failing on no dependencies" {
   prepare_osv_stub
   local target="${BATS_TEST_TMPDIR}/empty"
   mkdir -p "${target}"
-  run_osv_scan "${target}" "" DOCKER_EXIT_CODE=128
+  run_osv_scan "${target}" "" OSV_EXIT_CODE=128
   [ "${status}" -eq 0 ]
   [[ "${output}" == *"no dependencies"* ]]
-  mapfile -d '' -t args < "${DOCKER_ARGS}"
+  mapfile -d '' -t args < "${MISE_ARGS}"
   [ "${args[-1]}" = "${target}" ]
 }
 
@@ -98,7 +116,7 @@ run_osv_scan() {
   touch "${target}/${file}"
   run_osv_scan "${target}" "${file}"
   [ "${status}" -eq 0 ]
-  mapfile -d '' -t args < "${DOCKER_ARGS}"
+  mapfile -d '' -t args < "${MISE_ARGS}"
   [ "${args[-1]}" = "${target}" ]
   [ "${args[-2]}" = "--lockfile=requirements.txt:${target}/${file}" ]
   [ "${args[-3]}" = --include-git-root ]
@@ -110,7 +128,7 @@ run_osv_scan() {
   mkdir -p "${target}"
   run_osv_scan "${target}" "missing requirements.txt"
   [ "${status}" -eq 1 ]
-  [ ! -f "${DOCKER_ARGS}" ]
+  [ ! -f "${MISE_ARGS}" ]
 }
 
 @test "OSV defers a requirements override to a present uv.lock" {
@@ -120,7 +138,7 @@ run_osv_scan() {
   touch "${target}/uv.lock"
   run_osv_scan "${target}" "missing requirements.txt"
   [ "${status}" -eq 0 ]
-  mapfile -d '' -t args < "${DOCKER_ARGS}"
+  mapfile -d '' -t args < "${MISE_ARGS}"
   [ "${args[-1]}" = "${target}" ]
   [ "${args[-2]}" = --include-git-root ]
 }
@@ -129,8 +147,8 @@ run_osv_scan() {
   prepare_osv_stub
   local target="${BATS_TEST_TMPDIR}/python"
   mkdir -p "${target}"
-  run_osv_scan "${target}" "" DOCKER_EXIT_CODE=1
+  run_osv_scan "${target}" "" OSV_EXIT_CODE=1
   [ "${status}" -eq 1 ]
-  run_osv_scan "${target}" "" DOCKER_EXIT_CODE=2
+  run_osv_scan "${target}" "" OSV_EXIT_CODE=2
   [ "${status}" -eq 2 ]
 }
