@@ -117,7 +117,7 @@ jobs:
     permissions:
       contents: read
     if: inputs.use-osv-scanner
-    runs-on: '${{ inputs.runs-on }}'
+    runs-on: ubuntu-latest
     env:
       # renovate: datasource=github-releases depName=jdx/mise
       MISE_VERSION: 2026.8.5
