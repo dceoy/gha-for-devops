@@ -11,8 +11,6 @@ on:
       - opened
       - synchronize
       - reopened
-  schedule:
-    - cron: '15 0 * * 1'  # Mondays 09:15 JST (UTC+09:00)
   workflow_dispatch:  # checkov:skip=CKV_GHA_7:workflow_dispatch inputs are required to select the pipeline
     inputs:
       workflow:
@@ -22,13 +20,12 @@ on:
           - lint
           - analyze
           - release
-          - weekly-release
           - update
         description: Choose the workflow to run
         default: lint
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ inputs.workflow || github.event.pull_request.number || github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || '' }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && github.event_name != 'schedule' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 permissions:
   contents: read
 env:
@@ -156,18 +153,6 @@ jobs:
     uses: $/.github/workflows/github-major-version-tag.yml
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  weekly-release:
-    if: >
-      github.event_name == 'schedule'
-      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'weekly-release')
-    permissions:
-      contents: write
-      pull-requests: write
-      actions: read
-      security-events: write
-    uses: $/.github/workflows/weekly-release.yml
-    secrets:
-      GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   dependabot-auto-merge:
     if: >
       github.event_name == 'pull_request'
