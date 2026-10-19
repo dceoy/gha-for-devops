@@ -118,35 +118,21 @@ jobs:
       contents: read
     if: inputs.use-osv-scanner
     runs-on: ubuntu-latest
-    env:
-      # renovate: datasource=github-releases depName=jdx/mise
-      MISE_VERSION: 2026.8.5
-      # renovate: datasource=github-releases depName=google/osv-scanner
-      OSV_SCANNER_VERSION: 2.7.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up OSV-Scanner
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca  # v5.1.1
-        with:
-          version: ${{ env.MISE_VERSION }}
-          working_directory: ${{ runner.temp }}
-          install_args: 'osv-scanner@${{ env.OSV_SCANNER_VERSION }}'
       - name: Run OSV-Scanner
         id: osv
         env:
+          OSV_IMAGE: ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0
           SCAN_PATH: ${{ inputs.package-path }}
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
         shell: bash
         run: |
           set -euo pipefail
-          scan_path="${SCAN_PATH}"
-          if [[ "${scan_path}" != /* ]]; then
-            scan_path="${GITHUB_WORKSPACE%/}/${scan_path}"
-          fi
-          if [[ ! -d "${scan_path}" ]]; then
+          if [[ ! -d "${SCAN_PATH}" ]]; then
             echo "::error::Scan directory not found: ${SCAN_PATH}"
             exit 1
           fi
@@ -155,10 +141,10 @@ jobs:
             exit 1
           fi
           args=(scan source --recursive --include-git-root)
-          if [[ -n "${REQUIREMENTS_TXT_PATH}" && ! -f "${scan_path%/}/uv.lock" ]]; then
+          if [[ -n "${REQUIREMENTS_TXT_PATH}" && ! -f "${SCAN_PATH%/}/uv.lock" ]]; then
             requirements_file="${REQUIREMENTS_TXT_PATH}"
             if [[ "${requirements_file}" != /* ]]; then
-              requirements_file="${scan_path%/}/${requirements_file}"
+              requirements_file="${SCAN_PATH%/}/${requirements_file}"
             fi
             if [[ ! -f "${requirements_file}" ]]; then
               echo "::error::Requirements file not found: ${requirements_file}"
@@ -166,9 +152,13 @@ jobs:
             fi
             args+=("--lockfile=requirements.txt:${requirements_file}")
           fi
-          args+=("${scan_path}")
+          args+=("${SCAN_PATH}")
           status=0
-          mise -C "${RUNNER_TEMP}" exec "osv-scanner@${OSV_SCANNER_VERSION}" -- osv-scanner "${args[@]}" || status=$?
+          docker run --rm \
+            --mount "type=bind,source=${GITHUB_WORKSPACE},target=${GITHUB_WORKSPACE},readonly" \
+            --workdir "${GITHUB_WORKSPACE}" \
+            --env CI=true \
+            "${OSV_IMAGE}" "${args[@]}" || status=$?
           if [[ "${status}" -eq 128 ]]; then
             echo "::notice::OSV-Scanner found no dependencies."
             exit 0
