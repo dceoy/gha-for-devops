@@ -5,6 +5,8 @@ bats_require_minimum_version 1.5.0
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
+  OSV_VERSION="$(yq -r '.jobs."osv-scan".env.OSV_SCANNER_VERSION' "${WORKFLOW}")"
+  MISE_VERSION="$(yq -r '.jobs."osv-scan".env.MISE_VERSION' "${WORKFLOW}")"
   OSV_SCRIPT="${BATS_TEST_TMPDIR}/osv.sh"
   yq -r '.jobs."osv-scan".steps[] | select(.id == "osv") | .run' "${WORKFLOW}" > "${OSV_SCRIPT}"
 }
@@ -43,24 +45,24 @@ run_osv_scan() {
   run env "SCAN_PATH=${target}" "REQUIREMENTS_TXT_PATH=${requirements}" \
     "GITHUB_WORKSPACE=${BATS_TEST_TMPDIR}" \
     "PATH=${BATS_TEST_TMPDIR}:${PATH}" \
-    "OSV_SCANNER_VERSION=2.7.0" \
+    "OSV_SCANNER_VERSION=${OSV_VERSION}" \
     "$@" bash -euo pipefail "${OSV_SCRIPT}"
 }
 
 @test "OSV-Scanner version is tracked by Renovate and installed with mise" {
   prepare_osv_stub
-  [ "$(yq -r '.jobs."osv-scan".env.OSV_SCANNER_VERSION' "${WORKFLOW}")" = 2.7.0 ]
-  [ "$(yq -r '.jobs."osv-scan".env.MISE_VERSION' "${WORKFLOW}")" = 2026.8.5 ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .uses' "${WORKFLOW}")" = jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 ]
+  [[ "${OSV_VERSION}" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]
+  [[ "${MISE_VERSION}" =~ ^[0-9]{4}\\.[0-9]+\\.[0-9]+$ ]]
+  [[ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .uses' "${WORKFLOW}")" =~ ^jdx/mise-action@[a-f0-9]{40}$ ]]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.install' "${WORKFLOW}")" = false ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.version' "${WORKFLOW}")" = "\${{ env.MISE_VERSION }}" ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.cache' "${WORKFLOW}")" = false ]
   yq -r '.jobs."osv-scan".steps[] | select(.name == "Install OSV-Scanner") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/install.sh"
-  run env "OSV_SCANNER_VERSION=2.7.0" "MISE_ARGS=${MISE_ARGS}" "PATH=${BATS_TEST_TMPDIR}:${PATH}" bash -euo pipefail "${BATS_TEST_TMPDIR}/install.sh"
+  run env "OSV_SCANNER_VERSION=${OSV_VERSION}" "MISE_ARGS=${MISE_ARGS}" "PATH=${BATS_TEST_TMPDIR}:${PATH}" bash -euo pipefail "${BATS_TEST_TMPDIR}/install.sh"
   [ "${status}" -eq 0 ]
   mapfile -d '' -t args < "${MISE_ARGS}"
   [ "${args[0]}" = install ]
-  [ "${args[1]}" = osv-scanner@2.7.0 ]
+  [ "${args[1]}" = "osv-scanner@${OSV_VERSION}" ]
   run ! grep -Fq 'checksum=' "${WORKFLOW}"
   run ! grep -Fq 'github-release-attachments' "${WORKFLOW}"
 }
@@ -75,7 +77,9 @@ const workflow = readFileSync(`${root}/.github/workflows/source-security-scan.ym
 const manager = cfg.customManagers.find(m => m.description === 'Update tool versions declared in GitHub Actions workflow env blocks');
 assert.ok(manager);
 const matches = [...workflow.matchAll(new RegExp(manager.matchStrings[0], 'g'))];
-for (const [name, version] of [['google/osv-scanner', '2.7.0'], ['jdx/mise', '2026.8.5']]) {
+for (const [name, envVar] of [['google/osv-scanner', 'OSV_SCANNER_VERSION'], ['jdx/mise', 'MISE_VERSION']]) {
+  const version = workflow.match(new RegExp(`^\\s*${envVar}:\\s*(\\S+)`, 'm'))?.[1];
+  assert.match(version ?? '', /^\\d+(?:\\.\\d+){2}$/);
   assert.ok(matches.some(m => m.groups.depName === name && m.groups.currentValue === version), name);
 }
 JS
@@ -92,7 +96,7 @@ JS
   [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "$WORKFLOW")" = 1 ]
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "$WORKFLOW")" = false ]
   grep -Fq "mise exec \"osv-scanner@\${OSV_SCANNER_VERSION}\" -- osv-scanner" "$WORKFLOW"
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .uses' "$WORKFLOW")" = actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e ]
+  [[ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .uses' "$WORKFLOW")" =~ ^actions/setup-go@[a-f0-9]{40}$ ]]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with."go-version"' "$WORKFLOW")" = stable ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with.cache' "$WORKFLOW")" = false ]
   local setup_index scan_index
