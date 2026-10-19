@@ -53,7 +53,7 @@ run_osv_scan() {
   [ "$(yq -r '.jobs."osv-scan".env.MISE_VERSION' "${WORKFLOW}")" = 2026.8.5 ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .uses' "${WORKFLOW}")" = jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.install' "${WORKFLOW}")" = false ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.version' "${WORKFLOW}")" = '${{ env.MISE_VERSION }}' ]
+  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.version' "${WORKFLOW}")" = "\${{ env.MISE_VERSION }}" ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.cache' "${WORKFLOW}")" = false ]
   yq -r '.jobs."osv-scan".steps[] | select(.name == "Install OSV-Scanner") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/install.sh"
   run env "OSV_SCANNER_VERSION=2.7.0" "MISE_ARGS=${MISE_ARGS}" "PATH=${BATS_TEST_TMPDIR}:${PATH}" bash -euo pipefail "${BATS_TEST_TMPDIR}/install.sh"
@@ -91,7 +91,7 @@ JS
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "$WORKFLOW")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "$WORKFLOW")" = 1 ]
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "$WORKFLOW")" = false ]
-  grep -Fq 'mise exec "osv-scanner@${OSV_SCANNER_VERSION}" -- osv-scanner' "$WORKFLOW"
+  grep -Fq "mise exec \"osv-scanner@\${OSV_SCANNER_VERSION}\" -- osv-scanner" "$WORKFLOW"
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .uses' "$WORKFLOW")" = actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with."go-version"' "$WORKFLOW")" = stable ]
   [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with.cache' "$WORKFLOW")" = false ]
