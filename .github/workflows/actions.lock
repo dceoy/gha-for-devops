@@ -16,7 +16,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
         - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
-        - 'bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931'
+        - 'bridgecrewio/checkov-action@29be5868bfa968f099ae80169f61f42887494b8f'
     '.github/workflows/aws-codebuild-run.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'aws-actions/aws-codebuild-run-build@7e46c3fa1c1f217e26a73712796b1f78938b534b'
@@ -191,7 +191,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         - 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884'
-        - 'bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931'
+        - 'bridgecrewio/checkov-action@29be5868bfa968f099ae80169f61f42887494b8f'
         - 'jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8'
     '.github/workflows/terraform-deploy-to-aws.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
@@ -398,9 +398,9 @@ dependencies:
         repo_id: 735298439
         uses:
             - 'actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb'
-    'bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931':
-        ref: 'v12.3131.0'
-        commit: 'sha1-c13aafd679d3814a25067d10fcaf98c4f7594931'
+    'bridgecrewio/checkov-action@29be5868bfa968f099ae80169f61f42887494b8f':
+        ref: 'v12.3133.0'
+        commit: 'sha1-29be5868bfa968f099ae80169f61f42887494b8f'
         owner_id: 48174253
         repo_id: 256738016
     'dceoy/setup-terragrunt@1cbef4029fa29d03260e3572cd1df1d45fd3f290':
