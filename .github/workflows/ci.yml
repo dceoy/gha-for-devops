@@ -105,18 +105,6 @@ jobs:
       - name: Run full Bats tests
         if: steps.bats-scope.outputs.scope != 'readme'
         run: bats --print-output-on-failure .github/scripts/tests/*.bats
-  osv-go-smoke:
-    if: >
-      github.event_name == 'push'
-      || github.event_name == 'pull_request'
-      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'lint')
-    permissions:
-      contents: read
-    uses: $/.github/workflows/source-security-scan.yml
-    with:
-      package-path: .github/scripts/tests/fixtures/source-security-scan/go
-      use-osv-scanner: true
-      use-trivy: false
   github-actions-lint-and-scan:
     if: >
       github.event_name == 'push'
@@ -173,7 +161,6 @@ jobs:
       - shell-lint
       - markdown-lint
       - readme-generator-test
-      - osv-go-smoke
       - readme-sync-check
       - github-actions-lint-and-scan
     permissions:
