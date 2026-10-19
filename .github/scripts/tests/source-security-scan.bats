@@ -31,55 +31,88 @@ run_osv_scan() {
 }
 
 prepare_download_stub() {
-  mkdir -p "${BATS_TEST_TMPDIR}/bin" "${BATS_TEST_TMPDIR}/download"
+  mkdir -p "${BATS_TEST_TMPDIR}/bin" "${BATS_TEST_TMPDIR}/download" "${BATS_TEST_TMPDIR}/fixtures"
   export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
+  export FIXTURE_ASSETS="${BATS_TEST_TMPDIR}/fixtures"
+  export CURL_URLS="${BATS_TEST_TMPDIR}/curl-urls"
   yq -r '.jobs."osv-scan".steps[] | select(.name == "Download OSV-Scanner") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/download.sh"
+  local arch pinned_checksum fixture_checksum
+  for arch in amd64 arm64; do
+    printf '#!/usr/bin/env bash\n# fixture %s\nexit 0\n' "${arch}" > "${FIXTURE_ASSETS}/osv-scanner_linux_${arch}"
+    fixture_checksum="$(sha256sum "${FIXTURE_ASSETS}/osv-scanner_linux_${arch}" | cut -d ' ' -f 1)"
+    pinned_checksum="$(awk -v arch="${arch}" '$0 ~ "arch=" arch "$" {getline; sub(/^[[:space:]]*checksum=/, ""); print}' "${BATS_TEST_TMPDIR}/download.sh")"
+    [[ "${pinned_checksum}" =~ ^[a-f0-9]{64}$ ]]
+    sed -i "s/${pinned_checksum}/${fixture_checksum}/" "${BATS_TEST_TMPDIR}/download.sh"
+  done
   cat > "${BATS_TEST_TMPDIR}/bin/curl" << 'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 url="${!#}"
+printf '%s\n' "${url}" >> "${CURL_URLS}"
 while [[ "$1" != --output ]]; do shift; done
 output="$2"
-if [[ "${url}" == */osv-scanner_SHA256SUMS ]]; then
-  for asset in osv-scanner_linux_amd64 osv-scanner_linux_arm64; do
-    [[ -f "${asset}" ]] || continue
-    case "${CHECKSUM_MODE:-valid}" in
-      valid) sha256sum "${asset}" ;;
-      mismatch) printf '%064d  %s\n' 0 "${asset}" ;;
-      missing) : ;;
-      malformed) printf 'invalid  %s\n' "${asset}" ;;
-      duplicate) sha256sum "${asset}" "${asset}" ;;
-    esac
-  done > "${output}"
-else
-  printf '#!/usr/bin/env bash\nexit 0\n' > "${output}"
+case "${url}" in
+  https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_amd64 | https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_arm64) ;;
+  *) exit 1 ;;
+esac
+cp "${FIXTURE_ASSETS}/${url##*/}" "${output}"
+if [[ "${TAMPER_BINARY:-false}" == true ]]; then
+  printf '# tampered\n' >> "${output}"
 fi
 SH
   chmod +x "${BATS_TEST_TMPDIR}/bin/curl"
   cd "${BATS_TEST_TMPDIR}/download" || return
 }
 
-@test "OSV release installer verifies Linux binaries for supported architectures" {
+@test "OSV release installer verifies pinned Linux binaries for supported architectures" {
   prepare_download_stub
-  local arch
-  for arch in X64 ARM64; do
-    run env RUNNER_OS=Linux "RUNNER_ARCH=${arch}" OSV_SCANNER_VERSION=2.7.0 \
+  local runner_arch asset_arch
+  while read -r runner_arch asset_arch; do
+    echo "architecture=${runner_arch}"
+    rm -f "${BATS_TEST_TMPDIR}/osv-scanner" "${CURL_URLS}"
+    run env RUNNER_OS=Linux "RUNNER_ARCH=${runner_arch}" OSV_SCANNER_VERSION=2.7.0 \
       "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
     [ "${status}" -eq 0 ]
     [ -x "${BATS_TEST_TMPDIR}/osv-scanner" ]
-    rm "${BATS_TEST_TMPDIR}/osv-scanner"
+    cmp "${FIXTURE_ASSETS}/osv-scanner_linux_${asset_arch}" "${BATS_TEST_TMPDIR}/osv-scanner"
+    [ "$(cat "${CURL_URLS}")" = "https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_${asset_arch}" ]
+  done << 'CASES'
+X64 amd64
+ARM64 arm64
+CASES
+}
+
+@test "OSV release installer rejects tampered binaries before installing" {
+  prepare_download_stub
+  local arch
+  for arch in X64 ARM64; do
+    echo "architecture=${arch}"
+    rm -f "${BATS_TEST_TMPDIR}/osv-scanner" "${CURL_URLS}"
+    run env RUNNER_OS=Linux "RUNNER_ARCH=${arch}" OSV_SCANNER_VERSION=2.7.0 \
+      TAMPER_BINARY=true "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
+    [ "${status}" -ne 0 ]
+    [ ! -e "${BATS_TEST_TMPDIR}/osv-scanner" ]
+    [[ "${output}" == *"FAILED"* ]]
   done
 }
 
-@test "OSV release installer rejects invalid checksums before installing" {
+@test "OSV release installer rejects unpinned versions and unsupported platforms before downloading" {
   prepare_download_stub
-  local mode
-  for mode in mismatch missing malformed duplicate; do
-    run env RUNNER_OS=Linux RUNNER_ARCH=X64 OSV_SCANNER_VERSION=2.7.0 \
-      "CHECKSUM_MODE=${mode}" "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
+  local version os arch
+  while read -r version os arch; do
+    echo "tuple=${version}/${os}/${arch}"
+    rm -f "${BATS_TEST_TMPDIR}/osv-scanner" "${CURL_URLS}"
+    run env "RUNNER_OS=${os}" "RUNNER_ARCH=${arch}" "OSV_SCANNER_VERSION=${version}" \
+      "RUNNER_TEMP=${BATS_TEST_TMPDIR}" bash -euo pipefail "${BATS_TEST_TMPDIR}/download.sh"
     [ "${status}" -ne 0 ]
     [ ! -e "${BATS_TEST_TMPDIR}/osv-scanner" ]
-  done
+    [ ! -e "${CURL_URLS}" ]
+    [[ "${output}" == *"No trusted OSV checksum"* ]]
+  done << 'CASES'
+2.7.1 Linux X64
+2.7.0 Darwin ARM64
+2.7.0 Linux ARM
+CASES
 }
 
 @test "Source scanner downloads native OSV and delegates Trivy to the read-only core" {

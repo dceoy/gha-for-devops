@@ -133,17 +133,21 @@ jobs:
       - name: Download OSV-Scanner
         working-directory: ${{ runner.temp }}
         run: |
-          case "${RUNNER_OS}/${RUNNER_ARCH}" in
-            Linux/X64) arch=amd64 ;;
-            Linux/ARM64) arch=arm64 ;;
-            *) echo "::error::Unsupported OSV runner: ${RUNNER_OS}/${RUNNER_ARCH}"; exit 1 ;;
+          # Version updates require reviewed hashes for both release assets.
+          case "${OSV_SCANNER_VERSION}/${RUNNER_OS}/${RUNNER_ARCH}" in
+            2.7.0/Linux/X64)
+              arch=amd64
+              checksum=160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b
+              ;;
+            2.7.0/Linux/ARM64)
+              arch=arm64
+              checksum=4061ef4c021ed3c47f203b818f337e351336cc5cd67c0274fc36bd1dfc728dd7
+              ;;
+            *) echo "::error::No trusted OSV checksum for ${OSV_SCANNER_VERSION}/${RUNNER_OS}/${RUNNER_ARCH}"; exit 1 ;;
           esac
           asset="osv-scanner_linux_${arch}"
           release_url="https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}"
           curl --fail --location --silent --show-error --retry 3 --output "${asset}" "${release_url}/${asset}"
-          curl --fail --location --silent --show-error --retry 3 --output osv-scanner_SHA256SUMS "${release_url}/osv-scanner_SHA256SUMS"
-          checksum="$(awk -v asset="${asset}" '$2 == asset {print $1}' osv-scanner_SHA256SUMS)"
-          [[ "${checksum}" =~ ^[a-fA-F0-9]{64}$ ]]
           printf '%s  %s\n' "${checksum}" "${asset}" | sha256sum --check --strict
           install -m 755 "${asset}" "${RUNNER_TEMP}/osv-scanner"
       - name: Set up Go for call analysis
