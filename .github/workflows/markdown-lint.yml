@@ -11,7 +11,7 @@ on:
       file-names:
         required: false
         type: string
-        description: Newline-separated file names or pathspecs passed to git ls-files for Prettier, Oxfmt, and Biome
+        description: Newline-separated file names or pathspecs passed to git ls-files for Oxfmt and Biome
         default: |
           *.md
           *.markdown
@@ -33,11 +33,6 @@ on:
         type: string
         description: JSON data for the markdownlint-cli2 base configuration
         default: '{"config":{"MD013":false,"MD033":false,"MD041":false}}'
-      use-prettier:
-        required: false
-        type: boolean
-        description: Use Prettier to check Markdown formatting
-        default: false
       use-oxfmt:
         required: false
         type: boolean
@@ -81,17 +76,20 @@ jobs:
       npm_config_min_release_age: '7'
       # renovate: datasource=npm depName=markdownlint-cli2
       MARKDOWNLINT_CLI2_VERSION: 0.23.2
-      # renovate: datasource=npm depName=prettier
-      PRETTIER_VERSION: 3.9.6
       # renovate: datasource=npm depName=oxfmt
       OXFMT_VERSION: 0.72.0
       # renovate: datasource=npm depName=@biomejs/biome
       BIOME_VERSION: 2.5.6
     steps:
       - name: Validate linter inputs
-        if: (! inputs.use-markdownlint-cli2) && (! inputs.use-prettier) && (! inputs.use-oxfmt) && (! inputs.use-biome)
+        if: (! inputs.use-markdownlint-cli2) && (! inputs.use-oxfmt) && (! inputs.use-biome)
         run: |
-          echo '::error::At least one of use-markdownlint-cli2, use-prettier, use-oxfmt, or use-biome must be true'
+          echo '::error::At least one of use-markdownlint-cli2, use-oxfmt, or use-biome must be true'
+          exit 1
+      - name: Reject conflicting formatters
+        if: inputs.use-oxfmt && inputs.use-biome
+        run: |
+          echo '::error::Enable only one Markdown formatter: Oxfmt or Biome.'
           exit 1
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -107,7 +105,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.npm
-          key: markdown-lint-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.PRETTIER_VERSION }}-${{ env.OXFMT_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
+          key: markdown-lint-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.OXFMT_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
       - name: Create Markdown lint configuration
         if: inputs.use-markdownlint-cli2
         env:
@@ -117,7 +115,7 @@ jobs:
           jq -e . <<< "${MARKDOWNLINT_CONFIG_DATA}" > "${config_file}"
           echo "MARKDOWNLINT_CONFIG_FILE=${config_file}" >> "${GITHUB_ENV}"
       - name: Create Markdown file list
-        if: inputs.use-prettier || inputs.use-oxfmt || inputs.use-biome
+        if: inputs.use-oxfmt || inputs.use-biome
         working-directory: ${{ inputs.search-path }}
         env:
           FILE_NAMES: ${{ inputs.file-names }}
@@ -149,11 +147,6 @@ jobs:
         working-directory: ${{ inputs.search-path }}
         run: >  # zizmor: ignore[adhoc-packages] runs pinned markdownlint-cli2 through npx
           xargs -0 -r -t npx --yes "markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}" --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdownlint-files"
-      - name: Check Markdown formatting with Prettier
-        if: inputs.use-prettier
-        working-directory: ${{ inputs.search-path }}
-        run: >  # zizmor: ignore[adhoc-packages] runs pinned Prettier through npx
-          xargs -0 -r -t npx --yes "prettier@${PRETTIER_VERSION}" --check -- < "${RUNNER_TEMP}/markdown-files"
       - name: Check Markdown formatting with Oxfmt
         if: inputs.use-oxfmt
         working-directory: ${{ inputs.search-path }}
