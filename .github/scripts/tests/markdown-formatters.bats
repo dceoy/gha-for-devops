@@ -11,13 +11,13 @@ setup() {
     file="${REPO_ROOT}/.github/workflows/${workflow}"
     [ "$(yq -r '.on.workflow_call.inputs."use-oxfmt".default' "${file}")" = true ]
     [ "$(yq -r '.on.workflow_call.inputs | has("use-prettier")' "${file}")" = false ]
-    ! grep -qi 'prettier' "${file}"
+    run ! grep -qi 'prettier' "${file}"
     grep -Fq 'if: inputs.use-oxfmt && inputs.use-biome' "${file}"
   done
 }
 
 @test "TypeScript Oxfmt CI fails on an unmatched glob" {
   file="${REPO_ROOT}/.github/workflows/typescript-package-lint-and-scan.yml"
-  grep -Fq 'oxfmt --check "${OXFMT_GLOB}"' "${file}"
-  ! grep -Fq 'oxfmt --check --no-error-on-unmatched-pattern' "${file}"
+  grep -Fq "oxfmt --check \"\${OXFMT_GLOB}\"" "${file}"
+  run ! grep -Fq 'oxfmt --check --no-error-on-unmatched-pattern' "${file}"
 }
