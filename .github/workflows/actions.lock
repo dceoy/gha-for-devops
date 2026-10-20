@@ -133,11 +133,8 @@ workflows:
     '.github/workflows/maintenance.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
-        - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         - 'bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43'
-        - 'github/codeql-action@24c54180a607b1449ed407dd24f251e4e9147c8d'
         - 'jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8'
-        - 'ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e'
     '.github/workflows/markdown-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
@@ -183,7 +180,9 @@ workflows:
         - 'r-lib/actions@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05'
     '.github/workflows/scorecard-assessment.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+        - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
+        - 'github/codeql-action@24c54180a607b1449ed407dd24f251e4e9147c8d'
         - 'ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e'
     '.github/workflows/security-audit.yml': []
     '.github/workflows/security-pr.yml': []
