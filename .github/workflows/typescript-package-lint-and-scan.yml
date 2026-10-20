@@ -402,7 +402,7 @@ jobs:
         env:
           OXFMT_GLOB: ${{ inputs.oxfmt-glob }}
         run: >
-          oxfmt --check --no-error-on-unmatched-pattern "${OXFMT_GLOB}"
+          oxfmt --check "${OXFMT_GLOB}"
       - name: Check types with TypeScript
         if: inputs.use-tsc
         working-directory: ${{ inputs.package-path }}
