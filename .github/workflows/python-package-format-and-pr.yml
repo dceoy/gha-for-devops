@@ -139,7 +139,6 @@ jobs:
           PR_BASE: ${{ github.head_ref || github.ref_name }}
           TARGET_PATH: ${{ inputs.package-path }}
         run: |
-          formatters='ruff'
           target_hash=$(printf '%s' "${TARGET_PATH}" | sha256sum | cut -c1-12)
           target_slug=$(printf '%s' "${TARGET_PATH}" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9_-]+#-#g; s#^-+|-+$##g; s#-+#-#g' | cut -c1-40)
           if [[ -z "${target_slug}" || "${target_slug}" == "." ]]; then
@@ -147,7 +146,7 @@ jobs:
           fi
           target_id="${target_slug}-${target_hash}"
           {
-            echo "commit_message=Reformat Python code using ${formatters}"
+            echo "commit_message=Reformat Python code using ruff"
             echo "pr_base=${PR_BASE}"
             echo "pr_branch=github-actions/python/${target_id}/${PR_BASE}"
           } >> "${GITHUB_OUTPUT}"
