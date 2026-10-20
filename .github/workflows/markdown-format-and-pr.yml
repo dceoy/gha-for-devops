@@ -22,7 +22,7 @@ on:
         required: false
         type: boolean
         description: Use Prettier to format Markdown files
-        default: true
+        default: false
       prettier-glob:
         required: false
         type: string
@@ -32,7 +32,7 @@ on:
         required: false
         type: boolean
         description: Use Oxfmt to format Markdown files
-        default: false
+        default: true
       oxfmt-glob:
         required: false
         type: string
@@ -78,7 +78,7 @@ jobs:
       # renovate: datasource=npm depName=prettier
       PRETTIER_VERSION: 3.9.6
       # renovate: datasource=npm depName=oxfmt
-      OXFMT_VERSION: 0.73.0
+      OXFMT_VERSION: 0.72.0
       # renovate: datasource=github-releases depName=jdx/mise
       MISE_VERSION: 2026.8.5
       # renovate: datasource=npm depName=@biomejs/biome
