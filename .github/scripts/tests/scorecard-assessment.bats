@@ -43,8 +43,8 @@ run_summary() {
 @test "Publishing job follows OpenSSF allowlist with no run steps" {
   [ "$(yq -r '.jobs.scorecard.steps[] | select(has("run")) | .name' "${REUSABLE}")" = "" ]
   yq -r '.jobs.scorecard.steps[] | .uses' "${REUSABLE}" \
-    | grep -Ev '^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@' |
-    grep -q . && return 1
+    | grep -Ev '^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@' \
+    | grep -q . && return 1
   [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard results to code scanning") | .if' "${REUSABLE}")" != "" ]
   [[ "$(yq -r '.jobs.summary.if' "${REUSABLE}")" == *publish-results* ]]
 }
