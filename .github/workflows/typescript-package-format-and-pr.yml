@@ -43,6 +43,16 @@ on:
         type: boolean
         description: Use Oxlint to lint code
         default: true
+      use-oxfmt:
+        required: false
+        type: boolean
+        description: Use Oxfmt to format code
+        default: false
+      oxfmt-glob:
+        required: false
+        type: string
+        description: Glob pattern for Oxfmt to format
+        default: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,scss,html,md,mdx,yml,yaml,toml}'
       use-prettier:
         required: false
         type: boolean
@@ -275,6 +285,7 @@ jobs:
         env:
           ADDITIONAL_NPM_PACKAGES: ${{ inputs.additional-npm-packages }}
           USE_OXLINT: ${{ inputs.use-oxlint }}
+          USE_OXFMT: ${{ inputs.use-oxfmt }}
           USE_BIOME: ${{ inputs.use-biome }}
           USE_ESLINT: ${{ inputs.use-eslint }}
           USE_PRETTIER: ${{ inputs.use-prettier }}
@@ -282,6 +293,7 @@ jobs:
         run: | # zizmor: ignore[adhoc-packages] installs workflow-selected and caller-selected packages
           packages=(typescript)
           if [[ "${USE_OXLINT}" == 'true' ]]; then packages+=(oxlint); fi
+          if [[ "${USE_OXFMT}" == 'true' ]]; then packages+=(oxfmt); fi
           if [[ "${USE_BIOME}" == 'true' ]]; then packages+=(biome); fi
           if [[ "${USE_ESLINT}" == 'true' ]]; then packages+=(eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser); fi
           if [[ "${USE_PRETTIER}" == 'true' ]]; then packages+=(prettier eslint-config-prettier); fi
@@ -339,6 +351,13 @@ jobs:
           PRETTIER_GLOB: ${{ inputs.prettier-glob }}
         run: >
           prettier --write "${PRETTIER_GLOB}"
+      - name: Format the code using Oxfmt
+        if: inputs.use-oxfmt
+        working-directory: ${{ inputs.package-path }}
+        env:
+          OXFMT_GLOB: ${{ inputs.oxfmt-glob }}
+        run: >
+          oxfmt --write --no-error-on-unmatched-pattern "${OXFMT_GLOB}"
       - name: Lint the code using Oxlint
         if: inputs.use-oxlint && inputs.lint-before-pr
         working-directory: ${{ inputs.package-path }}
@@ -361,6 +380,7 @@ jobs:
           USE_PRETTIER: ${{ inputs.use-prettier }}
           USE_ESLINT: ${{ inputs.use-eslint }}
           PR_BASE: ${{ github.head_ref || github.ref_name }}
+          USE_OXFMT: ${{ inputs.use-oxfmt }}
           AUDIT: ${{ inputs.audit }}
           TARGET_PATH: ${{ inputs.package-path }}
         run: |
@@ -373,6 +393,9 @@ jobs:
           fi
           if ${USE_PRETTIER}; then
             formatters+=('prettier')
+          fi
+          if ${USE_OXFMT}; then
+            formatters+=('oxfmt')
           fi
           if ${USE_ESLINT}; then
             formatters+=('eslint')

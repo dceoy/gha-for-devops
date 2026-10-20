@@ -43,6 +43,16 @@ on:
         type: boolean
         description: Use Oxlint to lint code
         default: true
+      use-oxfmt:
+        required: false
+        type: boolean
+        description: Use Oxfmt to check formatting
+        default: false
+      oxfmt-glob:
+        required: false
+        type: string
+        description: Glob pattern for Oxfmt to check
+        default: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,scss,html,md,mdx,yml,yaml,toml}'
       use-prettier:
         required: false
         type: boolean
@@ -317,6 +327,7 @@ jobs:
         env:
           ADDITIONAL_NPM_PACKAGES: ${{ inputs.additional-npm-packages }}
           USE_OXLINT: ${{ inputs.use-oxlint }}
+          USE_OXFMT: ${{ inputs.use-oxfmt }}
           USE_BIOME: ${{ inputs.use-biome }}
           USE_ESLINT: ${{ inputs.use-eslint }}
           USE_REACT: ${{ inputs.use-react }}
@@ -325,6 +336,7 @@ jobs:
         run: | # zizmor: ignore[adhoc-packages] installs workflow-selected and caller-selected packages
           packages=(typescript)
           if [[ "${USE_OXLINT}" == 'true' ]]; then packages+=(oxlint); fi
+          if [[ "${USE_OXFMT}" == 'true' ]]; then packages+=(oxfmt); fi
           if [[ "${USE_BIOME}" == 'true' ]]; then packages+=(biome); fi
           if [[ "${USE_ESLINT}" == 'true' ]]; then packages+=(eslint eslint-plugin-security @typescript-eslint/eslint-plugin @typescript-eslint/parser); fi
           if [[ "${USE_REACT}" == 'true' && "${USE_ESLINT}" == 'true' ]]; then packages+=(eslint-plugin-react eslint-plugin-react-hooks); fi
@@ -384,6 +396,13 @@ jobs:
           PRETTIER_GLOB: ${{ inputs.prettier-glob }}
         run: >
           prettier --check "${PRETTIER_GLOB}"
+      - name: Check formatting with Oxfmt
+        if: inputs.use-oxfmt
+        working-directory: ${{ inputs.package-path }}
+        env:
+          OXFMT_GLOB: ${{ inputs.oxfmt-glob }}
+        run: >
+          oxfmt --check "${OXFMT_GLOB}"
       - name: Check types with TypeScript
         if: inputs.use-tsc
         working-directory: ${{ inputs.package-path }}

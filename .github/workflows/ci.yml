@@ -192,8 +192,8 @@ jobs:
     runs-on: ubuntu-slim
     env:
       npm_config_min_release_age: '7'
-      # renovate: datasource=npm depName=prettier
-      PRETTIER_VERSION: 3.9.6
+      # renovate: datasource=npm depName=oxfmt
+      OXFMT_VERSION: 0.72.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -209,18 +209,18 @@ jobs:
         with:
           version: ${{ env.MISE_VERSION }}
           install_args: yq gomplate
-      - name: Provide Prettier wrapper
+      - name: Provide Oxfmt wrapper
         env:
-          PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
-        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Prettier through npx
-          [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
+          OXFMT_VERSION: ${{ env.OXFMT_VERSION }}
+        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Oxfmt through npx
+          [[ "${OXFMT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid OXFMT_VERSION"; exit 1; }
           mkdir -p "${HOME}/.local/bin"
-          cat > "${HOME}/.local/bin/prettier" <<EOF
+          cat > "${HOME}/.local/bin/oxfmt" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec npx --yes "prettier@${PRETTIER_VERSION}" "\$@"
+          exec npx --yes "oxfmt@${OXFMT_VERSION}" "\$@"
           EOF
-          chmod 0755 "${HOME}/.local/bin/prettier"
+          chmod 0755 "${HOME}/.local/bin/oxfmt"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
       - name: Regenerate README.md
         run: ./.github/scripts/update-readme.sh

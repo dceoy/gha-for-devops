@@ -18,16 +18,16 @@ on:
         type: string
         description: Node.js version to use
         default: latest
-      use-prettier:
+      use-oxfmt:
         required: false
         type: boolean
-        description: Use Prettier to format Markdown files
+        description: Use Oxfmt to format Markdown files
         default: true
-      prettier-glob:
+      oxfmt-glob:
         required: false
         type: string
-        description: Glob pattern for Prettier to format
-        default: '**/*.{md,mdx}'
+        description: Glob pattern for Oxfmt to format
+        default: '**/*.{md,markdown,mdx}'
       use-biome:
         required: false
         type: boolean
@@ -65,17 +65,22 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     env:
       npm_config_min_release_age: '7'
-      # renovate: datasource=npm depName=prettier
-      PRETTIER_VERSION: 3.9.6
+      # renovate: datasource=npm depName=oxfmt
+      OXFMT_VERSION: 0.72.0
       # renovate: datasource=github-releases depName=jdx/mise
       MISE_VERSION: 2026.8.5
       # renovate: datasource=npm depName=@biomejs/biome
       BIOME_VERSION: 2.5.6
     steps:
       - name: Validate formatter inputs
-        if: (! inputs.use-prettier) && (! inputs.use-biome)
+        if: (! inputs.use-oxfmt) && (! inputs.use-biome)
         run: |
-          echo '::error::At least one of use-prettier or use-biome must be true'
+          echo '::error::At least one of use-oxfmt or use-biome must be true'
+          exit 1
+      - name: Reject conflicting formatters
+        if: inputs.use-oxfmt && inputs.use-biome
+        run: |
+          echo '::error::Enable only one Markdown formatter: Oxfmt or Biome.'
           exit 1
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -92,30 +97,30 @@ jobs:
         with:
           version: ${{ env.MISE_VERSION }}
           install_args: yq gomplate
-      - name: Provide Prettier wrapper
+      - name: Provide Oxfmt wrapper
         if: inputs.update-readme
         env:
-          PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
-        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Prettier through npx
-          [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
+          OXFMT_VERSION: ${{ env.OXFMT_VERSION }}
+        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Oxfmt through npx
+          [[ "${OXFMT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid OXFMT_VERSION"; exit 1; }
           mkdir -p "${HOME}/.local/bin"
-          cat > "${HOME}/.local/bin/prettier" <<EOF
+          cat > "${HOME}/.local/bin/oxfmt" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec npx --yes "prettier@${PRETTIER_VERSION}" "\$@"
+          exec npx --yes "oxfmt@${OXFMT_VERSION}" "\$@"
           EOF
-          chmod 0755 "${HOME}/.local/bin/prettier"
+          chmod 0755 "${HOME}/.local/bin/oxfmt"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
       - name: Update README.md
         if: inputs.update-readme
         run: ./.github/scripts/update-readme.sh
-      - name: Format Markdown files using Prettier
-        if: inputs.use-prettier
+      - name: Format Markdown files using Oxfmt
+        if: inputs.use-oxfmt
         working-directory: ${{ inputs.search-path }}
         env:
-          PRETTIER_GLOB: ${{ inputs.prettier-glob }}
-        run: >  # zizmor: ignore[adhoc-packages] runs pinned Prettier through npx
-          npx --yes "prettier@${PRETTIER_VERSION}" --write "${PRETTIER_GLOB}"
+          OXFMT_GLOB: ${{ inputs.oxfmt-glob }}
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Oxfmt through npx
+          npx --yes "oxfmt@${OXFMT_VERSION}" --write --no-error-on-unmatched-pattern "${OXFMT_GLOB}"
       - name: Format Markdown files using Biome
         if: inputs.use-biome
         working-directory: ${{ inputs.search-path }}
@@ -135,14 +140,14 @@ jobs:
       - name: Create output parameters
         id: parameters
         env:
-          USE_PRETTIER: ${{ inputs.use-prettier }}
+          USE_OXFMT: ${{ inputs.use-oxfmt }}
           USE_BIOME: ${{ inputs.use-biome }}
           PR_BASE: ${{ github.head_ref || github.ref_name }}
           TARGET_PATH: ${{ inputs.search-path }}
         run: |
           formatters=()
-          if ${USE_PRETTIER}; then
-            formatters+=('prettier')
+          if ${USE_OXFMT}; then
+            formatters+=('oxfmt')
           fi
           if ${USE_BIOME}; then
             formatters+=('biome')
