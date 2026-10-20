@@ -118,6 +118,9 @@ jobs:
       go-version: stable
       python-version: 3.x
       actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml
+      # CKV2_GHA_1 is rechecked in all other workflow files by source-security-scan.
+      checkov-skip-check: CKV2_GHA_1
+      checkov-exempt-file: 'scorecard-assessment[.]yml$'
   github-codeql-analysis:
     if: >
       github.event_name == 'push'
