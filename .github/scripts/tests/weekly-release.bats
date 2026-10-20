@@ -91,13 +91,13 @@ MOCK
 
 @test 'repository maintenance routes scheduled and manual jobs independently' {
   [ "$(yq -r '.on.schedule[0].cron' "${WORKFLOW_FILE}")" = '15 0 * * 1' ]
-  [ "$(yq -r '.on.schedule[1].cron' "${WORKFLOW_FILE}")" = '30 1 * * 2' ]
+  [ "$(yq -r '.on.schedule | length' "${WORKFLOW_FILE}")" -eq 1 ]
   [ "$(yq -r '.on.workflow_dispatch.inputs.task.default' "${WORKFLOW_FILE}")" = weekly-release ]
   [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = weekly-release,scorecard ]
   grep -Fq "github.event.schedule == '15 0 * * 1'" "${WORKFLOW_FILE}"
-  grep -Fq "github.event.schedule == '30 1 * * 2'" "${WORKFLOW_FILE}"
   [ "$(yq -r '.jobs.plan.if' "${WORKFLOW_FILE}" | grep -c "inputs.task == 'weekly-release'")" -eq 1 ]
   [ "$(yq -r '.jobs.analysis.if' "${WORKFLOW_FILE}" | grep -c "inputs.task == 'scorecard'")" -eq 1 ]
+  yq -r '.jobs.analysis.if' "${WORKFLOW_FILE}" | grep -Fq "github.event_name == 'schedule'"
 }
 
 @test 'CI no longer calls or schedules weekly releases' {
