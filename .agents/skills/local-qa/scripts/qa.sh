@@ -15,7 +15,8 @@ export NPM_CONFIG_MIN_RELEASE_AGE="${COOLDOWN_DAYS}"
 export PNPM_CONFIG_MINIMUM_RELEASE_AGE=$((COOLDOWN_DAYS * 24 * 60))
 
 # Validate the narrowly scoped not-affected assessment before scanning dependencies.
-SCRIPT_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
+SCRIPT_DIRECTORY="$(dirname "${SCRIPT_PATH}")"
 bash "${SCRIPT_DIRECTORY}/check-qa-dependencies.sh"
 
 # Scan dependency manifests and lockfiles before running QA tools.
