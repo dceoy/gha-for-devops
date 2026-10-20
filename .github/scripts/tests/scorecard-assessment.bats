@@ -6,8 +6,8 @@ setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   REUSABLE="${REPO_ROOT}/.github/workflows/scorecard-assessment.yml"
   DEDICATED="${REPO_ROOT}/.github/workflows/maintenance.yml"
-  yq -r '.jobs.scorecard.steps[] | select(.name == "Validate inputs") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/validate.sh"
-  yq -r '.jobs.scorecard.steps[] | select(.id == "summary") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/summary.sh"
+  yq -r '.jobs.summary.steps[] | select(.name == "Validate inputs") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/validate.sh"
+  yq -r '.jobs.summary.steps[] | select(.id == "summary") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/summary.sh"
   export GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary"
   : > "${GITHUB_STEP_SUMMARY}"
   cat > "${BATS_TEST_TMPDIR}/scorecard.json" << 'JSON'
@@ -23,32 +23,42 @@ run_summary() {
   run env RESULT_FILE="${BATS_TEST_TMPDIR}/scorecard.json" MIN_SCORE="$1" bash -euo pipefail "${BATS_TEST_TMPDIR}/summary.sh"
 }
 
-@test "Reusable Scorecard profile never publishes and uses minimal permissions" {
-  [ "$(yq -r '.permissions | keys | sort | join(",")' "${REUSABLE}")" = actions,contents ]
+@test "Reusable Scorecard publication is opt-in and uses a single scan job" {
+  [ "$(yq -r '.on.workflow_call.inputs."publish-results".default' "${REUSABLE}")" = false ]
   [ "$(yq -r '.permissions.contents' "${REUSABLE}")" = read ]
-  [ "$(yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = false ]
-  [ "$(yq -r '.permissions | has("id-token")' "${REUSABLE}")" = false ]
-  yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .uses' "${REUSABLE}" \
-    | grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}$'
+  [ "$(yq -r '.permissions.actions' "${REUSABLE}")" = read ]
+  [ "$(yq -r '. | has("env") or has("defaults")' "${REUSABLE}")" = false ]
+  [ "$(yq -r '.jobs.scorecard | has("env") or has("defaults")' "${REUSABLE}")" = false ]
+  [ "$(yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = "${{ inputs['publish-results'] }}" ]
+  [ "$(yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .with.results_format' "${REUSABLE}")" = "${{ inputs['publish-results'] && 'sarif' || 'json' }}" ]
+  [ "$(yq -r '[.jobs[].steps[] | select(.uses == "ossf/scorecard-action*")] | length' "${REUSABLE}")" = 1 ]
+  [ "$(yq -r '.jobs.scorecard.permissions."id-token"' "${REUSABLE}")" = write ]
+  [ "$(yq -r '.jobs.scorecard.permissions."security-events"' "${REUSABLE}")" = write ]
   [ "$(yq -r '.on.workflow_call.inputs."min-score".default' "${REUSABLE}")" = "" ]
   [ "$(yq -r '.on.workflow_call.secrets.SCORECARD_TOKEN.required' "${REUSABLE}")" = false ]
+  yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .uses' "${REUSABLE}" |
+    grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}$'
 }
 
-@test "Result upload is not gated on hashFiles outside the workspace" {
-  run ! grep -Fq 'hashFiles' "${REUSABLE}"
-  [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard result") | .if' "${REUSABLE}")" != "" ]
+@test "Publishing job follows OpenSSF allowlist with no run steps" {
+  [ "$(yq -r '.jobs.scorecard.steps[] | select(has("run")) | .name' "${REUSABLE}")" = "" ]
+  yq -r '.jobs.scorecard.steps[] | .uses' "${REUSABLE}" |
+    grep -Ev '^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@' |
+    grep -q . && return 1
+  [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard results to code scanning") | .if' "${REUSABLE}")" != "" ]
+  [ "$(yq -r '.jobs.summary.if' "${REUSABLE}")" = "${{ !inputs['publish-results'] }}" ]
 }
 
-@test "Dedicated Scorecard workflow follows the official publishing constraints" {
+@test "Published maintenance Scorecard calls the reusable workflow" {
   [ "$(yq -r '.permissions.contents' "${DEDICATED}")" = read ]
   [ "$(yq -r '. | has("env") or has("defaults")' "${DEDICATED}")" = false ]
-  [ "$(yq -r '.jobs.analysis | has("env") or has("defaults")' "${DEDICATED}")" = false ]
   [ "$(yq -r '.on | has("workflow_call")' "${DEDICATED}")" = false ]
   [ "$(yq -r '.on | has("schedule")' "${DEDICATED}")" = true ]
   [ "$(yq -r '.on | has("workflow_dispatch")' "${DEDICATED}")" = true ]
   [ "$(yq -r '.jobs.analysis.permissions."id-token"' "${DEDICATED}")" = write ]
   [ "$(yq -r '.jobs.analysis.permissions."security-events"' "${DEDICATED}")" = write ]
-  [ "$(yq -r '.jobs.analysis.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${DEDICATED}")" = true ]
+  [ "$(yq -r '.jobs.analysis.uses' "${DEDICATED}")" = '$/.github/workflows/scorecard-assessment.yml' ]
+  [ "$(yq -r '.jobs.analysis.with."publish-results"' "${DEDICATED}")" = true ]
   run ! grep -Eq '^\s*uses: .*@(v[0-9]|main|master)' "${DEDICATED}"
 }
 
