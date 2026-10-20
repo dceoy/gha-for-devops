@@ -1,22 +1,18 @@
 ---
-# Private/internal OpenSSF Scorecard assessment profile (publication disabled).
-#
-# Differences from the official public flow (see .github/workflows/maintenance.yml):
-# - Results are NEVER published to the OpenSSF API or scorecard.dev: `publish_results` is false and
-#   `id-token: write` is not requested. Public publication supports reusable workflows but restricts
-#   workflow/job permissions, workflow-level env/defaults, runners, and steps in the publishing job.
-#   This repository keeps public publication in maintenance.yml to isolate its write permissions.
-#   See https://github.com/ossf/scorecard-action#workflow-restrictions.
-# - The JSON result is kept as a workflow artifact (visible to anyone who can read the run; for
-#   public repositories that includes the public) and failing checks are listed in the job summary.
-# - Private repositories: the default GITHUB_TOKEN cannot read everything Scorecard needs (for example
-#   branch protection). Pass a fine-grained token with read access as the SCORECARD_TOKEN secret;
-#   checks that cannot be evaluated are reported as inconclusive rather than as vulnerabilities.
-# - The aggregate score is not a vulnerability count; `min-score` is an optional gate and is off by default.
+# Dual-mode reusable Scorecard. Callers grant GITHUB_TOKEN permissions:
+# read-only for internal audits; id-token/security-events write for public publishing.
+# Workflow and job permissions are intentionally omitted to inherit the caller's
+# least-privilege contract. Checkov's CKV2_GHA_1 exception is file-specific;
+# all other checks still apply here, and CKV2_GHA_1 runs on all other workflows.
+# https://github.com/ossf/scorecard-action#workflow-restrictions
 name: OpenSSF Scorecard assessment
 on:
   workflow_call:
     inputs:
+      publish-results:
+        type: boolean
+        default: false
+        description: Publish to OpenSSF and code scanning; caller must grant write permissions
       results-artifact-name:
         type: string
         default: scorecard-results
@@ -33,16 +29,14 @@ on:
       SCORECARD_TOKEN:
         required: false
         description: Optional token with read access for checks the default token cannot evaluate
-permissions:
-  contents: read
-  actions: read
-defaults:
-  run:
-    shell: bash -euo pipefail {0}
-    working-directory: .
 jobs:
   scorecard:
+    if: ${{ ! inputs.publish-results }}
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -euo pipefail {0}
+        working-directory: .
     steps:
       - name: Validate inputs
         env:
@@ -91,3 +85,27 @@ jobs:
             echo "::error::Scorecard score ${score} is below min-score ${MIN_SCORE}."
             exit 1
           fi
+  analysis:
+    if: inputs.publish-results
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run OpenSSF Scorecard
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e  # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - name: Upload Scorecard SARIF artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: scorecard-sarif
+          path: results.sarif
+          retention-days: 5
+      - name: Upload Scorecard results to code scanning
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
+        with:
+          sarif_file: results.sarif
