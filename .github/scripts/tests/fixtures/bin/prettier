@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# Fake `prettier` for update-readme.bats: formatting output is not under
-# test here (only the fail-closed workflow-discovery guard is), and the
-# pinned binary isn't guaranteed to be installed/reachable in test
-# environments, so this just no-ops and leaves the file as gomplate wrote it.
-exit 0

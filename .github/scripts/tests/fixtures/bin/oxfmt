@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Fake Oxfmt for update-readme.bats. These tests verify workflow discovery,
+# not formatting, and may run without the actual formatter installed.
+exit 0
