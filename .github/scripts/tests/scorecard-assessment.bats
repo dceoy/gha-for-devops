@@ -59,8 +59,9 @@ run_summary() {
   [ "$(yq -r '.jobs.analysis.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${DEDICATED}")" = true ]
   [ "$(yq -r '[.jobs.analysis.steps[] | select(has("run"))] | length' "${DEDICATED}")" = 0 ]
   [ "$(yq -r '.jobs.analysis.steps | length' "${DEDICATED}")" = 4 ]
-  run bash -c 'yq -r '\''.jobs.analysis.steps[].uses'\'' "$1" | grep -Ev '\''^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@'\''' _ "${DEDICATED}"
-  [ "${status}" -eq 1 ]
+  while IFS= read -r action; do
+    [[ "${action}" =~ ^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@[a-f0-9]{40}$ ]] || return 1
+  done < <(yq -r '.jobs.analysis.steps[].uses' "${DEDICATED}")
   run ! grep -Eq '^[[:space:]]*uses: .*@(v[0-9]|main|master)' "${DEDICATED}"
 }
 
