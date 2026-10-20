@@ -26,6 +26,6 @@ setup() {
   grep -Fq "git ls-files -- '*.ts' '*.tsx' '*.mts' '*.cts'" "${qa}"
   grep -Fq "git ls-files -- '*.js' '*.jsx' '*.mjs' '*.cjs'" "${qa}"
   grep -Fq '{js,jsx,mjs,cjs,ts,tsx,mts,cts,' "${qa}"
-  grep -Fq 'npx --yes "oxfmt@' "${qa}"
+  grep -Fq 'pnpm exec oxfmt' "${qa}"
   grep -Fq 'eslint --fix --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts ' "${qa}"
 }
