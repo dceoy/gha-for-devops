@@ -41,10 +41,6 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
     uv run --locked --directory "${PACKAGE_DIRECTORY}" ruff format .
     uv run --locked --directory "${PACKAGE_DIRECTORY}" ruff check --fix .
     uv run --locked --directory "${PACKAGE_DIRECTORY}" pyright .
-  elif [[ -n "${PACKAGE_DIRECTORY}" ]] && [[ -f "${PACKAGE_DIRECTORY}/poetry.lock" ]]; then
-    poetry -C "${PACKAGE_DIRECTORY}" run ruff format .
-    poetry -C "${PACKAGE_DIRECTORY}" run ruff check --fix .
-    poetry -C "${PACKAGE_DIRECTORY}" run pyright .
   elif [[ -n "${PACKAGE_DIRECTORY}" ]]; then
     uv run --locked ruff format "${PACKAGE_DIRECTORY}"
     uv run --locked ruff check --fix "${PACKAGE_DIRECTORY}"
@@ -102,9 +98,6 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
     else
       pnpm exec oxlint --fix "${PACKAGE_DIRECTORY}"
     fi
-  fi
-  if command -v eslint > /dev/null 2>&1; then
-    pnpm exec eslint --fix --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}"
   fi
 
   if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]]; then

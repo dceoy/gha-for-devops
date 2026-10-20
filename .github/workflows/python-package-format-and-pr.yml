@@ -33,16 +33,6 @@ on:
         type: string
         description: Optional value used to bust the uv cache
         default: null
-      use-black:
-        required: false
-        type: boolean
-        description: Use black to format the code
-        default: false
-      use-isort:
-        required: false
-        type: boolean
-        description: Use isort to sort import definitions
-        default: false
       lint-before-pr:
         required: false
         type: boolean
@@ -85,13 +75,11 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Detect uv.lock or poetry.lock
+      - name: Detect uv.lock
         working-directory: ${{ inputs.package-path }}
         run: |
           if [[ -f uv.lock ]]; then
             echo "LOCK_FILE=uv.lock" >> "${GITHUB_ENV}"
-          elif [[ -f poetry.lock ]]; then
-            echo "LOCK_FILE=poetry.lock" >> "${GITHUB_ENV}"
           else
             echo "LOCK_FILE=" >> "${GITHUB_ENV}"
           fi
@@ -106,17 +94,9 @@ jobs:
         if: env.LOCK_FILE == 'uv.lock'
         working-directory: ${{ inputs.package-path }}
         env:
-          USE_BLACK: ${{ inputs.use-black }}
-          USE_ISORT: ${{ inputs.use-isort }}
         run: |
           uv sync --all-groups
-          packages=()
-          if [[ "${USE_BLACK}" == "true" ]]; then
-            packages+=(black)
-          else
-            packages+=(ruff)
-          fi
-          [[ "${USE_ISORT}" == "true" ]] && packages+=(isort)
+          packages=(ruff)
           uv add --dev "${packages[@]}"
           echo "EXECUTOR_KIND=uv" >> "${GITHUB_ENV}"
       - name: Set up Python
@@ -128,56 +108,20 @@ jobs:
         if: env.LOCK_FILE != 'uv.lock'
         env:
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
-          USE_BLACK: ${{ inputs.use-black }}
-          USE_ISORT: ${{ inputs.use-isort }}
         working-directory: ${{ inputs.package-path }}
         run: |
           if [[ -n "${REQUIREMENTS_TXT_PATH}" ]]; then
             uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
           fi
-          packages=()
-          if [[ "${USE_BLACK}" == "true" ]]; then
-            packages+=(black)
-          else
-            packages+=(ruff)
-          fi
-          [[ "${USE_ISORT}" == "true" ]] && packages+=(isort)
-          if [[ "${LOCK_FILE}" == "poetry.lock" ]]; then
-            uv pip install --system poetry
-            poetry lock --no-interaction
-            poetry add --group=dev --no-interaction "${packages[@]}"
-            poetry install --no-interaction
-            echo "EXECUTOR_KIND=poetry" >> "${GITHUB_ENV}"
-          else
-            uv pip install --system "${packages[@]}"
-            echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
-          fi
+          packages=(ruff)
+          uv pip install --system "${packages[@]}"
+          echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
       - name: Format the code using ruff
-        if: (! inputs.use-black)
         working-directory: ${{ inputs.package-path }}
         run: |
           case "${EXECUTOR_KIND}" in
             uv)     uv run ruff format . ;;
-            poetry) poetry run ruff format . ;;
             *)      ruff format . ;;
-          esac
-      - name: Format the code using black
-        if: inputs.use-black
-        working-directory: ${{ inputs.package-path }}
-        run: |
-          case "${EXECUTOR_KIND}" in
-            uv)     uv run black . ;;
-            poetry) poetry run black . ;;
-            *)      black . ;;
-          esac
-      - name: Sort Python import definitions using isort
-        if: inputs.use-isort
-        working-directory: ${{ inputs.package-path }}
-        run: |
-          case "${EXECUTOR_KIND}" in
-            uv)     uv run isort . ;;
-            poetry) poetry run isort . ;;
-            *)      isort . ;;
           esac
       - name: Lint the code using ruff
         if: inputs.lint-before-pr
@@ -185,30 +129,20 @@ jobs:
         run: |
           case "${EXECUTOR_KIND}" in
             uv)     uv run ruff check --fix --output-format=github . ;;
-            poetry) poetry run ruff check --fix --output-format=github . ;;
             *)      ruff check --fix --output-format=github . ;;
           esac
       - name: Restore project files
-        if: env.EXECUTOR_KIND == 'poetry' || env.EXECUTOR_KIND == 'uv'
+        if: env.EXECUTOR_KIND == 'uv'
         working-directory: ${{ inputs.package-path }}
         run: |
           git restore pyproject.toml "${LOCK_FILE}"
       - name: Create output parameters
         id: parameters
         env:
-          USE_BLACK: ${{ inputs.use-black }}
-          USE_ISORT: ${{ inputs.use-isort }}
           PR_BASE: ${{ github.head_ref || github.ref_name }}
           TARGET_PATH: ${{ inputs.package-path }}
         run: |
-          if [[ "${USE_BLACK}" == "true" ]]; then
-            formatters='black'
-          else
-            formatters='ruff'
-          fi
-          if [[ "${USE_ISORT}" == "true" ]]; then
-            formatters="${formatters} and isort"
-          fi
+          formatters='ruff'
           target_hash=$(printf '%s' "${TARGET_PATH}" | sha256sum | cut -c1-12)
           target_slug=$(printf '%s' "${TARGET_PATH}" | tr '[:upper:]' '[:lower:]' | sed -E 's#[^a-z0-9_-]+#-#g; s#^-+|-+$##g; s#-+#-#g' | cut -c1-40)
           if [[ -z "${target_slug}" || "${target_slug}" == "." ]]; then

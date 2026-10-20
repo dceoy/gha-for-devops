@@ -13,11 +13,10 @@ setup() {
 @test "TypeScript workflows cover ESM and CommonJS extensions" {
   for workflow in "${WORKFLOWS[@]}"; do
     workflow_file="${REPO_ROOT}/.github/workflows/${workflow}"
-    for input in biome-glob prettier-glob oxfmt-glob; do
+    for input in biome-glob oxfmt-glob; do
       glob="$(yq -r ".on.workflow_call.inputs.\"${input}\".default" "${workflow_file}")"
       [[ "${glob}" == *'{js,jsx,mjs,cjs,ts,tsx,mts,cts,'* ]]
     done
-    grep -Fq 'eslint --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts ' "${workflow_file}"
   done
 }
 
@@ -27,5 +26,4 @@ setup() {
   grep -Fq "git ls-files -- '*.js' '*.jsx' '*.mjs' '*.cjs'" "${qa}"
   grep -Fq '{js,jsx,mjs,cjs,ts,tsx,mts,cts,' "${qa}"
   grep -Fq 'pnpm exec oxfmt' "${qa}"
-  grep -Fq 'eslint --fix --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts ' "${qa}"
 }

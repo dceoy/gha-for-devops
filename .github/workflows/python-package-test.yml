@@ -66,13 +66,11 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Detect uv.lock or poetry.lock
+      - name: Detect uv.lock
         working-directory: ${{ inputs.package-path }}
         run: |
           if [[ -f uv.lock ]]; then
             echo "LOCK_FILE=uv.lock" >> "${GITHUB_ENV}"
-          elif [[ -f poetry.lock ]]; then
-            echo "LOCK_FILE=poetry.lock" >> "${GITHUB_ENV}"
           else
             echo "LOCK_FILE=" >> "${GITHUB_ENV}"
           fi
@@ -111,29 +109,16 @@ jobs:
           if [[ -n "${REQUIREMENTS_TXT_PATH}" ]]; then
             uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
           fi
-          if [[ "${LOCK_FILE}" == "poetry.lock" ]]; then
-            uv pip install --system poetry
-            poetry lock --no-interaction
-            for p in $(tr ' ' '\n' <<< "${ADDITIONAL_PYTHON_PACKAGES}"); do
-              if [[ -n "${p}" ]]; then
-                poetry add --group=dev --no-interaction "${p}"
-              fi
-            done
-            poetry install --no-interaction --no-root
-            echo "EXECUTOR_KIND=poetry" >> "${GITHUB_ENV}"
-          else
-            for p in $(tr ' ' '\n' <<< "${ADDITIONAL_PYTHON_PACKAGES}"); do
-              if [[ -n "${p}" ]]; then
-                uv pip install --system "${p}"
-              fi
-            done
-            echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
-          fi
+          for p in $(tr ' ' '\n' <<< "${ADDITIONAL_PYTHON_PACKAGES}"); do
+            if [[ -n "${p}" ]]; then
+              uv pip install --system "${p}"
+            fi
+          done
+          echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
       - name: Run tests with pytest
         working-directory: ${{ inputs.package-path }}
         run: |
           case "${EXECUTOR_KIND}" in
             uv)     uv run pytest ;;
-            poetry) poetry run pytest ;;
             *)      pytest ;;
           esac
