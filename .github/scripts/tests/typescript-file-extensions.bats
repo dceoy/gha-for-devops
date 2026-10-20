@@ -25,5 +25,7 @@ setup() {
   grep -Fq "git ls-files -- '*.ts' '*.tsx' '*.mts' '*.cts'" "${qa}"
   grep -Fq "git ls-files -- '*.js' '*.jsx' '*.mjs' '*.cjs'" "${qa}"
   grep -Fq '{js,jsx,mjs,cjs,ts,tsx,mts,cts,' "${qa}"
+  grep -Fq 'pnpm exec biome check --write' "${qa}"
   grep -Fq 'pnpm exec oxfmt' "${qa}"
+  ! grep -Fq 'if ! command -v biome' "${qa}"
 }
