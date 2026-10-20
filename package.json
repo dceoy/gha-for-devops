@@ -10,9 +10,7 @@
   },
   "type": "module",
   "scripts": {
-    "qa": "bash .agents/skills/local-qa/scripts/qa.sh",
-    "format": "biome format --write . && oxfmt --write '**/*.{md,mdx}' --no-error-on-unmatched-pattern",
-    "format:check": "biome format . && oxfmt --check '**/*.{md,mdx}' --no-error-on-unmatched-pattern"
+    "qa": "bash .agents/skills/local-qa/scripts/qa.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
