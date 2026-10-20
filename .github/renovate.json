@@ -60,8 +60,8 @@
       "automerge": false
     },
     {
-      "description": "Require review for Python dependency updates, including Checkov's reviewed ecdsa usage",
-      "matchManagers": ["uv", "pep621"],
+      "description": "Disable automerge for Python dependency updates; assess Checkov ecdsa use separately",
+      "matchManagers": ["pep621"],
       "automerge": false
     },
     {

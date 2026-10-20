@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fail closed when the reviewed, verification-only ecdsa assessment changes.
-# Checkov versions are owned by uv.lock and require human review before merge.
+# Checkov versions are owned by uv.lock; runtime usage needs separate assessment.
 set -euo pipefail
 
 fail() {

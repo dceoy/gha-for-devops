@@ -3,4 +3,4 @@
 [[IgnoredVulns]]
 id = "GHSA-wj6h-64fc-37mp"
 ignoreUntil = 2026-11-17
-reason = "Not affected: reviewed Checkov QA dependency graph uses ecdsa 0.19.2 only for public-key loading and signature verification; Checkov updates require human review. The upstream Minerva advisory explicitly excludes verification; no signing, key generation, or ECDH is performed. Exact artifacts and the dev-only dependency graph are guarded before local QA. https://github.com/tlsfuzzer/python-ecdsa/security/advisories/GHSA-wj6h-64fc-37mp"
+reason = "Not affected for the assessed Checkov QA usage of ecdsa 0.19.2: public-key loading and signature verification only. The upstream Minerva advisory excludes verification, not signing, key generation or ECDH. The QA guard checks pinned ecdsa artifacts and dependency graph, not Checkov's runtime call sites; reassess usage after Checkov upgrades before relying on this exception. https://github.com/tlsfuzzer/python-ecdsa/security/advisories/GHSA-wj6h-64fc-37mp"

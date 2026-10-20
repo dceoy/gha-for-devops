@@ -6,7 +6,7 @@ setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
 }
 
-@test "Python dependency updates require review before auto-merge" {
+@test "Dependabot and Renovate do not auto-merge Python dependency updates" {
   local ci="${REPO_ROOT}/.github/workflows/ci.yml"
   local reusable="${REPO_ROOT}/.github/workflows/dependabot-auto-merge.yml"
   local renovate="${REPO_ROOT}/.github/renovate.json"
@@ -20,5 +20,5 @@ setup() {
   [[ "${approve_if}" == *"steps.metadata.outputs.package-ecosystem != 'pip'"* ]]
 
   jq -e 'any(.packageRules[]; .automerge == false and
-    ((.matchManagers // []) | index("uv") != null and index("pep621") != null))' "${renovate}" > /dev/null
+    ((.matchManagers // []) == ["pep621"]))' "${renovate}" > /dev/null
 }
