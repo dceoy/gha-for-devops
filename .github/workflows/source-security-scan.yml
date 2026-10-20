@@ -87,9 +87,6 @@ on:
       checkov-skip-check:
         type: string
         default: null
-      checkov-exempt-file:
-        type: string
-        default: null
       checkov-config-file:
         type: string
         default: null
@@ -296,15 +293,3 @@ jobs:
           output_file_path: ${{ inputs.checkov-output-file-path }}
           soft_fail: ${{ inputs.checkov-soft-fail }}
           api-key: ${{ secrets.BC_API_KEY }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
-      # Compensating policy pass: CKV2_GHA_1 remains enforced everywhere except
-      # the explicit reusable workflow where caller permission inheritance is required.
-      - name: Verify top-level permissions except approved reusable workflow
-        if: inputs.checkov-exempt-file != ''
-        uses: bridgecrewio/checkov-action@6f26dc90000b74feb589a906cdfae540f5119895  # v12.3134.0
-        with:
-          directory: ${{ inputs.package-path }}
-          framework: github_actions
-          check: CKV2_GHA_1
-          skip_path: ${{ inputs.checkov-exempt-file }}
-          output_format: ${{ inputs.checkov-output-format }}
-          soft_fail: false
