@@ -36,14 +36,14 @@ run_summary() {
   [ "$(yq -r '.jobs.scorecard.permissions."security-events"' "${REUSABLE}")" = write ]
   [ "$(yq -r '.on.workflow_call.inputs."min-score".default' "${REUSABLE}")" = "" ]
   [ "$(yq -r '.on.workflow_call.secrets.SCORECARD_TOKEN.required' "${REUSABLE}")" = false ]
-  yq -r '.jobs.scorecard.steps[] | select(.name == "Run OpenSSF Scorecard") | .uses' "${REUSABLE}" |
-    grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}$'
+  yq -r '.jobs.scorecard.steps[] | select(.name == "Run OpenSSF Scorecard") | .uses' "${REUSABLE}" \
+    | grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}$'
 }
 
 @test "Publishing job follows OpenSSF allowlist with no run steps" {
   [ "$(yq -r '.jobs.scorecard.steps[] | select(has("run")) | .name' "${REUSABLE}")" = "" ]
-  yq -r '.jobs.scorecard.steps[] | .uses' "${REUSABLE}" |
-    grep -Ev '^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@' |
+  yq -r '.jobs.scorecard.steps[] | .uses' "${REUSABLE}" \
+    | grep -Ev '^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@' |
     grep -q . && return 1
   [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard results to code scanning") | .if' "${REUSABLE}")" != "" ]
   [[ "$(yq -r '.jobs.summary.if' "${REUSABLE}")" == *publish-results* ]]
