@@ -53,26 +53,6 @@ on:
         type: string
         description: Glob pattern for Oxfmt to check
         default: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,scss,html,md,mdx,yml,yaml,toml}'
-      use-prettier:
-        required: false
-        type: boolean
-        description: Use Prettier to check formatting
-        default: false
-      prettier-glob:
-        required: false
-        type: string
-        description: Glob pattern for Prettier to check
-        default: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,css,scss,html,md}'
-      use-eslint:
-        required: false
-        type: boolean
-        description: Use ESLint to lint code
-        default: false
-      use-react:
-        required: false
-        type: boolean
-        description: "Include React-specific ESLint plugins when ESLint is enabled (`use-eslint: true` required)"
-        default: false
       use-tsc:
         required: false
         type: boolean
@@ -329,22 +309,21 @@ jobs:
           USE_OXLINT: ${{ inputs.use-oxlint }}
           USE_OXFMT: ${{ inputs.use-oxfmt }}
           USE_BIOME: ${{ inputs.use-biome }}
-          USE_ESLINT: ${{ inputs.use-eslint }}
-          USE_REACT: ${{ inputs.use-react }}
-          USE_PRETTIER: ${{ inputs.use-prettier }}
         working-directory: ${{ inputs.package-path }}
         run: | # zizmor: ignore[adhoc-packages] installs workflow-selected and caller-selected packages
           packages=(typescript)
           if [[ "${USE_OXLINT}" == 'true' ]]; then packages+=(oxlint); fi
           if [[ "${USE_OXFMT}" == 'true' ]]; then packages+=(oxfmt); fi
           if [[ "${USE_BIOME}" == 'true' ]]; then packages+=(biome); fi
-          if [[ "${USE_ESLINT}" == 'true' ]]; then packages+=(eslint eslint-plugin-security @typescript-eslint/eslint-plugin @typescript-eslint/parser); fi
-          if [[ "${USE_REACT}" == 'true' && "${USE_ESLINT}" == 'true' ]]; then packages+=(eslint-plugin-react eslint-plugin-react-hooks); fi
-          if [[ "${USE_PRETTIER}" == 'true' ]]; then packages+=(prettier eslint-config-prettier eslint-plugin-prettier); fi
+          additional_packages=()
+          for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
+            additional_packages+=("${p}")
+          done
           case "${PACKAGE_MANAGER:-}" in
             pnpm )
               pnpm install --frozen-lockfile
               pnpm add --save-dev "${packages[@]}"
+              add_packages=(pnpm add --save-dev)
               ;;
             * )
               if [[ -f package-lock.json ]]; then
@@ -353,20 +332,12 @@ jobs:
                 npm install
               fi
               npm install --save-dev "${packages[@]}"
+              add_packages=(npm install --save-dev)
               ;;
           esac
-          for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
-            if [[ -n "${p}" ]]; then
-              case "${PACKAGE_MANAGER:-}" in
-                pnpm )
-                  pnpm add --save-dev "${p}"
-                  ;;
-                * )
-                  npm install --save-dev "${p}"
-                  ;;
-              esac
-            fi
-          done
+          if [[ "${#additional_packages[@]}" -gt 0 ]]; then
+            "${add_packages[@]}" "${additional_packages[@]}"
+          fi
           echo "PATH=${PWD}/node_modules/.bin:${PATH}" >> "${GITHUB_ENV}"
       - name: Run Oxlint
         if: inputs.use-oxlint
@@ -377,11 +348,6 @@ jobs:
           else
             oxlint .
           fi
-      - name: Run ESLint
-        if: inputs.use-eslint
-        working-directory: ${{ inputs.package-path }}
-        run: >
-          eslint --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --no-error-on-unmatched-pattern .
       - name: Check formatting and linting with Biome
         if: inputs.use-biome
         working-directory: ${{ inputs.package-path }}
@@ -389,13 +355,6 @@ jobs:
           BIOME_GLOB: ${{ inputs.biome-glob }}
         run: >
           biome check --files-ignore-unknown=true --error-on-warnings "${BIOME_GLOB}"
-      - name: Check formatting with Prettier
-        if: inputs.use-prettier
-        working-directory: ${{ inputs.package-path }}
-        env:
-          PRETTIER_GLOB: ${{ inputs.prettier-glob }}
-        run: >
-          prettier --check "${PRETTIER_GLOB}"
       - name: Check formatting with Oxfmt
         if: inputs.use-oxfmt
         working-directory: ${{ inputs.package-path }}

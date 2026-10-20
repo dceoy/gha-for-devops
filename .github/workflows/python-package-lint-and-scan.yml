@@ -38,26 +38,16 @@ on:
         type: boolean
         description: Use pyright to check types
         default: true
+      use-ty:
+        required: false
+        type: boolean
+        description: Use ty to check types
+        default: false
       use-ruff-format:
         required: false
         type: boolean
         description: Use ruff format to check code
         default: true
-      use-mypy:
-        required: false
-        type: boolean
-        description: Use mypy to check types
-        default: false
-      use-flake8:
-        required: false
-        type: boolean
-        description: Use flake8 to lint the code
-        default: false
-      use-bandit:
-        required: false
-        type: boolean
-        description: Use bandit to find security issues
-        default: false
       audit:
         required: false
         type: boolean
@@ -135,13 +125,11 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Detect uv.lock or poetry.lock
+      - name: Detect uv.lock
         working-directory: ${{ inputs.package-path }}
         run: |
           if [[ -f uv.lock ]]; then
             echo "LOCK_FILE=uv.lock" >> "${GITHUB_ENV}"
-          elif [[ -f poetry.lock ]]; then
-            echo "LOCK_FILE=poetry.lock" >> "${GITHUB_ENV}"
           else
             echo "LOCK_FILE=" >> "${GITHUB_ENV}"
           fi
@@ -158,20 +146,16 @@ jobs:
         env:
           INPUTS_ADDITIONAL_PYTHON_PACKAGES: ${{ inputs.additional-python-packages }}
           INPUTS_AUDIT: ${{ inputs.audit }}
-          USE_FLAKE8: ${{ inputs.use-flake8 }}
-          USE_BANDIT: ${{ inputs.use-bandit }}
-          USE_MYPY: ${{ inputs.use-mypy }}
           USE_PYRIGHT: ${{ inputs.use-pyright }}
+          USE_TY: ${{ inputs.use-ty }}
         run: |
           uv sync --all-groups
           if [[ "${INPUTS_AUDIT}" == "true" ]]; then
             uv audit --locked
           fi
           packages=(ruff)
-          [[ "${USE_FLAKE8}" == "true" ]] && packages+=(flake8)
-          [[ "${USE_BANDIT}" == "true" ]] && packages+=(bandit)
-          [[ "${USE_MYPY}" == "true" ]] && packages+=(mypy)
           [[ "${USE_PYRIGHT}" == "true" ]] && packages+=(pyright)
+          [[ "${USE_TY}" == "true" ]] && packages+=(ty)
           uv add --dev "${packages[@]}"
           for p in $(tr ' ' '\n' <<< "${INPUTS_ADDITIONAL_PYTHON_PACKAGES}"); do
             if [[ -n "${p}" ]]; then
@@ -189,46 +173,28 @@ jobs:
         env:
           ADDITIONAL_PYTHON_PACKAGES: ${{ inputs.additional-python-packages }}
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
-          USE_FLAKE8: ${{ inputs.use-flake8 }}
-          USE_BANDIT: ${{ inputs.use-bandit }}
-          USE_MYPY: ${{ inputs.use-mypy }}
           USE_PYRIGHT: ${{ inputs.use-pyright }}
+          USE_TY: ${{ inputs.use-ty }}
         working-directory: ${{ inputs.package-path }}
         run: |
           if [[ -n "${REQUIREMENTS_TXT_PATH}" ]]; then
             uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
           fi
           packages=(ruff)
-          [[ "${USE_FLAKE8}" == "true" ]] && packages+=(flake8)
-          [[ "${USE_BANDIT}" == "true" ]] && packages+=(bandit)
-          [[ "${USE_MYPY}" == "true" ]] && packages+=(mypy)
           [[ "${USE_PYRIGHT}" == "true" ]] && packages+=(pyright)
-          if [[ "${LOCK_FILE}" == "poetry.lock" ]]; then
-            uv pip install --system poetry
-            poetry lock --no-interaction
-            poetry add --group=dev --no-interaction "${packages[@]}"
-            for p in $(tr ' ' '\n' <<< "${ADDITIONAL_PYTHON_PACKAGES}"); do
-              if [[ -n "${p}" ]]; then
-                poetry add --group=dev --no-interaction "${p}"
-              fi
-            done
-            poetry install --no-interaction --no-root
-            echo "EXECUTOR_KIND=poetry" >> "${GITHUB_ENV}"
-          else
-            uv pip install --system "${packages[@]}"
-            for p in $(tr ' ' '\n' <<< "${ADDITIONAL_PYTHON_PACKAGES}"); do
-              if [[ -n "${p}" ]]; then
-                uv pip install --system "${p}"
-              fi
-            done
-            echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
-          fi
+          [[ "${USE_TY}" == "true" ]] && packages+=(ty)
+          uv pip install --system "${packages[@]}"
+          for p in $(tr ' ' '\n' <<< "${ADDITIONAL_PYTHON_PACKAGES}"); do
+            if [[ -n "${p}" ]]; then
+              uv pip install --system "${p}"
+            fi
+          done
+          echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
       - name: Lint the code using ruff check
         working-directory: ${{ inputs.package-path }}
         run: |
           case "${EXECUTOR_KIND}" in
             uv)     uv run ruff check --output-format=github . ;;
-            poetry) poetry run ruff check --output-format=github . ;;
             *)      ruff check --output-format=github . ;;
           esac
       - name: Check the code using ruff format
@@ -237,35 +203,7 @@ jobs:
         run: |
           case "${EXECUTOR_KIND}" in
             uv)     uv run ruff format --check . ;;
-            poetry) poetry run ruff format --check . ;;
             *)      ruff format --check . ;;
-          esac
-      - name: Lint the code using flake8
-        if: inputs.use-flake8
-        working-directory: ${{ inputs.package-path }}
-        run: |
-          case "${EXECUTOR_KIND}" in
-            uv)     uv run flake8 . ;;
-            poetry) poetry run flake8 . ;;
-            *)      flake8 . ;;
-          esac
-      - name: Find security issues using bandit
-        if: inputs.use-bandit
-        working-directory: ${{ inputs.package-path }}
-        run: |
-          case "${EXECUTOR_KIND}" in
-            uv)     uv run bandit --recursive . ;;
-            poetry) poetry run bandit --recursive . ;;
-            *)      bandit --recursive . ;;
-          esac
-      - name: Check types using mypy
-        if: inputs.use-mypy
-        working-directory: ${{ inputs.package-path }}
-        run: |
-          case "${EXECUTOR_KIND}" in
-            uv)     uv run mypy --install-types --non-interactive . ;;
-            poetry) poetry run mypy --install-types --non-interactive . ;;
-            *)      mypy --install-types --non-interactive . ;;
           esac
       - name: Check types using pyright
         if: inputs.use-pyright
@@ -273,6 +211,13 @@ jobs:
         run: |
           case "${EXECUTOR_KIND}" in
             uv)     uv run pyright --threads=0 . ;;
-            poetry) poetry run pyright --threads=0 . ;;
             *)      pyright --threads=0 . ;;
+          esac
+      - name: Check types using ty
+        if: inputs.use-ty
+        working-directory: ${{ inputs.package-path }}
+        run: |
+          case "${EXECUTOR_KIND}" in
+            uv)     uv run ty check . ;;
+            *)      ty check . ;;
           esac

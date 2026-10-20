@@ -128,13 +128,11 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Detect uv.lock or poetry.lock
+      - name: Detect uv.lock
         working-directory: ${{ inputs.package-path }}
         run: |
           if [[ -f uv.lock ]]; then
             echo "LOCK_FILE=uv.lock" >> "${GITHUB_ENV}"
-          elif [[ -f poetry.lock ]]; then
-            echo "LOCK_FILE=poetry.lock" >> "${GITHUB_ENV}"
           else
             echo "LOCK_FILE=" >> "${GITHUB_ENV}"
           fi
@@ -160,15 +158,8 @@ jobs:
         if: env.LOCK_FILE != 'uv.lock'
         working-directory: ${{ inputs.package-path }}
         run: |
-          if [[ "${LOCK_FILE}" == "poetry.lock" ]]; then
-            uv pip install --system poetry
-            poetry lock --no-interaction
-            poetry install --no-interaction --no-root
-            echo "EXECUTOR_KIND=poetry" >> "${GITHUB_ENV}"
-          else
-            uv pip install --system mkdocs
-            echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
-          fi
+          uv pip install --system mkdocs
+          echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
       - name: Build MkDocs site
         working-directory: ${{ inputs.package-path }}
         env:
@@ -182,7 +173,6 @@ jobs:
           [[ -n "${MKDOCS_THEME}" ]] && args+=(--theme="${MKDOCS_THEME}")
           case "${EXECUTOR_KIND}" in
             uv)     uv run mkdocs build --clean --site-dir="${MKDOCS_SITE_DIR}" "${args[@]}" ;;
-            poetry) poetry run mkdocs build --clean --site-dir="${MKDOCS_SITE_DIR}" "${args[@]}" ;;
             *)      mkdocs build --clean --site-dir="${MKDOCS_SITE_DIR}" "${args[@]}" ;;
           esac
       - name: Deploy to GitHub Pages

@@ -80,12 +80,10 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Detect uv.lock or poetry.lock
+      - name: Detect uv.lock
         run: |
           if [[ -f uv.lock ]]; then
             echo "LOCK_FILE=uv.lock" >> "${GITHUB_ENV}"
-          elif [[ -f poetry.lock ]]; then
-            echo "LOCK_FILE=poetry.lock" >> "${GITHUB_ENV}"
           else
             echo "LOCK_FILE=" >> "${GITHUB_ENV}"
           fi
@@ -112,26 +110,17 @@ jobs:
         env:
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
         run: |
-          if [[ "${LOCK_FILE}" == "poetry.lock" ]]; then
-            uv pip install --system poetry
-            poetry lock --no-interaction
-            poetry add --group=dev --no-interaction PyInstaller
-            poetry install --no-interaction
-            echo "EXECUTOR_KIND=poetry" >> "${GITHUB_ENV}"
-          else
-            if [[ -n "${REQUIREMENTS_TXT_PATH}" ]]; then
-              uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
-            fi
-            uv pip install --system PyInstaller
-            echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
+          if [[ -n "${REQUIREMENTS_TXT_PATH}" ]]; then
+            uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
           fi
+          uv pip install --system PyInstaller
+          echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
       - name: Build an executable file
         env:
           APP_SCRIPT_PATH: ${{ inputs.app-script-path }}
         run: |
           case "${EXECUTOR_KIND}" in
             uv)     uv run PyInstaller --clean --noconsole --onefile "${APP_SCRIPT_PATH}" ;;
-            poetry) poetry run PyInstaller --clean --noconsole --onefile "${APP_SCRIPT_PATH}" ;;
             # Bare pip installs may not expose PyInstaller on PATH; preserve prior `python -m` behavior.
             *)      python -m PyInstaller --clean --noconsole --onefile "${APP_SCRIPT_PATH}" ;;
           esac

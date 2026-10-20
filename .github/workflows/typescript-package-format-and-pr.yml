@@ -53,21 +53,6 @@ on:
         type: string
         description: Glob pattern for Oxfmt to format
         default: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,scss,html,md,mdx,yml,yaml,toml}'
-      use-prettier:
-        required: false
-        type: boolean
-        description: Use Prettier to format code
-        default: false
-      prettier-glob:
-        required: false
-        type: string
-        description: Glob pattern for Prettier to format
-        default: '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,css,scss,html,md}'
-      use-eslint:
-        required: false
-        type: boolean
-        description: Use ESLint to lint code
-        default: false
       lint-before-pr:
         required: false
         type: boolean
@@ -287,20 +272,21 @@ jobs:
           USE_OXLINT: ${{ inputs.use-oxlint }}
           USE_OXFMT: ${{ inputs.use-oxfmt }}
           USE_BIOME: ${{ inputs.use-biome }}
-          USE_ESLINT: ${{ inputs.use-eslint }}
-          USE_PRETTIER: ${{ inputs.use-prettier }}
         working-directory: ${{ inputs.package-path }}
         run: | # zizmor: ignore[adhoc-packages] installs workflow-selected and caller-selected packages
           packages=(typescript)
           if [[ "${USE_OXLINT}" == 'true' ]]; then packages+=(oxlint); fi
           if [[ "${USE_OXFMT}" == 'true' ]]; then packages+=(oxfmt); fi
           if [[ "${USE_BIOME}" == 'true' ]]; then packages+=(biome); fi
-          if [[ "${USE_ESLINT}" == 'true' ]]; then packages+=(eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser); fi
-          if [[ "${USE_PRETTIER}" == 'true' ]]; then packages+=(prettier eslint-config-prettier); fi
+          additional_packages=()
+          for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
+            additional_packages+=("${p}")
+          done
           case "${PACKAGE_MANAGER:-}" in
             pnpm )
               pnpm install --frozen-lockfile
               pnpm add --save-dev "${packages[@]}"
+              add_packages=(pnpm add --save-dev)
               ;;
             * )
               if [[ -f package-lock.json ]]; then
@@ -309,20 +295,12 @@ jobs:
                 npm install
               fi
               npm install --save-dev "${packages[@]}"
+              add_packages=(npm install --save-dev)
               ;;
           esac
-          for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
-            if [[ -n "${p}" ]]; then
-              case "${PACKAGE_MANAGER:-}" in
-                pnpm )
-                  pnpm add --save-dev "${p}"
-                  ;;
-                * )
-                  npm install --save-dev "${p}"
-                  ;;
-              esac
-            fi
-          done
+          if [[ "${#additional_packages[@]}" -gt 0 ]]; then
+            "${add_packages[@]}" "${additional_packages[@]}"
+          fi
           echo "PATH=${PWD}/node_modules/.bin:${PATH}" >> "${GITHUB_ENV}"
       - name: Fix security vulnerabilities
         if: inputs.audit
@@ -344,13 +322,6 @@ jobs:
           BIOME_GLOB: ${{ inputs.biome-glob }}
         run: >
           biome check --write --files-ignore-unknown=true "${BIOME_GLOB}"
-      - name: Format the code using Prettier
-        if: inputs.use-prettier
-        working-directory: ${{ inputs.package-path }}
-        env:
-          PRETTIER_GLOB: ${{ inputs.prettier-glob }}
-        run: >
-          prettier --write "${PRETTIER_GLOB}"
       - name: Format the code using Oxfmt
         if: inputs.use-oxfmt
         working-directory: ${{ inputs.package-path }}
@@ -367,18 +338,11 @@ jobs:
           else
             oxlint --fix .
           fi
-      - name: Lint the code using ESLint
-        if: inputs.use-eslint && inputs.lint-before-pr
-        working-directory: ${{ inputs.package-path }}
-        run: >
-          eslint --ext .js,.jsx,.mjs,.cjs,.ts,.tsx,.mts,.cts --fix --no-error-on-unmatched-pattern .
       - name: Create output parameters
         id: parameters
         env:
           USE_BIOME: ${{ inputs.use-biome }}
           USE_OXLINT: ${{ inputs.use-oxlint }}
-          USE_PRETTIER: ${{ inputs.use-prettier }}
-          USE_ESLINT: ${{ inputs.use-eslint }}
           PR_BASE: ${{ github.head_ref || github.ref_name }}
           USE_OXFMT: ${{ inputs.use-oxfmt }}
           AUDIT: ${{ inputs.audit }}
@@ -391,14 +355,8 @@ jobs:
           if ${USE_OXLINT}; then
             formatters+=('oxlint')
           fi
-          if ${USE_PRETTIER}; then
-            formatters+=('prettier')
-          fi
           if ${USE_OXFMT}; then
             formatters+=('oxfmt')
-          fi
-          if ${USE_ESLINT}; then
-            formatters+=('eslint')
           fi
           if [[ "${#formatters[@]}" -gt 0 ]]; then
             formatter_text="$(IFS=', '; echo "${formatters[*]}")"

@@ -28,10 +28,10 @@ on:
         type: string
         description: Lockfile used to scope the package-manager cache
         default: null
-      use-prettier:
+      use-oxfmt:
         required: false
         type: boolean
-        description: Check formatting with Prettier
+        description: Check formatting with Oxfmt
         default: true
       use-htmlhint:
         required: false
@@ -58,10 +58,10 @@ on:
         type: string
         description: Path to a stylelint configuration file
         default: null
-      prettier-glob:
+      oxfmt-glob:
         required: false
         type: string
-        description: Glob for files to check with Prettier
+        description: Glob for files to check with Oxfmt
         default: '**/*.{html,htm,css,scss}'
       html-glob:
         required: false
@@ -309,23 +309,30 @@ jobs:
       - name: Install dependencies or provide standalone wrappers
         env:
           ADDITIONAL_NPM_PACKAGES: ${{ inputs.additional-npm-packages }}
-          USE_PRETTIER: ${{ inputs.use-prettier }}
+          USE_OXFMT: ${{ inputs.use-oxfmt }}
           USE_HTMLHINT: ${{ inputs.use-htmlhint }}
           USE_STYLELINT: ${{ inputs.use-stylelint }}
           LINT_HTML_EMBEDDED_CSS: ${{ inputs.lint-html-embedded-css }}
         working-directory: ${{ inputs.package-path }}
         run: | # zizmor: ignore[adhoc-packages] installs project packages or provides npm-exec wrappers
           packages=()
-          if [[ "${USE_PRETTIER}" == 'true' ]]; then packages+=(prettier); fi
+          if [[ "${USE_OXFMT}" == 'true' ]]; then packages+=(oxfmt); fi
           if [[ "${USE_HTMLHINT}" == 'true' ]]; then packages+=(htmlhint); fi
           if [[ "${USE_STYLELINT}" == 'true' ]]; then packages+=(stylelint stylelint-config-standard); fi
           if [[ "${LINT_HTML_EMBEDDED_CSS}" == 'true' ]]; then packages+=(postcss-html); fi
+          additional_packages=()
+          if [[ "${PACKAGE_MANAGER}" != 'standalone' ]]; then
+            for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
+              additional_packages+=("${p}")
+            done
+          fi
           case "${PACKAGE_MANAGER}" in
             pnpm )
               pnpm install --frozen-lockfile
               if [[ "${#packages[@]}" -gt 0 ]]; then
                 pnpm add --save-dev "${packages[@]}"
               fi
+              add_packages=(pnpm add --save-dev)
               ;;
             npm )
               if [[ -f package-lock.json ]]; then
@@ -336,6 +343,7 @@ jobs:
               if [[ "${#packages[@]}" -gt 0 ]]; then
                 npm install --save-dev "${packages[@]}"
               fi
+              add_packages=(npm install --save-dev)
               ;;
             standalone )
               if [[ -n "${ADDITIONAL_NPM_PACKAGES}" ]]; then
@@ -357,24 +365,19 @@ jobs:
           set -euo pipefail
           exec "${NPM_PREFIX}/node_modules/.bin/stylelint" --config-basedir "${NPM_PREFIX}/node_modules" "\$@"
           EOF
-              cat > "${HOME}/.local/bin/prettier" <<EOF
+              cat > "${HOME}/.local/bin/oxfmt" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec "${NPM_PREFIX}/node_modules/.bin/prettier" "\$@"
+          exec "${NPM_PREFIX}/node_modules/.bin/oxfmt" "\$@"
           EOF
-              chmod 0755 "${HOME}/.local/bin/htmlhint" "${HOME}/.local/bin/stylelint" "${HOME}/.local/bin/prettier"
+              chmod 0755 "${HOME}/.local/bin/htmlhint" "${HOME}/.local/bin/stylelint" "${HOME}/.local/bin/oxfmt"
               echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
               ;;
           esac
           if [[ "${PACKAGE_MANAGER}" != 'standalone' ]]; then
-            for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
-              if [[ -n "${p}" ]]; then
-                case "${PACKAGE_MANAGER}" in
-                  pnpm ) pnpm add --save-dev "${p}" ;;
-                  npm ) npm install --save-dev "${p}" ;;
-                esac
-              fi
-            done
+            if [[ "${#additional_packages[@]}" -gt 0 ]]; then
+              "${add_packages[@]}" "${additional_packages[@]}"
+            fi
             echo "PATH=${PWD}/node_modules/.bin:${PATH}" >> "${GITHUB_ENV}"
           fi
       - name: Run HTMLHint on HTML files
@@ -413,10 +416,10 @@ jobs:
           else
             stylelint --custom-syntax postcss-html "${HTML_GLOB}"
           fi
-      - name: Check formatting with Prettier
-        if: inputs.use-prettier
+      - name: Check formatting with Oxfmt
+        if: inputs.use-oxfmt
         env:
-          PRETTIER_GLOB: ${{ inputs.prettier-glob }}
+          OXFMT_GLOB: ${{ inputs.oxfmt-glob }}
         working-directory: ${{ inputs.package-path }}
         run: >
-          prettier --check "${PRETTIER_GLOB}"
+          oxfmt --check "${OXFMT_GLOB}"

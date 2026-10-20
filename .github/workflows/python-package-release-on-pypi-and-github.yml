@@ -113,13 +113,11 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Detect uv.lock or poetry.lock
+      - name: Detect uv.lock
         working-directory: ${{ inputs.package-path }}
         run: |
           if [[ -f uv.lock ]]; then
             echo "LOCK_FILE=uv.lock" >> "${GITHUB_ENV}"
-          elif [[ -f poetry.lock ]]; then
-            echo "LOCK_FILE=poetry.lock" >> "${GITHUB_ENV}"
           else
             echo "LOCK_FILE=" >> "${GITHUB_ENV}"
           fi
@@ -146,8 +144,6 @@ jobs:
               d = tomllib.load(f)
           if "project" in d and "name" in d["project"]:
               name = d["project"]["name"]
-          elif "tool" in d and "poetry" in d["tool"] and "name" in d["tool"]["poetry"]:
-              name = d["tool"]["poetry"]["name"]
           else:
               raise ValueError(f"project name not found in pyproject.toml: {d}")
           print(f"project_name={name}")
@@ -159,19 +155,10 @@ jobs:
           STEPS_READ_PROJECT_NAME_OUTPUTS_PROJECT_NAME: ${{ steps.read-project-name.outputs.project_name }}
         working-directory: ${{ inputs.package-path }}
         run: |
-          if [[ "${LOCK_FILE}" == "uv.lock" ]]; then
-            uv build
-          else
-            if [[ -n "${REQUIREMENTS_TXT_PATH}" ]]; then
-              uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
-            fi
-            if [[ "${LOCK_FILE}" == "poetry.lock" ]]; then
-              uv pip install --system poetry
-              poetry build --format=wheel --no-interaction
-            else
-              uv build
-            fi
+          if [[ "${LOCK_FILE}" != "uv.lock" && -n "${REQUIREMENTS_TXT_PATH}" ]]; then
+            uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
           fi
+          uv build
           mv dist "/tmp/${STEPS_READ_PROJECT_NAME_OUTPUTS_PROJECT_NAME}_dist"
       - name: Store the distribution packages
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
