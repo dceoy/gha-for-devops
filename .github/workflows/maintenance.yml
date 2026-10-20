@@ -1,6 +1,6 @@
 ---
-# Repository-specific maintenance. Public Scorecard publication runs in the
-# reusable workflow with this caller's explicit least-privilege permissions.
+# Repository-specific maintenance. Public Scorecard publishing runs directly
+# in an isolated job; the reusable assessment workflow stays read-only.
 name: Repository maintenance
 on:
   branch_protection_rule:
