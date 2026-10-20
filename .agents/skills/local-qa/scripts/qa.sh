@@ -89,9 +89,7 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
   if command -v biome > /dev/null 2>&1; then
     pnpm exec biome check --write "${PACKAGE_DIRECTORY}"
   fi
-  if ! command -v biome > /dev/null 2>&1; then
-    pnpm exec oxfmt --write --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss}"
-  fi
+  pnpm exec oxfmt --write --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss}"
   if command -v oxlint > /dev/null 2>&1; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
       pnpm exec oxlint --fix --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
@@ -109,10 +107,12 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
   fi
 fi
 
-# Use Oxfmt for tracked Markdown and HTML files, independently of Biome.
-if [[ "${N_HTML_FILES}" -gt 0 || "${N_MARKDOWN_FILES}" -gt 0 ]]; then
-  git ls-files -z -- '*.html' '*.htm' '*.md' '*.markdown' '*.mdx' \
-    | xargs -0 -t pnpm exec oxfmt --write --no-error-on-unmatched-pattern
+# Always format Markdown and HTML, including in mixed JavaScript/TypeScript projects.
+if [[ "${N_HTML_FILES}" -gt 0 ]]; then
+  pnpm exec oxfmt --write --no-error-on-unmatched-pattern './**/*.{html,htm}'
+fi
+if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
+  pnpm exec oxfmt --write --no-error-on-unmatched-pattern './**/*.{md,markdown,mdx}'
 fi
 
 if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
