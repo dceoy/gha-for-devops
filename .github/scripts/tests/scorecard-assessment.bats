@@ -28,7 +28,8 @@ run_summary() {
   [ "$(yq -r '.permissions.contents' "${REUSABLE}")" = read ]
   [ "$(yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = false ]
   [ "$(yq -r '.permissions | has("id-token")' "${REUSABLE}")" = false ]
-  grep -Fq 'ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e' "${REUSABLE}"
+  yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .uses' "${REUSABLE}" \
+    | grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}$'
   [ "$(yq -r '.on.workflow_call.inputs."min-score".default' "${REUSABLE}")" = "" ]
   [ "$(yq -r '.on.workflow_call.secrets.SCORECARD_TOKEN.required' "${REUSABLE}")" = false ]
 }

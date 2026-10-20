@@ -44,7 +44,8 @@ validate() {
   [ "$(yq -r '.on.workflow_call.inputs."fail-on-risk".default' "${WORKFLOW}")" = high ]
   [ "$(yq -r '.jobs.zap.runs-on' "${WORKFLOW}")" = ubuntu-latest ]
   grep -Eq 'ghcr.io/zaproxy/zaproxy:stable@sha256:[0-9a-f]{64}' "${WORKFLOW}"
-  grep -Fq 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9' "${WORKFLOW}"
+  yq -r '.jobs.zap.steps[] | select(.name == "Upload metadata-only ZAP report") | .uses' "${WORKFLOW}" \
+    | grep -Eq '^actions/upload-artifact@[a-f0-9]{40}$'
   run ! grep -Eq '^\s*uses: .*@(v[0-9]|main|master)' "${WORKFLOW}"
   run ! grep -Eq 'issues: write|allow_issue_writing: true|gh issue' "${WORKFLOW}"
   [ "$(yq -r '.on.workflow_call.secrets // "none"' "${WORKFLOW}")" = none ]

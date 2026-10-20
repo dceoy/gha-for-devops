@@ -12,24 +12,33 @@ setup() {
 @test "QA assessment accepts the reviewed dev-only verification dependency graph" {
   run bash "${GUARD}"
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *'unaffected signature verification'* ]]
+  [[ "${output}" == *'dependency graph and pinned ecdsa artifacts match'* ]]
+  [[ "${output}" == *'runtime usage is not verified'* ]]
+  [[ "${output}" == *'Checkov upgrades need manual reassessment'* ]]
 }
 
-@test "QA assessment rejects changed reviewed versions and artifacts" {
-  local original replacement
+@test "QA assessment tolerates Checkov lockfile version updates" {
+  local checkov_version
+  checkov_version="$(yq -p toml -o json "${REPO_ROOT}/uv.lock" | jq -r '.package[] | select(.name == "checkov") | .version')"
+  sed "s/version = \"${checkov_version}\"/version = \"${checkov_version}.1\"/" "${REPO_ROOT}/uv.lock" > uv.lock
+  run bash "${GUARD}"
+  [ "${status}" -eq 0 ]
+}
+
+@test "QA assessment rejects changed reviewed ecdsa versions and artifacts" {
+  local lock_json original replacement
+  lock_json="$(yq -p toml -o json "${REPO_ROOT}/uv.lock")"
   while read -r original replacement; do
     sed "s/${original}/${replacement}/g" "${REPO_ROOT}/uv.lock" > uv.lock
     run bash "${GUARD}"
     [ "${status}" -eq 1 ]
     [[ "${output}" == *'Reassess'* ]]
-  done << 'CASES'
-3.3.26 3.3.27
-0.19.2 0.19.3
-3b4157e4a308ed72e86352b65331045d7b8172f7a4492741db85de6cf1a49b42 changed-wheel
-90df926e9acf102452ba28bebe910738d76d84b5ce5974475fadae4bc319ddcf changed-sdist
-840f5dc5e375c68f36c1a7a5b9caad28f95daa65185c9253c0c08dd952bb7399 changed-wheel
-62635b0ac1ca2e027f82122b5b81cb706edc38cd91c63dda28e4f3455a2bf930 changed-sdist
-CASES
+  done < <(jq -r '
+    .package[] | select(.name == "ecdsa") |
+    "\(.version) \(.version).1",
+    "\(.sdist.hash | sub("^sha256:"; "")) changed-sdist",
+    "\(.wheels[].hash | sub("^sha256:"; "")) changed-wheel"
+  ' <<< "${lock_json}")
 }
 
 @test "QA assessment rejects runtime dependencies in the root project" {

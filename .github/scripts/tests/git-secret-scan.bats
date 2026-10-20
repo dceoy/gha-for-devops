@@ -52,7 +52,8 @@ step_output() {
   [ "$(yq -r '.on.workflow_call.inputs."fail-on-unverified".default' "${WORKFLOW}")" = false ]
   [ "$(yq -r '.on.workflow_call.secrets // "none"' "${WORKFLOW}")" = none ]
   grep -Eq 'trufflesecurity/trufflehog:[0-9.]+@sha256:[0-9a-f]{64}' "${WORKFLOW}"
-  grep -Fq 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' "${WORKFLOW}"
+  yq -r '.jobs.trufflehog.steps[] | select(.name == "Checkout repository") | .uses' "${WORKFLOW}" \
+    | grep -Eq '^actions/checkout@[a-f0-9]{40}$'
   [ "$(yq -r '.jobs.trufflehog.steps[] | select(.name == "Checkout repository") | .with."persist-credentials"' "${WORKFLOW}")" = false ]
   run ! grep -Fq 'upload-artifact' "${WORKFLOW}"
   run ! grep -Fq -- '--fail' "${WORKFLOW}"

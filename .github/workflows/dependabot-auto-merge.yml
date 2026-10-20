@@ -8,6 +8,11 @@ on:
         type: boolean
         description: Whether to unconditionally approve PRs without checking the update type
         default: false
+      allow-python-dependency-auto-merge:
+        required: false
+        type: boolean
+        description: Whether to automatically approve uv or pip dependency updates
+        default: true
       auto-merge-after-requirements:
         required: false
         type: boolean
@@ -67,7 +72,11 @@ jobs:
           echo "safe=${safe}" | tee -a "${GITHUB_OUTPUT}"
       - name: Approve the pull request
         if: >
-          inputs.unconditional || steps.safe-update.outputs.safe == 'true'
+          (inputs.unconditional || steps.safe-update.outputs.safe == 'true')
+          && (inputs.allow-python-dependency-auto-merge
+          || (steps.metadata.outputs.package-ecosystem != 'uv'
+          && steps.metadata.outputs.package-ecosystem != 'pip'
+          && steps.metadata.outputs.package-ecosystem != ''))
         id: approve-pr
         run: >
           gh pr review --approve "${PR_URL}"

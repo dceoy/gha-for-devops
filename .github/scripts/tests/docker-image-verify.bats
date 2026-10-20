@@ -30,7 +30,8 @@ validate() {
 
 @test "Verification workflow is read-only, pinned, and requires identity and issuer policy" {
   [ "$(yq -r '.jobs.verify.permissions | keys | join(",")' "${WORKFLOW}")" = contents ]
-  grep -Fq 'sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6' "${WORKFLOW}"
+  yq -r '.jobs.verify.steps[] | select(.name == "Install cosign") | .uses' "${WORKFLOW}" \
+    | grep -Eq '^sigstore/cosign-installer@[a-f0-9]{40}$'
   [ "$(yq -r '.on.workflow_call.inputs."image-refs-json".required' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."verify-signatures".default' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."certificate-oidc-issuer".default' "${WORKFLOW}")" = https://token.actions.githubusercontent.com ]

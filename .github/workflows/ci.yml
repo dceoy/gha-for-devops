@@ -56,7 +56,7 @@ jobs:
     permissions:
       contents: read
     uses: $/.github/workflows/markdown-lint.yml
-  readme-generator-test:
+  bats-test:
     if: >
       github.event_name == 'push'
       || github.event_name == 'pull_request'
@@ -157,7 +157,7 @@ jobs:
     needs:
       - shell-lint
       - markdown-lint
-      - readme-generator-test
+      - bats-test
       - readme-sync-check
       - github-actions-lint-and-scan
     permissions:
@@ -169,6 +169,7 @@ jobs:
     uses: $/.github/workflows/dependabot-auto-merge.yml
     with:
       unconditional: true
+      allow-python-dependency-auto-merge: false
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   # Write-capable maintenance jobs never run for pull_request events.
