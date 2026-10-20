@@ -93,7 +93,6 @@ jobs:
       - name: Install packages using uv
         if: env.LOCK_FILE == 'uv.lock'
         working-directory: ${{ inputs.package-path }}
-        env:
         run: |
           uv sync --all-groups
           packages=(ruff)
