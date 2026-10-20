@@ -77,9 +77,9 @@ run_summary() {
     [ "$(yq -r '.jobs."github-actions-lint-and-scan".with."checkov-skip-check"' "${caller}")" = CKV2_GHA_1 ]
     [ "$(yq -r '.jobs."github-actions-lint-and-scan".with."checkov-exempt-file"' "${caller}")" = 'scorecard-assessment[.]yml$' ]
   done
-  [ "$(yq -r '.jobs."security-scan".with."checkov-exempt-file"' "${linter}")" = '${{ inputs.checkov-exempt-file }}' ]
+  [ "$(yq -r '.jobs."security-scan".with."checkov-exempt-file"' "${linter}")" = "\${{ inputs.checkov-exempt-file }}" ]
   [ "$(yq -r '.jobs.checkov.steps[] | select(.name == "Verify top-level permissions except approved reusable workflow") | .with.check' "${scanner}")" = CKV2_GHA_1 ]
-  [ "$(yq -r '.jobs.checkov.steps[] | select(.name == "Verify top-level permissions except approved reusable workflow") | .with.skip_path' "${scanner}")" = '${{ inputs.checkov-exempt-file }}' ]
+  [ "$(yq -r '.jobs.checkov.steps[] | select(.name == "Verify top-level permissions except approved reusable workflow") | .with.skip_path' "${scanner}")" = "\${{ inputs.checkov-exempt-file }}" ]
   grep -Fq -- '--skip-check CKV2_GHA_1 --directory=.' "${qa}"
   grep -Fq -- "--check CKV2_GHA_1 --skip-path 'scorecard-assessment[.]yml$'" "${qa}"
 }
