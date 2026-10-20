@@ -29,14 +29,14 @@ run_summary() {
   [ "$(yq -r '.permissions.actions' "${REUSABLE}")" = read ]
   [ "$(yq -r '. | has("env") or has("defaults")' "${REUSABLE}")" = false ]
   [ "$(yq -r '.jobs.scorecard | has("env") or has("defaults")' "${REUSABLE}")" = false ]
-  [ "$(yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = "${{ inputs['publish-results'] }}" ]
-  [ "$(yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .with.results_format' "${REUSABLE}")" = "${{ inputs['publish-results'] && 'sarif' || 'json' }}" ]
-  [ "$(yq -r '[.jobs[].steps[] | select(.uses == "ossf/scorecard-action*")] | length' "${REUSABLE}")" = 1 ]
+  [[ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Run OpenSSF Scorecard") | .with.publish_results' "${REUSABLE}")" == *publish-results* ]]
+  [[ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Run OpenSSF Scorecard") | .with.results_format' "${REUSABLE}")" == *publish-results* ]]
+  [ "$(yq -r '[.jobs[].steps[] | select(.name == "Run OpenSSF Scorecard")] | length' "${REUSABLE}")" = 1 ]
   [ "$(yq -r '.jobs.scorecard.permissions."id-token"' "${REUSABLE}")" = write ]
   [ "$(yq -r '.jobs.scorecard.permissions."security-events"' "${REUSABLE}")" = write ]
   [ "$(yq -r '.on.workflow_call.inputs."min-score".default' "${REUSABLE}")" = "" ]
   [ "$(yq -r '.on.workflow_call.secrets.SCORECARD_TOKEN.required' "${REUSABLE}")" = false ]
-  yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .uses' "${REUSABLE}" |
+  yq -r '.jobs.scorecard.steps[] | select(.name == "Run OpenSSF Scorecard") | .uses' "${REUSABLE}" |
     grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}$'
 }
 
@@ -46,7 +46,7 @@ run_summary() {
     grep -Ev '^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@' |
     grep -q . && return 1
   [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard results to code scanning") | .if' "${REUSABLE}")" != "" ]
-  [ "$(yq -r '.jobs.summary.if' "${REUSABLE}")" = "${{ !inputs['publish-results'] }}" ]
+  [[ "$(yq -r '.jobs.summary.if' "${REUSABLE}")" == *publish-results* ]]
 }
 
 @test "Published maintenance Scorecard calls the reusable workflow" {
