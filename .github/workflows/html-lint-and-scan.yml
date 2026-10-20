@@ -320,6 +320,11 @@ jobs:
           if [[ "${USE_HTMLHINT}" == 'true' ]]; then packages+=(htmlhint); fi
           if [[ "${USE_STYLELINT}" == 'true' ]]; then packages+=(stylelint stylelint-config-standard); fi
           if [[ "${LINT_HTML_EMBEDDED_CSS}" == 'true' ]]; then packages+=(postcss-html); fi
+          if [[ "${PACKAGE_MANAGER}" != 'standalone' ]]; then
+            for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
+              packages+=("${p}")
+            done
+          fi
           case "${PACKAGE_MANAGER}" in
             pnpm )
               pnpm install --frozen-lockfile
@@ -367,14 +372,6 @@ jobs:
               ;;
           esac
           if [[ "${PACKAGE_MANAGER}" != 'standalone' ]]; then
-            for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
-              if [[ -n "${p}" ]]; then
-                case "${PACKAGE_MANAGER}" in
-                  pnpm ) pnpm add --save-dev "${p}" ;;
-                  npm ) npm install --save-dev "${p}" ;;
-                esac
-              fi
-            done
             echo "PATH=${PWD}/node_modules/.bin:${PATH}" >> "${GITHUB_ENV}"
           fi
       - name: Run HTMLHint on HTML files
