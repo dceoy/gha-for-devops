@@ -38,7 +38,9 @@ setup() {
   local workflow="${REPO_ROOT}/.github/workflows/python-package-lint-and-scan.yml"
   [ "$(yq -r '.on.workflow_call.inputs."use-ty".default' "${workflow}")" = false ]
   [ "$(yq -r '.on.workflow_call.inputs."use-pyright".default' "${workflow}")" = true ]
+  # shellcheck disable=SC2016
   [ "$(grep -Fc 'USE_TY: ${{ inputs.use-ty }}' "${workflow}")" -eq 2 ]
+  # shellcheck disable=SC2016
   [ "$(grep -Fc '[[ "${USE_TY}" == "true" ]] && packages+=(ty)' "${workflow}")" -eq 2 ]
   grep -Fq 'if: inputs.use-ty' "${workflow}"
   grep -Fq 'uv run ty check .' "${workflow}"
