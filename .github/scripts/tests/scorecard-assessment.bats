@@ -23,16 +23,12 @@ run_summary() {
   run env RESULT_FILE="${BATS_TEST_TMPDIR}/scorecard.json" MIN_SCORE="$1" bash -euo pipefail "${BATS_TEST_TMPDIR}/summary.sh"
 }
 
-@test "Reusable Scorecard defaults to read-only mode and inherits caller permissions" {
-  [ "$(yq -r '.on.workflow_call.inputs."publish-results".default' "${REUSABLE}")" = false ]
-  [ "$(yq -r 'has("permissions")' "${REUSABLE}")" = false ]
-  [ "$(yq -r '. | has("env") or has("defaults")' "${REUSABLE}")" = false ]
-  [ "$(yq -r '.jobs.scorecard.if' "${REUSABLE}")" = "\${{ ! inputs.publish-results }}" ]
-  [ "$(yq -r '.jobs.analysis.if' "${REUSABLE}")" = "inputs.publish-results" ]
-  [ "$(yq -r '.jobs.scorecard | has("permissions")' "${REUSABLE}")" = false ]
-  [ "$(yq -r '.jobs.analysis | has("permissions") or has("env") or has("defaults")' "${REUSABLE}")" = false ]
+@test "Reusable Scorecard is internal-only with explicit read permissions" {
+  [ "$(yq -r '.permissions.contents' "${REUSABLE}")" = read ]
+  [ "$(yq -r '.permissions.actions' "${REUSABLE}")" = read ]
+  [ "$(yq -r '.on.workflow_call.inputs | has("publish-results")' "${REUSABLE}")" = false ]
+  [ "$(yq -r '.jobs | has("analysis")' "${REUSABLE}")" = false ]
   [ "$(yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = false ]
-  [ "$(yq -r '.jobs.analysis.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = true ]
   yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .uses' "${REUSABLE}" \
     | grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}$'
   [ "$(yq -r '.on.workflow_call.inputs."min-score".default' "${REUSABLE}")" = "" ]
@@ -50,38 +46,34 @@ run_summary() {
   run ! grep -Fq 'scorecard-summary-transfer' "${REUSABLE}"
 }
 
-@test "Maintenance calls the public Scorecard reusable mode with correct permissions" {
+@test "Maintenance runs independent public Scorecard job under publishing restrictions" {
   [ "$(yq -r '.permissions.contents' "${DEDICATED}")" = read ]
   [ "$(yq -r '. | has("env") or has("defaults")' "${DEDICATED}")" = false ]
   [ "$(yq -r '.on | has("workflow_call")' "${DEDICATED}")" = false ]
   [ "$(yq -r '.on | has("schedule")' "${DEDICATED}")" = true ]
   [ "$(yq -r '.on | has("workflow_dispatch")' "${DEDICATED}")" = true ]
-  [ "$(yq -r '.jobs.analysis.uses' "${DEDICATED}")" = '$/.github/workflows/scorecard-assessment.yml' ]
-  [ "$(yq -r '.jobs.analysis.with."publish-results"' "${DEDICATED}")" = true ]
+  [ "$(yq -r '.jobs.analysis | has("uses") or has("env") or has("defaults")' "${DEDICATED}")" = false ]
+  [ "$(yq -r '.jobs.analysis.runs-on' "${DEDICATED}")" = ubuntu-latest ]
   [ "$(yq -r '.jobs.analysis.permissions."id-token"' "${DEDICATED}")" = write ]
   [ "$(yq -r '.jobs.analysis.permissions."security-events"' "${DEDICATED}")" = write ]
-  [ "$(yq -r '.jobs.analysis | has("steps")' "${DEDICATED}")" = false ]
-  [ "$(yq -r '[.jobs.analysis.steps[] | select(has("run"))] | length' "${REUSABLE}")" = 0 ]
-  yq -r '.jobs.analysis.steps[].uses' "${REUSABLE}" \
-    | grep -Ev '^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@' \
-    | grep -q . && return 1
-  run ! grep -Eq '^[[:space:]]*uses: .*@(v[0-9]|main|master)' "${REUSABLE}"
+  [ "$(yq -r '.jobs.analysis.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${DEDICATED}")" = true ]
+  [ "$(yq -r '[.jobs.analysis.steps[] | select(has("run"))] | length' "${DEDICATED}")" = 0 ]
+  [ "$(yq -r '.jobs.analysis.steps | length' "${DEDICATED}")" = 4 ]
+  run bash -c 'yq -r '\''.jobs.analysis.steps[].uses'\'' "$1" | grep -Ev '\''^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@'\''' _ "${DEDICATED}"
+  [ "${status}" -eq 1 ]
+  run ! grep -Eq '^[[:space:]]*uses: .*@(v[0-9]|main|master)' "${DEDICATED}"
 }
 
-@test "Checkov single-file permission exception preserves the other workflows' check" {
+@test "Checkov runs without a Scorecard permission-policy exemption" {
   local ci="${REPO_ROOT}/.github/workflows/ci.yml"
-  local linter="${REPO_ROOT}/.github/workflows/github-actions-lint-and-scan.yml"
   local scanner="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
   local qa="${REPO_ROOT}/.agents/skills/local-qa/scripts/qa.sh"
   for caller in "${ci}" "${DEDICATED}"; do
-    [ "$(yq -r '.jobs."github-actions-lint-and-scan".with."checkov-skip-check"' "${caller}")" = CKV2_GHA_1 ]
-    [ "$(yq -r '.jobs."github-actions-lint-and-scan".with."checkov-exempt-file"' "${caller}")" = 'scorecard-assessment[.]yml$' ]
+    [ "$(yq -r '.jobs."github-actions-lint-and-scan".with | has("checkov-exempt-file")' "${caller}")" = false ]
   done
-  [ "$(yq -r '.jobs."security-scan".with."checkov-exempt-file"' "${linter}")" = "\${{ inputs.checkov-exempt-file }}" ]
-  [ "$(yq -r '.jobs.checkov.steps[] | select(.name == "Verify top-level permissions except approved reusable workflow") | .with.check' "${scanner}")" = CKV2_GHA_1 ]
-  [ "$(yq -r '.jobs.checkov.steps[] | select(.name == "Verify top-level permissions except approved reusable workflow") | .with.skip_path' "${scanner}")" = "\${{ inputs.checkov-exempt-file }}" ]
-  grep -Fq -- '--skip-check CKV2_GHA_1 --directory=.' "${qa}"
-  grep -Fq -- "--check CKV2_GHA_1 --skip-path 'scorecard-assessment[.]yml$'" "${qa}"
+  [ "$(yq -r '[.jobs.checkov.steps[] | select(.name == "Verify top-level permissions except approved reusable workflow")] | length' "${scanner}")" = 0 ]
+  grep -Fq -- 'uv run --locked checkov --framework=all --output=github_failed_only --directory=.' "${qa}"
+  run ! grep -Fq -- '--skip-check CKV2_GHA_1' "${qa}"
 }
 
 @test "Score alone does not fail the job and failing checks are listed" {
