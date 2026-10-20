@@ -33,3 +33,14 @@ setup() {
   run ! grep -Eq 'eslint|poetry' "${script}"
   grep -Fq 'pnpm exec oxlint --fix' "${script}"
 }
+
+@test "Python type checking optionally supports ty with uv and requirements installations" {
+  local workflow="${REPO_ROOT}/.github/workflows/python-package-lint-and-scan.yml"
+  [ "$(yq -r '.on.workflow_call.inputs."use-ty".default' "${workflow}")" = false ]
+  [ "$(yq -r '.on.workflow_call.inputs."use-pyright".default' "${workflow}")" = true ]
+  [ "$(grep -Fc 'USE_TY: ${{ inputs.use-ty }}' "${workflow}")" -eq 2 ]
+  [ "$(grep -Fc '[[ "${USE_TY}" == "true" ]] && packages+=(ty)' "${workflow}")" -eq 2 ]
+  grep -Fq 'if: inputs.use-ty' "${workflow}"
+  grep -Fq 'uv run ty check .' "${workflow}"
+  grep -Fq 'ty check .' "${workflow}"
+}
