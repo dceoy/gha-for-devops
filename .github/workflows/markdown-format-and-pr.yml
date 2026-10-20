@@ -104,19 +104,19 @@ jobs:
         with:
           version: ${{ env.MISE_VERSION }}
           install_args: yq gomplate
-      - name: Provide Prettier wrapper
+      - name: Provide Oxfmt wrapper
         if: inputs.update-readme
         env:
-          PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
-        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Prettier through npx
-          [[ "${PRETTIER_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid PRETTIER_VERSION"; exit 1; }
+          OXFMT_VERSION: ${{ env.OXFMT_VERSION }}
+        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Oxfmt through npx
+          [[ "${OXFMT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid OXFMT_VERSION"; exit 1; }
           mkdir -p "${HOME}/.local/bin"
-          cat > "${HOME}/.local/bin/prettier" <<EOF
+          cat > "${HOME}/.local/bin/oxfmt" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec npx --yes "prettier@${PRETTIER_VERSION}" "\$@"
+          exec npx --yes "oxfmt@${OXFMT_VERSION}" "\$@"
           EOF
-          chmod 0755 "${HOME}/.local/bin/prettier"
+          chmod 0755 "${HOME}/.local/bin/oxfmt"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
       - name: Update README.md
         if: inputs.update-readme
