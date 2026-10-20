@@ -133,6 +133,11 @@ on:
         type: string
         description: Checkov checks to skip
         default: null
+      checkov-exempt-file:
+        required: false
+        type: string
+        description: File path regex exempted only from CKV2_GHA_1, with separate coverage of other files
+        default: null
       checkov-config-file:
         required: false
         type: string
@@ -200,6 +205,7 @@ jobs:
       checkov-skip-framework: ${{ inputs.checkov-skip-framework }}
       checkov-check: ${{ inputs.checkov-check }}
       checkov-skip-check: ${{ inputs.checkov-skip-check }}
+      checkov-exempt-file: ${{ inputs.checkov-exempt-file }}
       checkov-config-file: ${{ inputs.checkov-config-file }}
       checkov-output-format: ${{ inputs.checkov-output-format }}
       checkov-output-file-path: ${{ inputs.checkov-output-file-path }}
