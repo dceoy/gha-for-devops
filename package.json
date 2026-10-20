@@ -19,7 +19,7 @@
   "devDependencies": {
     "@biomejs/biome": "latest",
     "oxlint": "latest",
-    "prettier": "latest",
+    "oxfmt": "latest",
     "typescript": "latest",
     "markdownlint-cli": "^0.49.1"
   }
