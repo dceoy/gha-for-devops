@@ -1,7 +1,7 @@
 ---
 # Private/internal OpenSSF Scorecard assessment profile (publication disabled).
 #
-# Differences from the official public flow (see .github/workflows/scorecard.yml):
+# Differences from the official public flow (see .github/workflows/maintenance.yml):
 # - Results are NEVER published to the OpenSSF API or scorecard.dev: `publish_results` is false and
 #   `id-token: write` is not requested. The official publishing flow forbids reusable workflows,
 #   so public publication must live in a dedicated workflow in the scanned repository.

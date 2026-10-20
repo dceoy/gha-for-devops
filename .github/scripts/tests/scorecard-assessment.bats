@@ -5,7 +5,7 @@ bats_require_minimum_version 1.5.0
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   REUSABLE="${REPO_ROOT}/.github/workflows/scorecard-assessment.yml"
-  DEDICATED="${REPO_ROOT}/.github/workflows/scorecard.yml"
+  DEDICATED="${REPO_ROOT}/.github/workflows/maintenance.yml"
   yq -r '.jobs.scorecard.steps[] | select(.name == "Validate inputs") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/validate.sh"
   yq -r '.jobs.scorecard.steps[] | select(.id == "summary") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/summary.sh"
   export GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary"
@@ -40,7 +40,9 @@ run_summary() {
 }
 
 @test "Dedicated Scorecard workflow follows the official publishing constraints" {
-  [ "$(yq -r '.permissions' "${DEDICATED}")" = read-all ]
+  [ "$(yq -r '.permissions.contents' "${DEDICATED}")" = read ]
+  [ "$(yq -r '. | has("env") or has("defaults")' "${DEDICATED}")" = false ]
+  [ "$(yq -r '.jobs.analysis | has("env") or has("defaults")' "${DEDICATED}")" = false ]
   [ "$(yq -r '.on | has("workflow_call")' "${DEDICATED}")" = false ]
   [ "$(yq -r '.on | has("schedule")' "${DEDICATED}")" = true ]
   [ "$(yq -r '.on | has("workflow_dispatch")' "${DEDICATED}")" = true ]

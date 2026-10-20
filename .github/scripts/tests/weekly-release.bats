@@ -2,7 +2,7 @@
 
 setup() {
   # Test the repository release script through its plan and publish entry points.
-  export WORKFLOW_FILE="${BATS_TEST_DIRNAME}/../../workflows/weekly-release.yml"
+  export WORKFLOW_FILE="${BATS_TEST_DIRNAME}/../../workflows/maintenance.yml"
   export RELEASE_SCRIPT="${BATS_TEST_DIRNAME}/../weekly-release.sh"
   export PLAN_SCRIPT="${BATS_TEST_TMPDIR}/plan.sh"
   export PUBLISH_SCRIPT="${BATS_TEST_TMPDIR}/publish.sh"
@@ -89,9 +89,15 @@ MOCK
   [ "$(yq -r '.jobs.publish.steps[] | select(.id == "publish") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/weekly-release.sh publish' ]
 }
 
-@test 'weekly release runs only on the weekly schedule or manual dispatch' {
-  [ "$(yq -o=json '.on' "${WORKFLOW_FILE}" | jq -c 'keys | sort')" = '["schedule","workflow_dispatch"]' ]
+@test 'repository maintenance routes scheduled and manual jobs independently' {
   [ "$(yq -r '.on.schedule[0].cron' "${WORKFLOW_FILE}")" = '15 0 * * 1' ]
+  [ "$(yq -r '.on.schedule[1].cron' "${WORKFLOW_FILE}")" = '30 1 * * 2' ]
+  [ "$(yq -r '.on.workflow_dispatch.inputs.task.default' "${WORKFLOW_FILE}")" = weekly-release ]
+  [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = weekly-release,scorecard ]
+  grep -Fq "github.event.schedule == '15 0 * * 1'" "${WORKFLOW_FILE}"
+  grep -Fq "github.event.schedule == '30 1 * * 2'" "${WORKFLOW_FILE}"
+  [ "$(yq -r '.jobs.plan.if' "${WORKFLOW_FILE}" | grep -c "inputs.task == 'weekly-release'")" -eq 1 ]
+  [ "$(yq -r '.jobs.analysis.if' "${WORKFLOW_FILE}" | grep -c "inputs.task == 'scorecard'")" -eq 1 ]
 }
 
 @test 'CI no longer calls or schedules weekly releases' {
