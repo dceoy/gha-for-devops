@@ -320,9 +320,10 @@ jobs:
           if [[ "${USE_HTMLHINT}" == 'true' ]]; then packages+=(htmlhint); fi
           if [[ "${USE_STYLELINT}" == 'true' ]]; then packages+=(stylelint stylelint-config-standard); fi
           if [[ "${LINT_HTML_EMBEDDED_CSS}" == 'true' ]]; then packages+=(postcss-html); fi
+          additional_packages=()
           if [[ "${PACKAGE_MANAGER}" != 'standalone' ]]; then
             for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
-              packages+=("${p}")
+              additional_packages+=("${p}")
             done
           fi
           case "${PACKAGE_MANAGER}" in
@@ -331,6 +332,7 @@ jobs:
               if [[ "${#packages[@]}" -gt 0 ]]; then
                 pnpm add --save-dev "${packages[@]}"
               fi
+              add_packages=(pnpm add --save-dev)
               ;;
             npm )
               if [[ -f package-lock.json ]]; then
@@ -341,6 +343,7 @@ jobs:
               if [[ "${#packages[@]}" -gt 0 ]]; then
                 npm install --save-dev "${packages[@]}"
               fi
+              add_packages=(npm install --save-dev)
               ;;
             standalone )
               if [[ -n "${ADDITIONAL_NPM_PACKAGES}" ]]; then
@@ -372,6 +375,9 @@ jobs:
               ;;
           esac
           if [[ "${PACKAGE_MANAGER}" != 'standalone' ]]; then
+            if [[ "${#additional_packages[@]}" -gt 0 ]]; then
+              "${add_packages[@]}" "${additional_packages[@]}"
+            fi
             echo "PATH=${PWD}/node_modules/.bin:${PATH}" >> "${GITHUB_ENV}"
           fi
       - name: Run HTMLHint on HTML files
