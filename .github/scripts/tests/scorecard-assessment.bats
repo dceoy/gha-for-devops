@@ -5,7 +5,7 @@ bats_require_minimum_version 1.5.0
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   REUSABLE="${REPO_ROOT}/.github/workflows/scorecard-assessment.yml"
-  DEDICATED="${REPO_ROOT}/.github/workflows/scorecard.yml"
+  DEDICATED="${REPO_ROOT}/.github/workflows/maintenance.yml"
   yq -r '.jobs.scorecard.steps[] | select(.name == "Validate inputs") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/validate.sh"
   yq -r '.jobs.scorecard.steps[] | select(.id == "summary") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/summary.sh"
   export GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary"
@@ -23,11 +23,12 @@ run_summary() {
   run env RESULT_FILE="${BATS_TEST_TMPDIR}/scorecard.json" MIN_SCORE="$1" bash -euo pipefail "${BATS_TEST_TMPDIR}/summary.sh"
 }
 
-@test "Reusable Scorecard profile never publishes and uses minimal permissions" {
-  [ "$(yq -r '.permissions | keys | sort | join(",")' "${REUSABLE}")" = actions,contents ]
+@test "Reusable Scorecard is internal-only with explicit read permissions" {
   [ "$(yq -r '.permissions.contents' "${REUSABLE}")" = read ]
+  [ "$(yq -r '.permissions.actions' "${REUSABLE}")" = read ]
+  [ "$(yq -r '.on.workflow_call.inputs | has("publish-results")' "${REUSABLE}")" = false ]
+  [ "$(yq -r '.jobs | has("analysis")' "${REUSABLE}")" = false ]
   [ "$(yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = false ]
-  [ "$(yq -r '.permissions | has("id-token")' "${REUSABLE}")" = false ]
   yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .uses' "${REUSABLE}" \
     | grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}$'
   [ "$(yq -r '.on.workflow_call.inputs."min-score".default' "${REUSABLE}")" = "" ]
@@ -39,15 +40,41 @@ run_summary() {
   [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard result") | .if' "${REUSABLE}")" != "" ]
 }
 
-@test "Dedicated Scorecard workflow follows the official publishing constraints" {
-  [ "$(yq -r '.permissions' "${DEDICATED}")" = read-all ]
+@test "Empty artifact name disables upload while summary uses the local result" {
+  [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard result") | .if' "${REUSABLE}")" = "\${{ !cancelled() && inputs.results-artifact-name != '' }}" ]
+  [ "$(yq -r '.jobs.scorecard.steps[] | select(.id == "summary") | .env.RESULT_FILE' "${REUSABLE}")" = "\${{ runner.temp }}/scorecard.json" ]
+  run ! grep -Fq 'scorecard-summary-transfer' "${REUSABLE}"
+}
+
+@test "Maintenance runs independent public Scorecard job under publishing restrictions" {
+  [ "$(yq -r '.permissions.contents' "${DEDICATED}")" = read ]
+  [ "$(yq -r '. | has("env") or has("defaults")' "${DEDICATED}")" = false ]
   [ "$(yq -r '.on | has("workflow_call")' "${DEDICATED}")" = false ]
   [ "$(yq -r '.on | has("schedule")' "${DEDICATED}")" = true ]
   [ "$(yq -r '.on | has("workflow_dispatch")' "${DEDICATED}")" = true ]
+  [ "$(yq -r '.jobs.analysis | has("uses") or has("env") or has("defaults")' "${DEDICATED}")" = false ]
+  [ "$(yq -r '.jobs.analysis.runs-on' "${DEDICATED}")" = ubuntu-latest ]
   [ "$(yq -r '.jobs.analysis.permissions."id-token"' "${DEDICATED}")" = write ]
   [ "$(yq -r '.jobs.analysis.permissions."security-events"' "${DEDICATED}")" = write ]
   [ "$(yq -r '.jobs.analysis.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${DEDICATED}")" = true ]
-  run ! grep -Eq '^\s*uses: .*@(v[0-9]|main|master)' "${DEDICATED}"
+  [ "$(yq -r '[.jobs.analysis.steps[] | select(has("run"))] | length' "${DEDICATED}")" = 0 ]
+  [ "$(yq -r '.jobs.analysis.steps | length' "${DEDICATED}")" = 4 ]
+  while IFS= read -r action; do
+    [[ "${action}" =~ ^(actions/checkout|actions/upload-artifact|ossf/scorecard-action|github/codeql-action/upload-sarif)@[a-f0-9]{40}$ ]] || return 1
+  done < <(yq -r '.jobs.analysis.steps[].uses' "${DEDICATED}")
+  run ! grep -Eq '^[[:space:]]*uses: .*@(v[0-9]|main|master)' "${DEDICATED}"
+}
+
+@test "Checkov runs without a Scorecard permission-policy exemption" {
+  local ci="${REPO_ROOT}/.github/workflows/ci.yml"
+  local scanner="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
+  local qa="${REPO_ROOT}/.agents/skills/local-qa/scripts/qa.sh"
+  for caller in "${ci}" "${DEDICATED}"; do
+    [ "$(yq -r '.jobs."github-actions-lint-and-scan".with | has("checkov-exempt-file")' "${caller}")" = false ]
+  done
+  [ "$(yq -r '[.jobs.checkov.steps[] | select(.name == "Verify top-level permissions except approved reusable workflow")] | length' "${scanner}")" = 0 ]
+  grep -Fq -- 'uv run --locked checkov --framework=all --output=github_failed_only --directory=.' "${qa}"
+  run ! grep -Fq -- '--skip-check CKV2_GHA_1' "${qa}"
 }
 
 @test "Score alone does not fail the job and failing checks are listed" {

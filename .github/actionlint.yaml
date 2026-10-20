@@ -24,7 +24,7 @@ paths:
   .github/workflows/ci.yml:
     ignore:
       - 'reusable workflow call "\$/.+" at "uses" is not following the format'
-  .github/workflows/weekly-release.yml:
+  .github/workflows/maintenance.yml:
     ignore:
       - 'reusable workflow call "\$/.+" at "uses" is not following the format'
   .github/workflows/hugo-deploy-to-gh-pages.yml:
