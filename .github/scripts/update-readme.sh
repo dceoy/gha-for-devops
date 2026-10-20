@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Regenerate README.md from README.md.tmpl and reusable workflows in
-# .github/workflows using yq, gomplate, and Prettier.
+# .github/workflows using yq, gomplate, and Oxfmt.
 
 set -euo pipefail
 
@@ -31,5 +31,7 @@ fi
 gomplate \
   --datasource "workflows=file://${WORKFLOWS_JSON}?type=application/json" \
   --file README.md.tmpl --out README.md
-prettier --parser markdown --write README.md.tmpl
-prettier --write README.md
+# Format the template as Markdown despite the .tmpl suffix.
+oxfmt --stdin-filepath README.md < README.md.tmpl > "${WORKFLOWS_JSON}"
+cat "${WORKFLOWS_JSON}" > README.md.tmpl
+oxfmt --write README.md
