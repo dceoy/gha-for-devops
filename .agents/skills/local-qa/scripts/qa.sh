@@ -185,7 +185,10 @@ fi
 
 N_DOCKER_FILES=$(git ls-files -- 'Dockerfile' '*/Dockerfile' | wc -l)
 if [[ -d '.github/workflows' ]] || [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N_DOCKER_FILES}" -gt 0 ]]; then
-  uv run --locked checkov --framework=all --output=github_failed_only --directory=.
+  # Explicitly authorized scope exception: all checks except CKV2_GHA_1
+  # scan all files, then CKV2_GHA_1 checks every other workflow.
+  uv run --locked checkov --framework=all --output=github_failed_only --skip-check CKV2_GHA_1 --directory=.
+  uv run --locked checkov --framework=github_actions --output=github_failed_only --check CKV2_GHA_1 --skip-path 'scorecard-assessment[.]yml$' --directory=.github/workflows
 fi
 if [[ "${N_TERRAFORM_FILES}" -gt 0 ]] || [[ "${N_DOCKER_FILES}" -gt 0 ]]; then
   TRIVY_DISABLE_TELEMETRY=true TRIVY_SKIP_VERSION_CHECK=true \
