@@ -19,7 +19,6 @@ setup() {
     python-package-release-on-pypi-and-github \
     python-pyinstaller; do
     run ! grep -Eiq 'eslint|prettier|poetry|flake8|mypy|bandit|black|isort' "${REPO_ROOT}/.github/workflows/${workflow}.yml"
-    [ "${status}" -eq 0 ]
   done
 }
 
@@ -32,6 +31,5 @@ setup() {
 @test "Local QA has no ESLint or Poetry fallback" {
   local script="${REPO_ROOT}/.agents/skills/local-qa/scripts/qa.sh"
   run ! grep -Eq 'eslint|poetry' "${script}"
-  [ "${status}" -eq 0 ]
   grep -Fq 'pnpm exec oxlint --fix' "${script}"
 }
