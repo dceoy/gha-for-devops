@@ -37,4 +37,4 @@ yq -p toml -o json uv.lock | jq -e '
   )
 ' > /dev/null || fail
 
-echo 'QA dependency assessment: ecdsa is used only for unaffected signature verification; exception expires 2026-11-17.'
+echo 'QA dependency guard: dependency graph and pinned ecdsa artifacts match; runtime usage is not verified. Checkov upgrades need manual reassessment; exception expires 2026-11-17.'

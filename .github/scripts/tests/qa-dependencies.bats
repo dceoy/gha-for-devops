@@ -12,7 +12,9 @@ setup() {
 @test "QA assessment accepts the reviewed dev-only verification dependency graph" {
   run bash "${GUARD}"
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *'unaffected signature verification'* ]]
+  [[ "${output}" == *'dependency graph and pinned ecdsa artifacts match'* ]]
+  [[ "${output}" == *'runtime usage is not verified'* ]]
+  [[ "${output}" == *'Checkov upgrades need manual reassessment'* ]]
 }
 
 @test "QA assessment tolerates Checkov lockfile version updates" {
