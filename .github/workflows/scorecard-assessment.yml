@@ -1,28 +1,32 @@
 ---
-# Reusable OpenSSF Scorecard assessment.
-# Publication is opt-in and requires id-token: write from the caller.
-# The Scorecard job must contain only allowlisted actions, and must not
-# have environment variables, run steps, or defaults (OpenSSF API policy).
+# Private/internal OpenSSF Scorecard assessment profile (publication disabled).
+#
+# Differences from the official public flow (see .github/workflows/maintenance.yml):
+# - Results are NEVER published to the OpenSSF API or scorecard.dev: `publish_results` is false and
+#   `id-token: write` is not requested. The official publishing flow forbids reusable workflows,
+#   so public publication must live in a dedicated workflow in the scanned repository.
+# - The JSON result is kept as a workflow artifact (visible to anyone who can read the run; for
+#   public repositories that includes the public) and failing checks are listed in the job summary.
+# - Private repositories: the default GITHUB_TOKEN cannot read everything Scorecard needs (for example
+#   branch protection). Pass a fine-grained token with read access as the SCORECARD_TOKEN secret;
+#   checks that cannot be evaluated are reported as inconclusive rather than as vulnerabilities.
+# - The aggregate score is not a vulnerability count; `min-score` is an optional gate and is off by default.
 name: OpenSSF Scorecard assessment
 on:
   workflow_call:
     inputs:
-      publish-results:
-        type: boolean
-        default: false
-        description: Publish results to OpenSSF and GitHub Code Scanning (requires caller write permissions)
       results-artifact-name:
         type: string
         default: scorecard-results
-        description: Internal JSON artifact name; empty uses a one-day transfer artifact for the summary job
+        description: Artifact name for the Scorecard JSON result; empty disables the upload
       retention-days:
         type: number
         default: 30
-        description: Internal JSON artifact retention in days
+        description: Artifact retention in days
       min-score:
         type: string
         default: ""
-        description: Optional minimum aggregate score (0-10) for internal assessment only
+        description: Optional minimum aggregate score (0-10) below which the job fails; empty never fails on score
     secrets:
       SCORECARD_TOKEN:
         required: false
@@ -30,15 +34,22 @@ on:
 permissions:
   contents: read
   actions: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
 jobs:
   scorecard:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-      security-events: write
-      id-token: write
     steps:
+      - name: Validate inputs
+        env:
+          MIN_SCORE: ${{ inputs.min-score }}
+        run: |
+          if [[ -n "${MIN_SCORE}" ]] && ! [[ "${MIN_SCORE}" =~ ^([0-9](\.[0-9]+)?|10(\.0+)?)$ ]]; then
+            echo "::error::min-score must be a number between 0 and 10."
+            exit 1
+          fi
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -46,61 +57,23 @@ jobs:
       - name: Run OpenSSF Scorecard
         uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e  # v2.5.0
         with:
-          results_file: ${{ inputs['publish-results'] && 'results.sarif' || format('{0}/scorecard.json', runner.temp) }}
-          results_format: ${{ inputs['publish-results'] && 'sarif' || 'json' }}
-          publish_results: ${{ inputs['publish-results'] }}
+          results_file: ${{ runner.temp }}/scorecard.json
+          results_format: json
+          publish_results: false
           repo_token: ${{ secrets.SCORECARD_TOKEN || github.token }}
-      - name: Upload internal Scorecard result
-        if: ${{ !cancelled() && !inputs['publish-results'] }}
+      - name: Upload Scorecard result
+        if: ${{ !cancelled() && inputs.results-artifact-name != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
-          name: ${{ inputs['results-artifact-name'] || 'scorecard-summary-transfer' }}
+          name: ${{ inputs.results-artifact-name }}
           path: ${{ runner.temp }}/scorecard.json
-          retention-days: ${{ inputs['results-artifact-name'] != '' && inputs['retention-days'] || 1 }}
+          retention-days: ${{ inputs.retention-days }}
           if-no-files-found: warn
-      - name: Upload Scorecard SARIF artifact
-        if: ${{ !cancelled() && inputs['publish-results'] }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: scorecard-sarif
-          path: results.sarif
-          retention-days: 5
-          if-no-files-found: warn
-      - name: Upload Scorecard results to code scanning
-        if: ${{ !cancelled() && inputs['publish-results'] }}
-        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
-        with:
-          sarif_file: results.sarif
-  summary:
-    if: ${{ !inputs['publish-results'] }}
-    needs: scorecard
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    defaults:
-      run:
-        shell: bash -euo pipefail {0}
-        working-directory: .
-    steps:
-      - name: Validate inputs
-        env:
-          MIN_SCORE: ${{ inputs['min-score'] }}
-        run: |
-          if [[ -n "${MIN_SCORE}" ]] && ! [[ "${MIN_SCORE}" =~ ^([0-9](\.[0-9]+)?|10(\.0+)?)$ ]]; then
-            echo "::error::min-score must be a number between 0 and 10."
-            exit 1
-          fi
-      - name: Download Scorecard result
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
-        with:
-          name: ${{ inputs['results-artifact-name'] || 'scorecard-summary-transfer' }}
-          path: ${{ runner.temp }}
       - name: Summarize findings
         id: summary
         env:
           RESULT_FILE: ${{ runner.temp }}/scorecard.json
-          MIN_SCORE: ${{ inputs['min-score'] }}
+          MIN_SCORE: ${{ inputs.min-score }}
         run: |
           score="$(jq -r '.score' "${RESULT_FILE}")"
           {
