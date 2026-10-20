@@ -38,6 +38,11 @@ on:
         type: boolean
         description: Use pyright to check types
         default: true
+      use-ty:
+        required: false
+        type: boolean
+        description: Use ty to check types
+        default: false
       use-ruff-format:
         required: false
         type: boolean
@@ -142,6 +147,7 @@ jobs:
           INPUTS_ADDITIONAL_PYTHON_PACKAGES: ${{ inputs.additional-python-packages }}
           INPUTS_AUDIT: ${{ inputs.audit }}
           USE_PYRIGHT: ${{ inputs.use-pyright }}
+          USE_TY: ${{ inputs.use-ty }}
         run: |
           uv sync --all-groups
           if [[ "${INPUTS_AUDIT}" == "true" ]]; then
@@ -149,6 +155,7 @@ jobs:
           fi
           packages=(ruff)
           [[ "${USE_PYRIGHT}" == "true" ]] && packages+=(pyright)
+          [[ "${USE_TY}" == "true" ]] && packages+=(ty)
           uv add --dev "${packages[@]}"
           for p in $(tr ' ' '\n' <<< "${INPUTS_ADDITIONAL_PYTHON_PACKAGES}"); do
             if [[ -n "${p}" ]]; then
@@ -167,6 +174,7 @@ jobs:
           ADDITIONAL_PYTHON_PACKAGES: ${{ inputs.additional-python-packages }}
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
           USE_PYRIGHT: ${{ inputs.use-pyright }}
+          USE_TY: ${{ inputs.use-ty }}
         working-directory: ${{ inputs.package-path }}
         run: |
           if [[ -n "${REQUIREMENTS_TXT_PATH}" ]]; then
@@ -174,6 +182,7 @@ jobs:
           fi
           packages=(ruff)
           [[ "${USE_PYRIGHT}" == "true" ]] && packages+=(pyright)
+          [[ "${USE_TY}" == "true" ]] && packages+=(ty)
           uv pip install --system "${packages[@]}"
           for p in $(tr ' ' '\n' <<< "${ADDITIONAL_PYTHON_PACKAGES}"); do
             if [[ -n "${p}" ]]; then
@@ -203,4 +212,12 @@ jobs:
           case "${EXECUTOR_KIND}" in
             uv)     uv run pyright --threads=0 . ;;
             *)      pyright --threads=0 . ;;
+          esac
+      - name: Check types using ty
+        if: inputs.use-ty
+        working-directory: ${{ inputs.package-path }}
+        run: |
+          case "${EXECUTOR_KIND}" in
+            uv)     uv run ty check . ;;
+            *)      ty check . ;;
           esac
