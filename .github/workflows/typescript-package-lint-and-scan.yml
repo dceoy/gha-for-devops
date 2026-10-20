@@ -315,6 +315,9 @@ jobs:
           if [[ "${USE_OXLINT}" == 'true' ]]; then packages+=(oxlint); fi
           if [[ "${USE_OXFMT}" == 'true' ]]; then packages+=(oxfmt); fi
           if [[ "${USE_BIOME}" == 'true' ]]; then packages+=(biome); fi
+          for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
+            packages+=("${p}")
+          done
           case "${PACKAGE_MANAGER:-}" in
             pnpm )
               pnpm install --frozen-lockfile
@@ -329,18 +332,6 @@ jobs:
               npm install --save-dev "${packages[@]}"
               ;;
           esac
-          for p in $(tr ' ' '\n' <<< "${ADDITIONAL_NPM_PACKAGES}"); do
-            if [[ -n "${p}" ]]; then
-              case "${PACKAGE_MANAGER:-}" in
-                pnpm )
-                  pnpm add --save-dev "${p}"
-                  ;;
-                * )
-                  npm install --save-dev "${p}"
-                  ;;
-              esac
-            fi
-          done
           echo "PATH=${PWD}/node_modules/.bin:${PATH}" >> "${GITHUB_ENV}"
       - name: Run Oxlint
         if: inputs.use-oxlint
