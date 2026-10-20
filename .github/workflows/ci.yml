@@ -161,6 +161,7 @@ jobs:
       - bats-test
       - readme-sync-check
       - github-actions-lint-and-scan
+      - github-codeql-analysis
     permissions:
       contents: write
       pull-requests: write
