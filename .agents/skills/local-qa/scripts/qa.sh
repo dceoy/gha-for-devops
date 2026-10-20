@@ -78,8 +78,6 @@ N_TYPESCRIPT_FILES=$(git ls-files -- '*.ts' '*.tsx' '*.mts' '*.cts' | wc -l)
 N_JAVASCRIPT_FILES=$(git ls-files -- '*.js' '*.jsx' '*.mjs' '*.cjs' | wc -l)
 N_HTML_FILES=$(git ls-files -- '*.html' '*.htm' | wc -l)
 N_MARKDOWN_FILES=$(git ls-files -- '*.md' '*.markdown' '*.mdx' | wc -l)
-# renovate: datasource=npm depName=oxfmt
-OXFMT_VERSION=0.72.0
 if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; then
   PACKAGE_JSON_FILE=$(git ls-files -- 'package.json' '*/package.json' | head -n 1)
   if [[ -n "${PACKAGE_JSON_FILE}" ]]; then
@@ -96,7 +94,7 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
     pnpm exec biome check --write "${PACKAGE_DIRECTORY}"
   fi
   if ! command -v biome > /dev/null 2>&1; then
-    npx --yes "oxfmt@${OXFMT_VERSION}" --write --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss}"
+    pnpm exec oxfmt --write --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss}"
   fi
   if command -v oxlint > /dev/null 2>&1; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
@@ -120,10 +118,10 @@ fi
 
 # Always format Markdown and HTML, including in mixed JavaScript/TypeScript projects.
 if [[ "${N_HTML_FILES}" -gt 0 ]]; then
-  npx --yes "oxfmt@${OXFMT_VERSION}" --write --no-error-on-unmatched-pattern './**/*.{html,htm}'
+  pnpm exec oxfmt --write --no-error-on-unmatched-pattern './**/*.{html,htm}'
 fi
 if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
-  npx --yes "oxfmt@${OXFMT_VERSION}" --write --no-error-on-unmatched-pattern './**/*.{md,markdown,mdx}'
+  pnpm exec oxfmt --write --no-error-on-unmatched-pattern './**/*.{md,markdown,mdx}'
 fi
 
 if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
