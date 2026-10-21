@@ -33,6 +33,10 @@ permissions:
   security-events: write  # required for all workflows
   actions: read           # only required for workflows in private repositories
   contents: read          # only required for workflows in private repositories
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
 jobs:
   codeql-analysis:
     runs-on: ${{ inputs.runs-on }}
@@ -55,7 +59,6 @@ jobs:
           cache: true
       - name: Resolve CodeQL configuration
         id: codeql-config
-        shell: bash
         run: |
           if [[ -f .github/codeql/codeql-config.yml ]]; then
             echo 'path=./.github/codeql/codeql-config.yml' >> "${GITHUB_OUTPUT}"
