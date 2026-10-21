@@ -57,19 +57,13 @@ jobs:
         with:
           go-version: ${{ inputs.go-version }}
           cache: true
-      - name: Resolve CodeQL configuration
-        id: codeql-config
-        run: |
-          if [[ -f .github/codeql/codeql-config.yml ]]; then
-            echo 'path=./.github/codeql/codeql-config.yml' >> "${GITHUB_OUTPUT}"
-          fi
       - name: Initialize CodeQL
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
         with:
           languages: ${{ matrix.language }}   # { actions, c-cpp, csharp, go, java-kotlin, javascript-typescript, python, ruby, swift }
           build-mode: ${{ matrix.language == 'actions' && 'none' || '' }}
           queries: ${{ inputs.queries }}
-          config-file: ${{ inputs.config-file || steps.codeql-config.outputs.path }}
+          config-file: ${{ inputs.config-file || (hashFiles('.github/codeql/codeql-config.yml') != '' && './.github/codeql/codeql-config.yml') || '' }}
       - name: Autobuild   # Autobuild attempts to build any compiled languages (C/C++, C#, Go, Java, or Swift).
         if: contains(fromJSON('["c-cpp","csharp","go","java-kotlin","swift"]'), matrix.language)
         uses: github/codeql-action/autobuild@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
