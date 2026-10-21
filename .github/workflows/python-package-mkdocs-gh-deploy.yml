@@ -6,7 +6,7 @@ on:
       package-path:
         required: false
         type: string
-        description: Path to a Python package or project
+        description: Repository-relative package path (forward slashes only, no .. or glob characters)
         default: .
       python-version:
         required: false
@@ -62,7 +62,7 @@ on:
       package-path:
         required: false
         type: string
-        description: Path to a Python package or project
+        description: Repository-relative package path (forward slashes only, no .. or glob characters)
         default: .
       python-version:
         required: false
@@ -121,6 +121,7 @@ jobs:
     env:
       UV_EXCLUDE_NEWER: 7 days
       UV_MALWARE_CHECK: "1"
+      PACKAGE_PATH: ${{ inputs.package-path }}
       MKDOCS_SITE_DIR: ${{ inputs.package-path }}/site
     steps:
       - name: Checkout repository
@@ -128,14 +129,6 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Detect uv.lock
-        working-directory: ${{ inputs.package-path }}
-        run: |
-          if [[ -f uv.lock ]]; then
-            echo "LOCK_FILE=uv.lock" >> "${GITHUB_ENV}"
-          else
-            echo "LOCK_FILE=" >> "${GITHUB_ENV}"
-          fi
       - name: Set up uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
         with:
@@ -144,20 +137,28 @@ jobs:
           cache-dependency-glob: ${{ inputs.cache-dependency-path || format('{0}/uv.lock', inputs.package-path) }}
           cache-suffix: ${{ inputs.cache-salt }}
       - name: Install packages using uv
-        if: env.LOCK_FILE == 'uv.lock'
+        if: hashFiles(format('{0}/uv.lock', inputs.package-path)) != ''
         working-directory: ${{ inputs.package-path }}
         run: |
+          if [[ "${PACKAGE_PATH}" == /* || "${PACKAGE_PATH}" == [A-Za-z]:* || "${PACKAGE_PATH}" == *\\* || "/${PACKAGE_PATH}/" == *"/../"* || "${PACKAGE_PATH}" == *[\?\*\[\]\!\{\}\(\)\+\@\|]* ]]; then
+            echo "::error::package-path must be relative, use forward slashes, and contain no .. or glob characters" >&2
+            exit 1
+          fi
           uv sync --all-groups
           echo "EXECUTOR_KIND=uv" >> "${GITHUB_ENV}"
       - name: Set up Python
-        if: env.LOCK_FILE != 'uv.lock'
+        if: hashFiles(format('{0}/uv.lock', inputs.package-path)) == ''
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ inputs.python-version }}
       - name: Install packages using uv pip
-        if: env.LOCK_FILE != 'uv.lock'
+        if: hashFiles(format('{0}/uv.lock', inputs.package-path)) == ''
         working-directory: ${{ inputs.package-path }}
         run: |
+          if [[ "${PACKAGE_PATH}" == /* || "${PACKAGE_PATH}" == [A-Za-z]:* || "${PACKAGE_PATH}" == *\\* || "/${PACKAGE_PATH}/" == *"/../"* || "${PACKAGE_PATH}" == *[\?\*\[\]\!\{\}\(\)\+\@\|]* ]]; then
+            echo "::error::package-path must be relative, use forward slashes, and contain no .. or glob characters" >&2
+            exit 1
+          fi
           uv pip install --system mkdocs
           echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
       - name: Build MkDocs site

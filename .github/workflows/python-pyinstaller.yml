@@ -80,13 +80,6 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Detect uv.lock
-        run: |
-          if [[ -f uv.lock ]]; then
-            echo "LOCK_FILE=uv.lock" >> "${GITHUB_ENV}"
-          else
-            echo "LOCK_FILE=" >> "${GITHUB_ENV}"
-          fi
       - name: Set up uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
         with:
@@ -95,18 +88,18 @@ jobs:
           cache-dependency-glob: ${{ inputs.cache-dependency-path || 'uv.lock' }}
           cache-suffix: ${{ inputs.cache-salt }}
       - name: Install packages using uv
-        if: env.LOCK_FILE == 'uv.lock'
+        if: hashFiles('uv.lock') != ''
         run: |
           uv sync --all-groups
           uv add --dev PyInstaller
           echo "EXECUTOR_KIND=uv" >> "${GITHUB_ENV}"
       - name: Set up Python
-        if: env.LOCK_FILE != 'uv.lock'
+        if: hashFiles('uv.lock') == ''
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ inputs.python-version }}
       - name: Install packages
-        if: env.LOCK_FILE != 'uv.lock'
+        if: hashFiles('uv.lock') == ''
         env:
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
         run: |

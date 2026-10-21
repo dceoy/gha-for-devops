@@ -121,6 +121,7 @@ jobs:
   github-codeql-analysis:
     if: >
       github.event_name == 'push'
+      || github.event_name == 'pull_request'
       || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'analyze')
     permissions:
       contents: read
@@ -160,6 +161,7 @@ jobs:
       - bats-test
       - readme-sync-check
       - github-actions-lint-and-scan
+      - github-codeql-analysis
     permissions:
       contents: write
       pull-requests: write

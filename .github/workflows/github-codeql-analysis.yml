@@ -14,11 +14,21 @@ on:
         type: string
         description: Go version to use
         default: stable
+      queries:
+        required: false
+        type: string
+        description: Additional CodeQL queries (prefix + preserves config-file queries)
+        default: +security-extended
+      config-file:
+        required: false
+        type: string
+        description: Optional CodeQL config file relative to the caller repository
+        default: ''
       runs-on:
         required: false
         type: string
         description: Runner to use
-        default: ubuntu-slim
+        default: ubuntu-latest
 permissions:
   security-events: write  # required for all workflows
   actions: read           # only required for workflows in private repositories
@@ -47,11 +57,10 @@ jobs:
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
         with:
           languages: ${{ matrix.language }}   # { actions, c-cpp, csharp, go, java-kotlin, javascript-typescript, python, ruby, swift }
-          build-mode: ${{ matrix.language == 'actions' && 'none' || '' }}
-      - name: Autobuild   # Autobuild attempts to build any compiled languages (C/C++, C#, Go, Java, or Swift).
-        if: matrix.language != 'actions'
-        uses: github/codeql-action/autobuild@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
+          build-mode: ${{ contains(fromJSON('["c-cpp","csharp","go","java-kotlin","swift"]'), matrix.language) && 'autobuild' || 'none' }}
+          queries: ${{ inputs.queries }}
+          config-file: ${{ inputs.config-file || (hashFiles('.github/codeql/codeql-config.yml') != '' && './.github/codeql/codeql-config.yml') || '' }}
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
         with:
-          category: /language:${{ matrix.language }}
+          category: /language:${{ matrix.language == 'javascript-typescript' && 'javascript' || matrix.language }}
