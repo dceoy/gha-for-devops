@@ -31,7 +31,7 @@ extract_step() {
   local step_name="$1"
   local output_script="$2"
 
-  yq -r ".jobs.\"go-package-test\".steps[] | select(.name == \"${step_name}\") | .run" "${WORKFLOW}" > "${output_script}"
+  yq -r ".jobs."go-package-test".steps[] | select(.name == \"${step_name}\") | .run" "${WORKFLOW}" > "${output_script}"
 }
 
 run_step() {

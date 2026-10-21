@@ -5,10 +5,10 @@ bats_require_minimum_version 1.5.0
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/web-dast-scan.yml"
-  yq -r '.jobs.zap.steps[] | select(.name == "Validate scan request") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/validate.sh"
-  yq -r '.jobs.zap.steps[] | select(.id == "zap") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/zap.sh"
-  yq -r '.jobs.zap.steps[] | select(.id == "redact") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/redact.sh"
-  yq -r '.jobs.zap.steps[] | select(.name == "Enforce fail policy") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/enforce.sh"
+  yq -r '.jobs."web-dast-scan".steps[] | select(.name == "Validate scan request") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/validate.sh"
+  yq -r '.jobs."web-dast-scan".steps[] | select(.id == "zap") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/zap.sh"
+  yq -r '.jobs."web-dast-scan".steps[] | select(.id == "redact") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/redact.sh"
+  yq -r '.jobs."web-dast-scan".steps[] | select(.name == "Enforce fail policy") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/enforce.sh"
   export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/output"
   export GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary"
   export RUNNER_TEMP="${BATS_TEST_TMPDIR}/runner"
@@ -42,9 +42,9 @@ validate() {
   [ "$(yq -r '.on.workflow_call.inputs."active-scan".default' "${WORKFLOW}")" = false ]
   [ "$(yq -r '.on.workflow_call.inputs."confirm-authorized".default' "${WORKFLOW}")" = false ]
   [ "$(yq -r '.on.workflow_call.inputs."fail-on-risk".default' "${WORKFLOW}")" = high ]
-  [ "$(yq -r '.jobs.zap.runs-on' "${WORKFLOW}")" = ubuntu-latest ]
+  [ "$(yq -r '.jobs."web-dast-scan".runs-on' "${WORKFLOW}")" = ubuntu-latest ]
   grep -Eq 'ghcr.io/zaproxy/zaproxy:stable@sha256:[0-9a-f]{64}' "${WORKFLOW}"
-  yq -r '.jobs.zap.steps[] | select(.name == "Upload metadata-only ZAP report") | .uses' "${WORKFLOW}" \
+  yq -r '.jobs."web-dast-scan".steps[] | select(.name == "Upload metadata-only ZAP report") | .uses' "${WORKFLOW}" \
     | grep -Eq '^actions/upload-artifact@[a-f0-9]{40}$'
   run ! grep -Eq '^\s*uses: .*@(v[0-9]|main|master)' "${WORKFLOW}"
   run ! grep -Eq 'issues: write|allow_issue_writing: true|gh issue' "${WORKFLOW}"

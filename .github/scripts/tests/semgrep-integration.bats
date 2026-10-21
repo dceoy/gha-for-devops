@@ -37,7 +37,7 @@ run_semgrep_step() {
   local directory="$1"
   shift
   local script="${BATS_TEST_TMPDIR}/semgrep-step.sh"
-  yq -r '.jobs.scan.steps[] | select(.name == "Run Semgrep SAST scan") | .run' "${SCAN_WORKFLOW}" > "${script}"
+  yq -r '.jobs."source-security-scan".steps[] | select(.name == "Run Semgrep SAST scan") | .run' "${SCAN_WORKFLOW}" > "${script}"
   # shellcheck disable=SC2016
   run env "SEMGREP_INCLUDES=*.sh" "SEMGREP_TARGET=." "SEMGREP_FILE_NAMES=" \
     "SEMGREP_RESTRICT_TO_FILES=false" "$@" \
@@ -48,12 +48,12 @@ run_semgrep_step() {
   for workflow in "${WORKFLOWS[@]}"; do
     local path="${REPO_ROOT}/.github/workflows/${workflow}"
     [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${path}")" = true ]
-    [ "$(yq -r '.jobs."security-scan".uses' "${path}")" = '$/.github/workflows/source-security-scan.yml' ]
+    [ "$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml").uses' "${path}")" = '$/.github/workflows/source-security-scan.yml' ]
     [ "$(yq -r '.on.workflow_call.inputs."security-runs-on".default' "${path}")" = ubuntu-slim ]
     # shellcheck disable=SC2016
-    [ "$(yq -r '.jobs."security-scan".with."runs-on"' "${path}")" = '${{ inputs.security-runs-on }}' ]
+    [ "$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml").with."runs-on"' "${path}")" = '${{ inputs.security-runs-on }}' ]
     # shellcheck disable=SC2016
-    [ "$(yq -r '.jobs."security-scan".with."use-semgrep"' "${path}")" = '${{ inputs.use-semgrep }}' ]
+    [ "$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml").with."use-semgrep"' "${path}")" = '${{ inputs.use-semgrep }}' ]
     run ! grep -Fq 'uvx semgrep scan' "${path}"
   done
 }
@@ -62,7 +62,7 @@ run_semgrep_step() {
   local workflow path includes
   for workflow in "${WORKFLOWS[@]}"; do
     path="${REPO_ROOT}/.github/workflows/${workflow}"
-    includes="$(yq -r '.jobs."security-scan".with."semgrep-includes"' "${path}")"
+    includes="$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml").with."semgrep-includes"' "${path}")"
     [ -n "${includes}" ]
     case "${workflow}" in
       python*) [[ "${includes}" == *'*.py'* ]] ;;
@@ -132,7 +132,7 @@ run_semgrep_step() {
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
   # shellcheck disable=SC2016
   grep -Fq 'uvx "${args[@]}"' "${SCAN_WORKFLOW}"
-  [ "$(yq -r '.jobs.scan.env.UV_EXCLUDE_NEWER' "${SCAN_WORKFLOW}")" = "7 days" ]
-  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${SCAN_WORKFLOW}")" = auto ]
+  [ "$(yq -r '.jobs."source-security-scan".env.UV_EXCLUDE_NEWER' "${SCAN_WORKFLOW}")" = "7 days" ]
+  [ "$(yq -r '.jobs."source-security-scan".steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${SCAN_WORKFLOW}")" = auto ]
   run ! grep -Fq SEMGREP_VERSION "${SCAN_WORKFLOW}"
 }
