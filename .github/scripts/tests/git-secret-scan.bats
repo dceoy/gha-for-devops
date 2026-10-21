@@ -6,7 +6,7 @@ setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/git-secret-scan.yml"
   for id in range trufflehog; do
-    yq -r ".jobs."git-secret-scan".steps[] | select(.id == \"${id}\") | .run" "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/${id}.sh"
+    yq -r ".jobs.\"git-secret-scan\".steps[] | select(.id == \"${id}\") | .run" "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/${id}.sh"
   done
   yq -r '.jobs."git-secret-scan".steps[] | select(.name == "Report and enforce results") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/report.sh"
   export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/output"
