@@ -135,7 +135,7 @@ jobs:
           import tomllib
           from pathlib import PurePosixPath, PureWindowsPath
           package_path = os.environ["PACKAGE_PATH"]
-          if (PurePosixPath(package_path).is_absolute() or PureWindowsPath(package_path).is_absolute()
+          if (PurePosixPath(package_path).is_absolute() or PureWindowsPath(package_path).drive
                   or ".." in PurePosixPath(package_path).parts or ".." in PureWindowsPath(package_path).parts
                   or "\\\\" in package_path or any(char in package_path for char in "*?[]{}!()+@|")):
               raise ValueError("package-path must be relative, use forward slashes, and contain no .. or glob characters")

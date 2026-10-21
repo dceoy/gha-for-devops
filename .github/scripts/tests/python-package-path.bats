@@ -17,7 +17,7 @@ setup() {
         run env PACKAGE_PATH="${path}" bash -euo pipefail -c "${guard}"
         [ "${status}" -eq 0 ]
       done
-      for path in /root ../escape service/../other 'service\..\other' 'C:\windows' '\\server' 'service\app' 'service/[1]' 'service/*' 'service/?' 'service/{a,b}' '!app' 'app@(other)'; do
+      for path in /root ../escape service/../other 'service\..\other' 'C:\windows' 'C:relative' '\\server' 'service\app' 'service/[1]' 'service/*' 'service/?' 'service/{a,b}' '!app' 'app@(other)'; do
         run env PACKAGE_PATH="${path}" bash -euo pipefail -c "${guard}"
         [ "${status}" -ne 0 ]
         [[ "${output}" == *"package-path must be relative"* ]]
@@ -36,7 +36,7 @@ setup() {
     run bash -c 'cd "$1" && env PACKAGE_PATH="$2" GITHUB_OUTPUT="$3" python3 -c "$4"' _ "${project}" "${path}" "${project}/output" "${script}"
     [ "${status}" -eq 0 ]
   done
-  for path in ../escape 'service\..\other' 'C:\windows' 'service\app' 'service/[1]' 'service/*' 'app@(other)'; do
+  for path in ../escape 'service\..\other' 'C:\windows' 'C:relative' 'service\app' 'service/[1]' 'service/*' 'app@(other)'; do
     run bash -c 'cd "$1" && env PACKAGE_PATH="$2" GITHUB_OUTPUT="$3" python3 -c "$4"' _ "${project}" "${path}" "${project}/output" "${script}"
     [ "${status}" -ne 0 ]
     [[ "${output}" == *"package-path must be relative"* ]]
