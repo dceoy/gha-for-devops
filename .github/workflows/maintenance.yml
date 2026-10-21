@@ -24,7 +24,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.repository }}-maintenance-${{ ((github.event_name == 'schedule' && github.event.schedule == '15 0 * * 1') || (github.event_name == 'workflow_dispatch' && (inputs.task == 'major-release' || inputs.task == 'minor-release' || inputs.task == 'patch-release'))) && 'weekly-release' || 'scorecard' }}
+  group: ${{ github.repository }}-maintenance-${{ ((github.event_name == 'schedule' && github.event.schedule == '15 0 * * 1') || (github.event_name == 'workflow_dispatch' && (inputs.task == 'major-release' || inputs.task == 'minor-release' || inputs.task == 'patch-release'))) && 'release' || 'scorecard' }}
   cancel-in-progress: false
 jobs:
   plan:
@@ -63,7 +63,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.sha }}
           RELEASE_BUMP: ${{ github.event_name == 'workflow_dispatch' && inputs.task || 'auto' }}
-        run: bash .github/scripts/weekly-release.sh plan
+        run: bash .github/scripts/release.sh plan
   mise-lock-update:
     needs: plan
     if: needs.plan.outputs.ready == 'true'
@@ -173,8 +173,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.sha }}
           RELEASE_TAG: ${{ needs.plan.outputs.tag }}
-        run: bash .github/scripts/weekly-release.sh publish
-  weekly-major-version-tag:
+        run: bash .github/scripts/release.sh publish
+  major-version-tag:
     needs: [plan, publish]
     if: >-
       !cancelled() && needs.plan.result == 'success'

@@ -5,7 +5,7 @@ set -euo pipefail
 : "${GITHUB_REPOSITORY:?}"
 : "${RELEASE_SHA:?}"
 if [[ "${GITHUB_REF:-}" != 'refs/heads/main' ]]; then
-  echo '::error::Weekly releases must run on refs/heads/main.' >&2
+  echo '::error::Releases must run on refs/heads/main.' >&2
   exit 1
 fi
 
@@ -168,7 +168,7 @@ case "${1:-}" in
     echo 'published=true' >> "${GITHUB_OUTPUT:?}"
     ;;
   *)
-    echo 'Usage: weekly-release.sh {plan|publish}' >&2
+    echo 'Usage: release.sh {plan|publish}' >&2
     exit 2
     ;;
 esac

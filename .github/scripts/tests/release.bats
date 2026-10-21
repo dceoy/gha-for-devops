@@ -3,7 +3,7 @@
 setup() {
   # Test the repository release script through its plan and publish entry points.
   export WORKFLOW_FILE="${BATS_TEST_DIRNAME}/../../workflows/maintenance.yml"
-  export RELEASE_SCRIPT="${BATS_TEST_DIRNAME}/../weekly-release.sh"
+  export RELEASE_SCRIPT="${BATS_TEST_DIRNAME}/../release.sh"
   export PLAN_SCRIPT="${BATS_TEST_TMPDIR}/plan.sh"
   export PUBLISH_SCRIPT="${BATS_TEST_TMPDIR}/publish.sh"
   printf 'exec bash "%s" plan\n' "${RELEASE_SCRIPT}" > "${PLAN_SCRIPT}"
@@ -84,9 +84,9 @@ MOCK
   chmod +x "${BATS_TEST_TMPDIR}/bin/gh"
 }
 
-@test 'weekly release executes the repository script' {
-  [ "$(yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/weekly-release.sh plan' ]
-  [ "$(yq -r '.jobs.publish.steps[] | select(.id == "publish") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/weekly-release.sh publish' ]
+@test 'release workflows execute the shared repository script' {
+  [ "$(yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/release.sh plan' ]
+  [ "$(yq -r '.jobs.publish.steps[] | select(.id == "publish") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/release.sh publish' ]
 }
 
 @test 'repository maintenance routes scheduled and manual jobs independently' {
@@ -496,8 +496,8 @@ MOCK
   [ "$status" -eq 0 ]
   [ "$(cat "${GITHUB_OUTPUT}")" = 'sync-major=true' ]
   [ ! -e "${FAKE_STATE}/mutations" ]
-  [ "$(yq -r '.jobs.weekly-major-version-tag.needs | join(",")' "${WORKFLOW_FILE}")" = 'plan,publish' ]
-  condition="$(yq -r '.jobs.weekly-major-version-tag.if' "${WORKFLOW_FILE}")"
+  [ "$(yq -r '.jobs.major-version-tag.needs | join(",")' "${WORKFLOW_FILE}")" = 'plan,publish' ]
+  condition="$(yq -r '.jobs.major-version-tag.if' "${WORKFLOW_FILE}")"
   [[ "${condition}" == *"!cancelled()"* ]]
   [[ "${condition}" == *"needs.plan.result == 'success'"* ]]
   [[ "${condition}" == *"needs.plan.outputs.sync-major == 'true'"* ]]
