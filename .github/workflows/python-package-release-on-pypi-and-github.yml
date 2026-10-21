@@ -113,14 +113,6 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Detect uv.lock
-        working-directory: ${{ inputs.package-path }}
-        run: |
-          if [[ -f uv.lock ]]; then
-            echo "LOCK_FILE=uv.lock" >> "${GITHUB_ENV}"
-          else
-            echo "LOCK_FILE=" >> "${GITHUB_ENV}"
-          fi
       - name: Set up uv
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
         with:
@@ -129,7 +121,7 @@ jobs:
           cache-dependency-glob: ${{ inputs.cache-dependency-path || format('{0}/uv.lock', inputs.package-path) }}
           cache-suffix: ${{ inputs.cache-salt }}
       - name: Set up Python
-        if: env.LOCK_FILE != 'uv.lock'
+        if: hashFiles(format('{0}/uv.lock', inputs.package-path)) == ''
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ inputs.python-version }}
@@ -152,10 +144,11 @@ jobs:
       - name: Build a binary wheel and a source tarball
         env:
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
+          HAS_UV_LOCK: ${{ hashFiles(format('{0}/uv.lock', inputs.package-path)) != '' }}
           STEPS_READ_PROJECT_NAME_OUTPUTS_PROJECT_NAME: ${{ steps.read-project-name.outputs.project_name }}
         working-directory: ${{ inputs.package-path }}
         run: |
-          if [[ "${LOCK_FILE}" != "uv.lock" && -n "${REQUIREMENTS_TXT_PATH}" ]]; then
+          if [[ "${HAS_UV_LOCK}" != "true" && -n "${REQUIREMENTS_TXT_PATH}" ]]; then
             uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
           fi
           uv build
