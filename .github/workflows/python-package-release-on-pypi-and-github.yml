@@ -6,7 +6,7 @@ on:
       package-path:
         required: false
         type: string
-        description: Path to a Python package or project
+        description: Package path relative to the repository root (no absolute paths or ..)
         default: .
       create-github-release:
         required: false
@@ -105,6 +105,7 @@ jobs:
     env:
       UV_EXCLUDE_NEWER: 7 days
       UV_MALWARE_CHECK: "1"
+      PACKAGE_PATH: ${{ inputs.package-path }}
     outputs:
       project-name: ${{ steps.read-project-name.outputs.project_name }}
     steps:
@@ -132,6 +133,11 @@ jobs:
         run: |
           import os
           import tomllib
+          from pathlib import PurePosixPath, PureWindowsPath
+          package_path = os.environ["PACKAGE_PATH"]
+          if (PurePosixPath(package_path).is_absolute() or PureWindowsPath(package_path).is_absolute()
+                  or ".." in PurePosixPath(package_path).parts or ".." in PureWindowsPath(package_path).parts):
+              raise ValueError("package-path must be relative to the repository root")
           with open("pyproject.toml", "rb") as f:
               d = tomllib.load(f)
           if "project" in d and "name" in d["project"]:

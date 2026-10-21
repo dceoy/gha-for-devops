@@ -33,10 +33,6 @@ permissions:
   security-events: write  # required for all workflows
   actions: read           # only required for workflows in private repositories
   contents: read          # only required for workflows in private repositories
-defaults:
-  run:
-    shell: bash -euo pipefail {0}
-    working-directory: .
 jobs:
   codeql-analysis:
     runs-on: ${{ inputs.runs-on }}
@@ -61,12 +57,9 @@ jobs:
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
         with:
           languages: ${{ matrix.language }}   # { actions, c-cpp, csharp, go, java-kotlin, javascript-typescript, python, ruby, swift }
-          build-mode: ${{ matrix.language == 'actions' && 'none' || '' }}
+          build-mode: ${{ contains(fromJSON('["c-cpp","csharp","go","java-kotlin","swift"]'), matrix.language) && 'autobuild' || 'none' }}
           queries: ${{ inputs.queries }}
           config-file: ${{ inputs.config-file || (hashFiles('.github/codeql/codeql-config.yml') != '' && './.github/codeql/codeql-config.yml') || '' }}
-      - name: Autobuild   # Autobuild attempts to build any compiled languages (C/C++, C#, Go, Java, or Swift).
-        if: contains(fromJSON('["c-cpp","csharp","go","java-kotlin","swift"]'), matrix.language)
-        uses: github/codeql-action/autobuild@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.3
         with:

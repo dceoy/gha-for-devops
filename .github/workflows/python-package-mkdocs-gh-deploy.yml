@@ -6,7 +6,7 @@ on:
       package-path:
         required: false
         type: string
-        description: Path to a Python package or project
+        description: Package path relative to the repository root (no absolute paths or ..)
         default: .
       python-version:
         required: false
@@ -62,7 +62,7 @@ on:
       package-path:
         required: false
         type: string
-        description: Path to a Python package or project
+        description: Package path relative to the repository root (no absolute paths or ..)
         default: .
       python-version:
         required: false
@@ -121,6 +121,7 @@ jobs:
     env:
       UV_EXCLUDE_NEWER: 7 days
       UV_MALWARE_CHECK: "1"
+      PACKAGE_PATH: ${{ inputs.package-path }}
       MKDOCS_SITE_DIR: ${{ inputs.package-path }}/site
     steps:
       - name: Checkout repository
@@ -150,6 +151,10 @@ jobs:
         if: hashFiles(format('{0}/uv.lock', inputs.package-path)) == ''
         working-directory: ${{ inputs.package-path }}
         run: |
+          if [[ "${PACKAGE_PATH}" == /* || "${PACKAGE_PATH}" =~ ^[A-Za-z]:[/\\] || "/${PACKAGE_PATH}/" == *"/../"* ]]; then
+            echo "::error::package-path must be relative to the repository root" >&2
+            exit 1
+          fi
           uv pip install --system mkdocs
           echo "EXECUTOR_KIND=none" >> "${GITHUB_ENV}"
       - name: Build MkDocs site
