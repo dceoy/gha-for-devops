@@ -124,7 +124,7 @@ workflows:
     '.github/workflows/joern-scan.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6'
+        - 'actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad'
     '.github/workflows/json-lint.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
     '.github/workflows/json-schema-validation.yml':
@@ -314,9 +314,9 @@ dependencies:
         commit: 'sha1-b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         owner_id: 44036562
         repo_id: 192624594
-    'actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6':
-        ref: 'v6.0.1'
-        commit: 'sha1-de7274f081f381c8f8158605e0321c36c376e2e6'
+    'actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad':
+        ref: 'v6.1.0'
+        commit: 'sha1-b843ebf9b913146b38da2eaa7aeddf76074ae1ad'
         owner_id: 44036562
         repo_id: 196057608
     'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1':
