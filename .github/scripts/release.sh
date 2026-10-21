@@ -5,7 +5,7 @@ set -euo pipefail
 : "${GITHUB_REPOSITORY:?}"
 : "${RELEASE_SHA:?}"
 if [[ "${GITHUB_REF:-}" != 'refs/heads/main' ]]; then
-  echo '::error::Weekly releases must run on refs/heads/main.' >&2
+  echo '::error::Releases must run on refs/heads/main.' >&2
   exit 1
 fi
 
@@ -99,23 +99,51 @@ case "${1:-}" in
       exit 1
     fi
 
-    reusable_workflows_changed
-    if [[ "${WORKFLOWS_CHANGED}" != true ]]; then
-      echo '::notice::No changes to reusable workflows since the latest release.'
+    # Reruns must never publish another version of an already released commit.
+    if [[ "${RELEASE_BUMP:-auto}" =~ ^(major|minor|patch)-release$ ]] \
+      && [[ "$(git rev-parse "${previous_tag}^{commit}")" == "${RELEASE_SHA}" ]]; then
+      echo "::notice::${previous_tag} already releases ${RELEASE_SHA}; synchronizing the major tag only."
       echo 'sync-major=true' >> "${GITHUB_OUTPUT:?}"
       exit 0
     fi
 
-    messages="$(git log --first-parent --format=%B "${previous_tag}..${RELEASE_SHA}")"
-    # Squash-merge bodies can prefix subjects with "* "; trailers can be indented.
-    # Breaking changes intentionally use a minor bump for this workflow library.
-    if grep -Eq '^[[:space:]]*(\*[[:space:]]*)?[[:alnum:]_-]+(\([^)]*\))?!:|^[[:space:]]*(\*[[:space:]]*)?BREAKING[ -]CHANGE:' <<< "${messages}" \
-      || grep -Eq '^[[:space:]]*(\*[[:space:]]*)?feat(\([^)]*\))?:' <<< "${messages}"; then
-      minor=$((minor + 1))
-      patch=0
-    else
-      patch=$((patch + 1))
-    fi
+    case "${RELEASE_BUMP:-auto}" in
+      major-release)
+        major=$((major + 1))
+        minor=0
+        patch=0
+        ;;
+      minor-release)
+        minor=$((minor + 1))
+        patch=0
+        ;;
+      patch-release)
+        patch=$((patch + 1))
+        ;;
+      auto)
+        reusable_workflows_changed
+        if [[ "${WORKFLOWS_CHANGED}" != true ]]; then
+          echo '::notice::No changes to reusable workflows since the latest release.'
+          echo 'sync-major=true' >> "${GITHUB_OUTPUT:?}"
+          exit 0
+        fi
+
+        messages="$(git log --first-parent --format=%B "${previous_tag}..${RELEASE_SHA}")"
+        # Squash-merge bodies can prefix subjects with "* "; trailers can be indented.
+        # Breaking changes intentionally use a minor bump for this workflow library.
+        if grep -Eq '^[[:space:]]*(\*[[:space:]]*)?[[:alnum:]_-]+(\([^)]*\))?!:|^[[:space:]]*(\*[[:space:]]*)?BREAKING[ -]CHANGE:' <<< "${messages}" \
+          || grep -Eq '^[[:space:]]*(\*[[:space:]]*)?feat(\([^)]*\))?:' <<< "${messages}"; then
+          minor=$((minor + 1))
+          patch=0
+        else
+          patch=$((patch + 1))
+        fi
+        ;;
+      *)
+        echo "::error::Invalid release bump: ${RELEASE_BUMP}" >&2
+        exit 2
+        ;;
+    esac
     tag="v${major}.${minor}.${patch}"
     tag_is_publishable "${tag}"
     if [[ "${TAG_EXISTS}" == true ]]; then
@@ -148,7 +176,7 @@ case "${1:-}" in
     echo 'published=true' >> "${GITHUB_OUTPUT:?}"
     ;;
   *)
-    echo 'Usage: weekly-release.sh {plan|publish}' >&2
+    echo 'Usage: release.sh {plan|publish}' >&2
     exit 2
     ;;
 esac

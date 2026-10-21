@@ -3,7 +3,7 @@
 setup() {
   # Test the repository release script through its plan and publish entry points.
   export WORKFLOW_FILE="${BATS_TEST_DIRNAME}/../../workflows/maintenance.yml"
-  export RELEASE_SCRIPT="${BATS_TEST_DIRNAME}/../weekly-release.sh"
+  export RELEASE_SCRIPT="${BATS_TEST_DIRNAME}/../release.sh"
   export PLAN_SCRIPT="${BATS_TEST_TMPDIR}/plan.sh"
   export PUBLISH_SCRIPT="${BATS_TEST_TMPDIR}/publish.sh"
   printf 'exec bash "%s" plan\n' "${RELEASE_SCRIPT}" > "${PLAN_SCRIPT}"
@@ -84,18 +84,22 @@ MOCK
   chmod +x "${BATS_TEST_TMPDIR}/bin/gh"
 }
 
-@test 'weekly release executes the repository script' {
-  [ "$(yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/weekly-release.sh plan' ]
-  [ "$(yq -r '.jobs.publish.steps[] | select(.id == "publish") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/weekly-release.sh publish' ]
+@test 'release workflows execute the shared repository script' {
+  [ "$(yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/release.sh plan' ]
+  [ "$(yq -r '.jobs.publish.steps[] | select(.id == "publish") | .run' "${WORKFLOW_FILE}")" = 'bash .github/scripts/release.sh publish' ]
 }
 
 @test 'repository maintenance routes scheduled and manual jobs independently' {
   [ "$(yq -r '.on.schedule[0].cron' "${WORKFLOW_FILE}")" = '15 0 * * 1' ]
   [ "$(yq -r '.on.schedule | length' "${WORKFLOW_FILE}")" -eq 1 ]
-  [ "$(yq -r '.on.workflow_dispatch.inputs.task.default' "${WORKFLOW_FILE}")" = weekly-release ]
-  [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = weekly-release,scorecard ]
+  [ "$(yq -r '.on.workflow_dispatch.inputs.task.default' "${WORKFLOW_FILE}")" = patch-release ]
+  [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = major-release,minor-release,patch-release,scorecard ]
   grep -Fq "github.event.schedule == '15 0 * * 1'" "${WORKFLOW_FILE}"
-  [ "$(yq -r '.jobs.plan.if' "${WORKFLOW_FILE}" | grep -c "inputs.task == 'weekly-release'")" -eq 1 ]
+  for task in major-release minor-release patch-release; do
+    grep -Fq "inputs.task == '${task}'" < <(yq -r '.jobs.plan.if' "${WORKFLOW_FILE}")
+    grep -Fq "inputs.task == '${task}'" < <(yq -r '.concurrency.group' "${WORKFLOW_FILE}")
+  done
+  [ "$(yq -r '.jobs.plan.steps[] | select(.id == "plan") | .env.RELEASE_BUMP' "${WORKFLOW_FILE}")" = "\${{ github.event_name == 'workflow_dispatch' && inputs.task || 'auto' }}" ]
   [ "$(yq -r '.jobs.analysis.if' "${WORKFLOW_FILE}" | grep -c "inputs.task == 'scorecard'")" -eq 1 ]
   yq -r '.jobs.analysis.if' "${WORKFLOW_FILE}" | grep -Fq "github.event_name == 'schedule'"
 }
@@ -115,6 +119,90 @@ MOCK
   [ "$(jq -r 'has("mise_toml")' <<< "${setup_inputs}")" = false ]
   [ "$(yq -r '[.jobs.plan.steps[] | select(.name == "Add pinned YAML parser to PATH")] | length' "${WORKFLOW_FILE}")" = 0 ]
   grep -qx 'yq = "latest"' "${BATS_TEST_DIRNAME}/../../../mise.toml"
+}
+
+@test 'rerunning a manual release on an already released commit only syncs the major tag' {
+  git tag v1.2.4 "${RELEASE_SHA}"
+  local bump
+  for bump in major-release minor-release patch-release; do
+    : > "${GITHUB_OUTPUT}"
+    run env FAKE_LATEST=v1.2.4 RELEASE_BUMP="${bump}" bash "${PLAN_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [ "$(cat "${GITHUB_OUTPUT}")" = 'sync-major=true' ]
+    [ ! -e "${FAKE_STATE}/mutations" ]
+  done
+}
+
+@test 'manual release rerun handles an annotated latest release tag' {
+  git tag -a v1.2.4 -m "Release v1.2.4" "${RELEASE_SHA}"
+  run env FAKE_LATEST=v1.2.4 RELEASE_BUMP=major-release bash "${PLAN_SCRIPT}"
+  [ "$status" -eq 0 ]
+  [ "$(cat "${GITHUB_OUTPUT}")" = 'sync-major=true' ]
+}
+
+@test 'manual major release plans the next major version' {
+  run env RELEASE_BUMP=major-release bash "${PLAN_SCRIPT}"
+  [ "$status" -eq 0 ]
+  grep -qx 'ready=true' "${GITHUB_OUTPUT}"
+  grep -qx 'tag=v2.0.0' "${GITHUB_OUTPUT}"
+}
+
+@test 'manual major release works without reusable workflow changes' {
+  git reset -q --hard v1.2.3
+  echo documentation > README.md
+  git add .
+  git commit -qm 'docs: no workflow changes'
+  run env RELEASE_BUMP=major-release "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
+  [ "$status" -eq 0 ]
+  grep -qx 'ready=true' "${GITHUB_OUTPUT}"
+  grep -qx 'tag=v2.0.0' "${GITHUB_OUTPUT}"
+}
+
+@test 'manual major release rejects conflicting version tags' {
+  git tag v2.0.0 v1.2.3
+  run env RELEASE_BUMP=major-release bash "${PLAN_SCRIPT}"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'already exists locally'* ]]
+}
+
+@test 'manual minor release plans the next minor version' {
+  run env RELEASE_BUMP=minor-release bash "${PLAN_SCRIPT}"
+  [ "$status" -eq 0 ]
+  grep -qx 'ready=true' "${GITHUB_OUTPUT}"
+  grep -qx 'tag=v1.3.0' "${GITHUB_OUTPUT}"
+}
+
+@test 'manual patch release plans the next patch version' {
+  run env RELEASE_BUMP=patch-release bash "${PLAN_SCRIPT}"
+  [ "$status" -eq 0 ]
+  grep -qx 'ready=true' "${GITHUB_OUTPUT}"
+  grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
+}
+
+@test 'manual minor and patch releases do not require workflow changes' {
+  git reset -q --hard v1.2.3
+  echo documentation > README.md
+  git add .
+  git commit -qm 'docs: no reusable changes'
+  local bump expected
+  for bump in minor-release patch-release; do
+    : > "${GITHUB_OUTPUT}"
+    expected=v1.3.0
+    if [[ "${bump}" == patch-release ]]; then
+      expected=v1.2.4
+    fi
+    run env RELEASE_BUMP="${bump}" "RELEASE_SHA=$(git rev-parse HEAD)" bash "${PLAN_SCRIPT}"
+    [ "$status" -eq 0 ]
+    grep -qx 'ready=true' "${GITHUB_OUTPUT}"
+    grep -qx "tag=${expected}" "${GITHUB_OUTPUT}"
+  done
+}
+
+@test 'manual release bump rejects unknown types' {
+  run env RELEASE_BUMP=invalid bash "${PLAN_SCRIPT}"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'Invalid release bump'* ]]
+  [ ! -s "${GITHUB_OUTPUT}" ]
 }
 
 @test 'patch release is planned without requiring an earlier push CI run' {
@@ -427,8 +515,8 @@ MOCK
   [ "$status" -eq 0 ]
   [ "$(cat "${GITHUB_OUTPUT}")" = 'sync-major=true' ]
   [ ! -e "${FAKE_STATE}/mutations" ]
-  [ "$(yq -r '.jobs.weekly-major-version-tag.needs | join(",")' "${WORKFLOW_FILE}")" = 'plan,publish' ]
-  condition="$(yq -r '.jobs.weekly-major-version-tag.if' "${WORKFLOW_FILE}")"
+  [ "$(yq -r '.jobs.major-version-tag.needs | join(",")' "${WORKFLOW_FILE}")" = 'plan,publish' ]
+  condition="$(yq -r '.jobs.major-version-tag.if' "${WORKFLOW_FILE}")"
   [[ "${condition}" == *"!cancelled()"* ]]
   [[ "${condition}" == *"needs.plan.result == 'success'"* ]]
   [[ "${condition}" == *"needs.plan.outputs.sync-major == 'true'"* ]]
