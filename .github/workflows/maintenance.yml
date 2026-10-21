@@ -15,21 +15,23 @@ on:
         description: Maintenance task to run
         type: choice
         required: true
-        default: weekly-release
+        default: patch-release
         options:
-          - weekly-release
+          - major-release
+          - minor-release
+          - patch-release
           - scorecard
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.repository }}-maintenance-${{ ((github.event_name == 'schedule' && github.event.schedule == '15 0 * * 1') || (github.event_name == 'workflow_dispatch' && inputs.task == 'weekly-release')) && 'weekly-release' || 'scorecard' }}
+  group: ${{ github.repository }}-maintenance-${{ ((github.event_name == 'schedule' && github.event.schedule == '15 0 * * 1') || (github.event_name == 'workflow_dispatch' && (inputs.task == 'major-release' || inputs.task == 'minor-release' || inputs.task == 'patch-release'))) && 'weekly-release' || 'scorecard' }}
   cancel-in-progress: false
 jobs:
   plan:
     if: >-
       github.repository == 'dceoy/gha-for-devops'
       && ((github.event_name == 'schedule' && github.event.schedule == '15 0 * * 1')
-      || (github.event_name == 'workflow_dispatch' && inputs.task == 'weekly-release'))
+      || (github.event_name == 'workflow_dispatch' && (inputs.task == 'major-release' || inputs.task == 'minor-release' || inputs.task == 'patch-release')))
     runs-on: ubuntu-slim
     defaults:
       run:
@@ -60,6 +62,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.sha }}
+          RELEASE_BUMP: ${{ github.event_name == 'workflow_dispatch' && inputs.task || 'auto' }}
         run: bash .github/scripts/weekly-release.sh plan
   mise-lock-update:
     needs: plan

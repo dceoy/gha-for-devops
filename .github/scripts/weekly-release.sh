@@ -99,23 +99,43 @@ case "${1:-}" in
       exit 1
     fi
 
-    reusable_workflows_changed
-    if [[ "${WORKFLOWS_CHANGED}" != true ]]; then
-      echo '::notice::No changes to reusable workflows since the latest release.'
-      echo 'sync-major=true' >> "${GITHUB_OUTPUT:?}"
-      exit 0
-    fi
+    case "${RELEASE_BUMP:-auto}" in
+      major-release)
+        major=$((major + 1))
+        minor=0
+        patch=0
+        ;;
+      minor-release)
+        minor=$((minor + 1))
+        patch=0
+        ;;
+      patch-release)
+        patch=$((patch + 1))
+        ;;
+      auto)
+        reusable_workflows_changed
+        if [[ "${WORKFLOWS_CHANGED}" != true ]]; then
+          echo '::notice::No changes to reusable workflows since the latest release.'
+          echo 'sync-major=true' >> "${GITHUB_OUTPUT:?}"
+          exit 0
+        fi
 
-    messages="$(git log --first-parent --format=%B "${previous_tag}..${RELEASE_SHA}")"
-    # Squash-merge bodies can prefix subjects with "* "; trailers can be indented.
-    # Breaking changes intentionally use a minor bump for this workflow library.
-    if grep -Eq '^[[:space:]]*(\*[[:space:]]*)?[[:alnum:]_-]+(\([^)]*\))?!:|^[[:space:]]*(\*[[:space:]]*)?BREAKING[ -]CHANGE:' <<< "${messages}" \
-      || grep -Eq '^[[:space:]]*(\*[[:space:]]*)?feat(\([^)]*\))?:' <<< "${messages}"; then
-      minor=$((minor + 1))
-      patch=0
-    else
-      patch=$((patch + 1))
-    fi
+        messages="$(git log --first-parent --format=%B "${previous_tag}..${RELEASE_SHA}")"
+        # Squash-merge bodies can prefix subjects with "* "; trailers can be indented.
+        # Breaking changes intentionally use a minor bump for this workflow library.
+        if grep -Eq '^[[:space:]]*(\*[[:space:]]*)?[[:alnum:]_-]+(\([^)]*\))?!:|^[[:space:]]*(\*[[:space:]]*)?BREAKING[ -]CHANGE:' <<< "${messages}" \
+          || grep -Eq '^[[:space:]]*(\*[[:space:]]*)?feat(\([^)]*\))?:' <<< "${messages}"; then
+          minor=$((minor + 1))
+          patch=0
+        else
+          patch=$((patch + 1))
+        fi
+        ;;
+      *)
+        echo "::error::Invalid release bump: ${RELEASE_BUMP}" >&2
+        exit 2
+        ;;
+    esac
     tag="v${major}.${minor}.${patch}"
     tag_is_publishable "${tag}"
     if [[ "${TAG_EXISTS}" == true ]]; then
