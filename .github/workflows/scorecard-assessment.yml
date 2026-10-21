@@ -39,7 +39,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  scorecard:
+  scorecard-assessment:
     runs-on: ubuntu-latest
     steps:
       - name: Validate inputs

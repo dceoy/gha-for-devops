@@ -24,7 +24,7 @@ on:
 permissions:
   contents: read
 jobs:
-  source:
+  security-pr-source:
     if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
     uses: $/.github/workflows/source-security-scan.yml
     with:
@@ -34,7 +34,7 @@ jobs:
       use-trivy: ${{ inputs.use-trivy }}
       use-semgrep: ${{ inputs.use-semgrep }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
-  history:
+  security-pr-history:
     if: inputs.use-git-history && (github.event_name == 'pull_request' || github.event_name == 'push')
     uses: $/.github/workflows/git-secret-scan.yml
     with:

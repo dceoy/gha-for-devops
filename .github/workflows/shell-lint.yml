@@ -58,7 +58,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  security-scan:
+  shell-security-scan:
     if: inputs.use-semgrep
     uses: $/.github/workflows/source-security-scan.yml
     with:
@@ -73,7 +73,7 @@ jobs:
         *.sh
         *.bash
         *.bats
-  lint:
+  shell-lint:
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days

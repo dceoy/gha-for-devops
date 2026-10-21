@@ -38,7 +38,7 @@ defaults:
 env:
   MISE_USE_VERSIONS_HOST_TRACK: 'false'
 jobs:
-  update-and-pr:
+  mise-lock-update:
     if: >
       startsWith(github.ref, 'refs/heads/')
       && !startsWith(github.ref, 'refs/heads/github-actions/mise-lock-update/')

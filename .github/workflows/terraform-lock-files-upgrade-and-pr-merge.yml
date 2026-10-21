@@ -120,7 +120,7 @@ defaults:
 env:
   GH_TELEMETRY: 'false'
 jobs:
-  branch-merge:
+  terraform-lock-pr-branch-merge:
     if: >
       inputs.merged-pr-branch-prefix != null && github.event_name == 'pull_request'
     permissions:
@@ -131,11 +131,11 @@ jobs:
       branch-prefix: ${{ inputs.merged-pr-branch-prefix }}
       delete-merged-branch: false
       runs-on: ubuntu-slim
-  terraform-lock-files-upgrade:
+  terraform-lock-pr-upgrade:
     if: >
       (! (failure() || cancelled()))
     needs:
-      - branch-merge
+      - terraform-lock-pr-branch-merge
     permissions:
       contents: write
       pull-requests: write
@@ -150,9 +150,9 @@ jobs:
       runs-on: ${{ inputs.runs-on }}
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  terraform-lint-and-scan:
+  terraform-lock-pr-lint:
     needs:
-      - terraform-lock-files-upgrade
+      - terraform-lock-pr-upgrade
     permissions:
       contents: write
       actions: read
@@ -175,7 +175,7 @@ jobs:
       runs-on: ${{ inputs.runs-on }}
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  pr-merge:
+  terraform-lock-pr-merge:
     if: >
       github.event_name == 'pull_request'
       && inputs.merge-pr
@@ -183,7 +183,7 @@ jobs:
       && inputs.merge-pr-author-allowlist != ''
       && github.event.pull_request.head.repo.full_name == github.repository
     needs:
-      - terraform-lint-and-scan
+      - terraform-lock-pr-lint
     permissions:
       contents: write
       pull-requests: write

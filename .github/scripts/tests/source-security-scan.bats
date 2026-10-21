@@ -5,10 +5,10 @@ bats_require_minimum_version 1.5.0
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
-  OSV_VERSION="$(yq -r '.jobs."osv-scan".env.OSV_SCANNER_VERSION' "${WORKFLOW}")"
-  MISE_VERSION="$(yq -r '.jobs."osv-scan".env.MISE_VERSION' "${WORKFLOW}")"
+  OSV_VERSION="$(yq -r '.jobs."source-osv-scan".env.OSV_SCANNER_VERSION' "${WORKFLOW}")"
+  MISE_VERSION="$(yq -r '.jobs."source-osv-scan".env.MISE_VERSION' "${WORKFLOW}")"
   OSV_SCRIPT="${BATS_TEST_TMPDIR}/osv.sh"
-  yq -r '.jobs."osv-scan".steps[] | select(.id == "osv") | .run' "${WORKFLOW}" > "${OSV_SCRIPT}"
+  yq -r '.jobs."source-osv-scan".steps[] | select(.id == "osv") | .run' "${WORKFLOW}" > "${OSV_SCRIPT}"
 }
 
 prepare_osv_stub() {
@@ -50,14 +50,14 @@ run_osv_scan() {
 
 @test "OSV-Scanner is installed by mise outside the checkout and run directly" {
   prepare_mise_stub
-  local step='.jobs."osv-scan".steps[] | select(.name == "Install OSV-Scanner")'
+  local step='.jobs."source-osv-scan".steps[] | select(.name == "Install OSV-Scanner")'
   [[ "${OSV_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
   [[ "${MISE_VERSION}" =~ ^[0-9]{4}\.[0-9]+\.[0-9]+$ ]]
-  [[ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .uses' "${WORKFLOW}")" =~ ^jdx/mise-action@[a-f0-9]{40}$ ]]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.install' "${WORKFLOW}")" = false ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.version' "${WORKFLOW}")" = "\${{ env.MISE_VERSION }}" ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.cache' "${WORKFLOW}")" = false ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up mise") | .with.working_directory' "${WORKFLOW}")" = "\${{ runner.temp }}" ]
+  [[ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Set up mise") | .uses' "${WORKFLOW}")" =~ ^jdx/mise-action@[a-f0-9]{40}$ ]]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Set up mise") | .with.install' "${WORKFLOW}")" = false ]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Set up mise") | .with.version' "${WORKFLOW}")" = "\${{ env.MISE_VERSION }}" ]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Set up mise") | .with.cache' "${WORKFLOW}")" = false ]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Set up mise") | .with.working_directory' "${WORKFLOW}")" = "\${{ runner.temp }}" ]
   [ "$(yq -r "${step} | .\"working-directory\"" "${WORKFLOW}")" = "\${{ runner.temp }}" ]
   yq -r "${step} | .run" "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/install.sh"
   mkdir -p "${BATS_TEST_TMPDIR}/runner-temp"
@@ -97,21 +97,21 @@ JS
 
 @test "Source scanner uses mise for OSV and delegates Trivy to the read-only core" {
   [ "$(yq -r '.on.workflow_call.inputs."runs-on".default' "$WORKFLOW")" = ubuntu-slim ]
-  [ "$(yq -r '.jobs."osv-scan".runs-on' "$WORKFLOW")" = "\${{ inputs.runs-on }}" ]
-  [ "$(yq -r '.jobs."trivy-scan".uses' "$WORKFLOW")" = '$/.github/workflows/trivy-scan.yml' ]
-  [ "$(yq -r '.jobs."trivy-scan".with."scan-type"' "$WORKFLOW")" = filesystem ]
-  [ "$(yq -r '.jobs."trivy-scan".with."report-format"' "$WORKFLOW")" = sarif ]
+  [ "$(yq -r '.jobs."source-osv-scan".runs-on' "$WORKFLOW")" = "\${{ inputs.runs-on }}" ]
+  [ "$(yq -r '.jobs."source-trivy-scan".uses' "$WORKFLOW")" = '$/.github/workflows/trivy-scan.yml' ]
+  [ "$(yq -r '.jobs."source-trivy-scan".with."scan-type"' "$WORKFLOW")" = filesystem ]
+  [ "$(yq -r '.jobs."source-trivy-scan".with."report-format"' "$WORKFLOW")" = sarif ]
   [ "$(yq -r '.on.workflow_call.inputs."use-osv-scanner".default' "$WORKFLOW")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "$WORKFLOW")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."trivy-exit-code".default' "$WORKFLOW")" = 1 ]
   [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "$WORKFLOW")" = false ]
   grep -Fq "\"\${OSV_SCANNER_BIN}\" \"\${args[@]}\"" "$WORKFLOW"
-  [[ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .uses' "$WORKFLOW")" =~ ^actions/setup-go@[a-f0-9]{40}$ ]]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with."go-version"' "$WORKFLOW")" = stable ]
-  [ "$(yq -r '.jobs."osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with.cache' "$WORKFLOW")" = false ]
+  [[ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .uses' "$WORKFLOW")" =~ ^actions/setup-go@[a-f0-9]{40}$ ]]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with."go-version"' "$WORKFLOW")" = stable ]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Set up Go for call analysis") | .with.cache' "$WORKFLOW")" = false ]
   local setup_index scan_index
-  setup_index="$(yq -r '.jobs."osv-scan".steps | to_entries[] | select(.value.name == "Set up Go for call analysis") | .key' "$WORKFLOW")"
-  scan_index="$(yq -r '.jobs."osv-scan".steps | to_entries[] | select(.value.id == "osv") | .key' "$WORKFLOW")"
+  setup_index="$(yq -r '.jobs."source-osv-scan".steps | to_entries[] | select(.value.name == "Set up Go for call analysis") | .key' "$WORKFLOW")"
+  scan_index="$(yq -r '.jobs."source-osv-scan".steps | to_entries[] | select(.value.id == "osv") | .key' "$WORKFLOW")"
   [ "${setup_index}" -lt "${scan_index}" ]
   run ! grep -Fq 'OSV_IMAGE:' "$WORKFLOW"
   run ! grep -Fq 'aquasecurity/trivy-action@' "$WORKFLOW"
@@ -129,7 +129,7 @@ JS
     path="${REPO_ROOT}/.github/workflows/${file}"
     [ "$(yq -r '.on.workflow_call.inputs."use-osv-scanner".default' "${path}")" = true ]
     [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "${path}")" = true ]
-    [ "$(yq -r '.jobs."security-scan".uses' "${path}")" = '$/.github/workflows/source-security-scan.yml' ]
+    [ "$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml") | .uses' "${path}")" = '$/.github/workflows/source-security-scan.yml' ]
     ! grep -Fq 'OSV_SCANNER_VERSION' "${path}"
     ! grep -Fq 'aquasecurity/trivy-action@' "${path}"
   done

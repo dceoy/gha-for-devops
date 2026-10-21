@@ -52,7 +52,7 @@ defaults:
 env:
   CHECKPOINT_DISABLE: '1'
 jobs:
-  upgrade-and-commit:
+  terraform-lock-files-upgrade:
     runs-on: ${{ inputs.runs-on }}
     env:
       COMMIT_MESSAGE: Upgrade Terraform lock files

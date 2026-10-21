@@ -115,7 +115,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  security-scan:
+  html-security-scan:
     if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
     uses: $/.github/workflows/source-security-scan.yml
     with:
@@ -129,7 +129,7 @@ jobs:
       semgrep-includes: |
         *.html
         *.htm
-  lint-and-scan:
+  html-lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days

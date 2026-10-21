@@ -76,7 +76,7 @@ on:
     outputs:
       project-name:
         description: Project name of the distribution
-        value: ${{ jobs.build.outputs.project-name }}
+        value: ${{ jobs.python-release-build.outputs.project-name }}
       distribution-artifact-name:
         description: Name of the uploaded artifact
         value: ${{ inputs.distribution-artifact-name }}
@@ -99,7 +99,7 @@ defaults:
 env:
   GH_TELEMETRY: 'false'
 jobs:
-  build:
+  python-release-build:
     name: Build the Python 🐍 distribution 📦
     runs-on: ${{ inputs.runs-on }}
     env:
@@ -167,18 +167,18 @@ jobs:
           path: /tmp/${{ steps.read-project-name.outputs.project_name }}_dist/
           retention-days: ${{ inputs.artifact-retention-days }}
           overwrite: ${{ inputs.artifact-overwrite }}
-  publish-to-testpypi:
+  python-release-testpypi:
     name: Publish the Python 🐍 distribution 📦 to TestPyPI
     if: >
       startsWith(github.ref, 'refs/tags/')
       && inputs.publish-to-pypi
       && inputs.publish-to-testpypi-before-pypi
     needs:
-      - build
+      - python-release-build
     runs-on: ${{ inputs.runs-on }}
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/${{ needs.build.outputs.project-name }}
+      url: https://test.pypi.org/p/${{ needs.python-release-build.outputs.project-name }}
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
     steps:
@@ -206,14 +206,14 @@ jobs:
         with:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}  # zizmor: ignore[use-trusted-publishing] Optional API-token authentication.
           repository-url: https://test.pypi.org/legacy/
-  github-release:
+  python-release-github:
     name: Sign the Python 🐍 distribution 📦 with Sigstore and upload them to GitHub Release
     if: >
       startsWith(github.ref, 'refs/tags/')
       && inputs.create-github-release
       && (! (failure() || cancelled()))
     needs:
-      - build
+      - python-release-build
     runs-on: ${{ inputs.runs-on }}
     permissions:
       contents: write  # IMPORTANT: mandatory for making GitHub Releases
@@ -227,7 +227,7 @@ jobs:
       - name: Validate the version-tag consistency
         env:
           TAG_NAME: ${{ github.ref_name }}
-          NEEDS_BUILD_OUTPUTS_PROJECT_NAME: ${{ needs.build.outputs.project-name }}
+          NEEDS_BUILD_OUTPUTS_PROJECT_NAME: ${{ needs.python-release-build.outputs.project-name }}
         run: |
           distribution_name="$( \
             tr '[:upper:]' '[:lower:]' <<< "${NEEDS_BUILD_OUTPUTS_PROJECT_NAME}" \
@@ -269,20 +269,20 @@ jobs:
         # sigstore-produced signatures and certificates.
         run: |
           gh release upload "${GITHUB_REF_NAME}" dist/** --repo "${REPOSITORY}" --clobber
-  publish-to-pypi:
+  python-release-pypi:
     name: Publish the Python 🐍 distribution 📦 to PyPI
     if: >
       startsWith(github.ref, 'refs/tags/')
       && inputs.publish-to-pypi
       && (! (failure() || cancelled()))
     needs:
-      - build
-      - publish-to-testpypi
-      - github-release
+      - python-release-build
+      - python-release-testpypi
+      - python-release-github
     runs-on: ${{ inputs.runs-on }}
     environment:
       name: pypi
-      url: https://pypi.org/p/${{ needs.build.outputs.project-name }}
+      url: https://pypi.org/p/${{ needs.python-release-build.outputs.project-name }}
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
     steps:

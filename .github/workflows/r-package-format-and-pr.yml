@@ -49,7 +49,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  format-and-pr:
+  r-package-format-and-pr:
     runs-on: ${{ inputs.runs-on }}
     env:
       R_LIBS_USER: ${{ inputs.r-libs-user }}

@@ -78,7 +78,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  zap:
+  web-dast-scan:
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}
     environment: ${{ inputs.environment != '' && inputs.environment || null }}

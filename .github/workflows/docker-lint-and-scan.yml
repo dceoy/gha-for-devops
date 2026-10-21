@@ -141,7 +141,7 @@ defaults:
 permissions:
   contents: read
 jobs:
-  security-scan:
+  docker-security-scan:
     permissions:
       contents: read
     uses: $/.github/workflows/source-security-scan.yml
@@ -175,7 +175,7 @@ jobs:
         *.dockerfile
     secrets:
       BC_API_KEY: ${{ secrets.BC_API_KEY }}
-  lint-and-scan:
+  docker-lint-and-scan:
     permissions:
       contents: read
     runs-on: ${{ inputs.runs-on }}

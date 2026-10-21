@@ -132,7 +132,7 @@ has_pnpm_version_source_in_fixture() {
 
 @test "Bats runtime selection prefers manifest declarations and validates them" {
   local script fixture expected
-  script="$(yq -r '.jobs.test.steps[] | select(.id == "pnpm-config") | .run' "${WORKFLOWS}/bats-test.yml")"
+  script="$(yq -r '.jobs."bats-test".steps[] | select(.id == "pnpm-config") | .run' "${WORKFLOWS}/bats-test.yml")"
   mkdir -p "${BATS_TEST_TMPDIR}/runtime"
   while IFS='|' read -r fixture expected; do
     printf '%s\n' "${fixture}" > "${BATS_TEST_TMPDIR}/runtime/package.json"
@@ -158,13 +158,13 @@ CASES
 
 @test "Bats pnpm cache reuses only entries scoped to the same salt" {
   local workflow="${WORKFLOWS}/bats-test.yml" key restore_keys
-  key="$(yq -r '.jobs.test.steps[] | select(.name == "Cache salted pnpm store") | .with.key' "${workflow}")"
-  restore_keys="$(yq -r '.jobs.test.steps[] | select(.name == "Cache salted pnpm store") | .with.restore-keys' "${workflow}")"
+  key="$(yq -r '.jobs."bats-test".steps[] | select(.name == "Cache salted pnpm store") | .with.key' "${workflow}")"
+  restore_keys="$(yq -r '.jobs."bats-test".steps[] | select(.name == "Cache salted pnpm store") | .with.restore-keys' "${workflow}")"
   # shellcheck disable=SC2016
   [[ "${key}" == *'${{ inputs.cache-salt }}'* ]]
   # shellcheck disable=SC2016
   [[ "${restore_keys}" == *'${{ inputs.cache-salt }}-' ]]
-  run yq -r '.jobs.test.steps[] | select(.name == "Cache salted pnpm store") | .if' "${workflow}"
+  run yq -r '.jobs."bats-test".steps[] | select(.name == "Cache salted pnpm store") | .if' "${workflow}"
   [ "${status}" -eq 0 ]
   [ "${output}" = "inputs.enable-cache && inputs.cache-salt != ''" ]
 }

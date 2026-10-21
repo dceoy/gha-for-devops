@@ -118,7 +118,7 @@ on:
     outputs:
       preview-resource-name:
         description: Full preview resource name (empty for apply); callers must delete previews after polling/review to avoid exhausting the project quota
-        value: ${{ jobs.deploy.outputs.preview-resource-name }}
+        value: ${{ jobs.gcloud-infra-manager-deployments.outputs.preview-resource-name }}
 permissions:
   contents: read
   id-token: write
@@ -127,7 +127,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  deploy:
+  gcloud-infra-manager-deployments:
     runs-on: ${{ inputs.runs-on }}
     outputs:
       preview-resource-name: ${{ steps.preview-name.outputs.preview-resource-name }}

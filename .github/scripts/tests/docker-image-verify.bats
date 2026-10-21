@@ -6,8 +6,8 @@ setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/container-security.yml"
   BUILD_WORKFLOW="${REPO_ROOT}/.github/workflows/docker-build-and-push.yml"
-  yq -r '.jobs.verify.steps[] | select(.name == "Validate verification policy") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/validate.sh"
-  yq -r '.jobs.verify.steps[] | select(.id == "cosign") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/verify.sh"
+  yq -r '.jobs."container-verify".steps[] | select(.name == "Validate verification policy") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/validate.sh"
+  yq -r '.jobs."container-verify".steps[] | select(.id == "cosign") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/verify.sh"
   export GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary"
   mkdir -p "${BATS_TEST_TMPDIR}/bin"
   export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
@@ -29,8 +29,8 @@ validate() {
 }
 
 @test "Verification workflow is read-only, pinned, and requires identity and issuer policy" {
-  [ "$(yq -r '.jobs.verify.permissions | keys | join(",")' "${WORKFLOW}")" = contents ]
-  yq -r '.jobs.verify.steps[] | select(.name == "Install cosign") | .uses' "${WORKFLOW}" \
+  [ "$(yq -r '.jobs."container-verify".permissions | keys | join(",")' "${WORKFLOW}")" = contents ]
+  yq -r '.jobs."container-verify".steps[] | select(.name == "Install cosign") | .uses' "${WORKFLOW}" \
     | grep -Eq '^sigstore/cosign-installer@[a-f0-9]{40}$'
   [ "$(yq -r '.on.workflow_call.inputs."image-refs-json".required' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."verify-signatures".default' "${WORKFLOW}")" = true ]

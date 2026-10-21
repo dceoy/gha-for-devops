@@ -29,7 +29,7 @@ on:
 permissions:
   contents: read
 jobs:
-  source:
+  security-audit-source:
     if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     uses: $/.github/workflows/source-security-scan.yml
     with:
@@ -38,12 +38,12 @@ jobs:
       use-osv-scanner: true
       use-trivy: true
       use-semgrep: true
-  history:
+  security-audit-history:
     if: inputs.use-git-history && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     uses: $/.github/workflows/git-secret-scan.yml
     with:
       scan-mode: full
-  codeql:
+  security-audit-codeql:
     if: inputs.use-codeql && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     permissions:
       contents: read
@@ -52,12 +52,12 @@ jobs:
     uses: $/.github/workflows/github-codeql-analysis.yml
     with:
       language: ${{ inputs.codeql-languages }}
-  joern:
+  security-audit-joern:
     if: inputs.use-joern && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     uses: $/.github/workflows/joern-scan.yml
     with:
       scan-path: ${{ inputs.package-path }}
-  scorecard:
+  security-audit-scorecard:
     if: inputs.use-scorecard && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     permissions:
       contents: read

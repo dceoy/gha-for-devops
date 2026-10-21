@@ -88,7 +88,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  authorize:
+  claude-code-bot-authorize:
     if: >
       (
         github.event_name == 'issue_comment'
@@ -161,8 +161,8 @@ jobs:
       id-token: write
       actions: read  # Required for Claude to read CI results on PRs
     needs:
-      - authorize
-    if: needs.authorize.outputs.authorized == 'true'
+      - claude-code-bot-authorize
+    if: needs.claude-code-bot-authorize.outputs.authorized == 'true'
     runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Checkout repository

@@ -231,7 +231,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  build:
+  docker-terraform-build:
     if: >
       inputs.apply && inputs.docker-image-name-to-target-stage-json != null
     uses: $/.github/workflows/docker-build-with-multi-targets.yml
@@ -273,7 +273,7 @@ jobs:
       BUILD_SECRETS: ${{ secrets.BUILD_SECRETS }}
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  pull:
+  docker-terraform-pull:
     if: >
       inputs.apply && inputs.docker-image-name-to-target-stage-json == null
       && (inputs.docker-image-names-to-pull != null || inputs.docker-tag-source-to-target-json != null)
@@ -297,12 +297,12 @@ jobs:
       timeout-minutes: ${{ inputs.timeout-minutes }}
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  deploy:
+  docker-terraform-deploy:
     if: >
       (! (failure() || cancelled()))
     needs:
-      - build
-      - pull
+      - docker-terraform-build
+      - docker-terraform-pull
     uses: $/.github/workflows/terraform-deploy-to-aws.yml
     with:
       aws-iam-role-to-assume: ${{ inputs.target-aws-iam-role-to-assume }}
@@ -311,7 +311,7 @@ jobs:
       apply: ${{ inputs.apply }}
       terraform-version: ${{ inputs.terraform-version }}
       terragrunt-version: ${{ inputs.terragrunt-version }}
-      use-docker: ${{ needs.build.result == 'success' || needs.pull.result == 'success' }}
+      use-docker: ${{ needs.docker-terraform-build.result == 'success' || needs.docker-terraform-pull.result == 'success' }}
       docker-metadata-action-images: ${{ inputs.docker-metadata-action-images }}
       docker-metadata-action-tags: ${{ inputs.docker-metadata-action-tags }}
       docker-image-artifact-name: ${{ inputs.docker-image-artifact-name }}

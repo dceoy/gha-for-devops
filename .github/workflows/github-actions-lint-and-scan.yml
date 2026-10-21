@@ -186,7 +186,7 @@ defaults:
 env:
   GH_TELEMETRY: 'false'
 jobs:
-  security-scan:
+  actions-security-scan:
     if: inputs.use-semgrep || inputs.use-checkov
     uses: $/.github/workflows/source-security-scan.yml
     with:
@@ -210,7 +210,7 @@ jobs:
         *.yaml
     secrets:
       BC_API_KEY: ${{ secrets.BC_API_KEY }}
-  github-actions-lint-scan:
+  actions-lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days
