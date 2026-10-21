@@ -8,8 +8,8 @@ bats_require_minimum_version 1.5.0
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/github-actions-lint-and-scan.yml"
-  RUN_SCRIPT="$(yq -r '.jobs."github-actions-lint-scan".steps[] | select(.name == "Execute actionlint") | .run' "${WORKFLOW}")"
-  WORKFLOW_ACTIONLINT_VERSION="$(yq -r '.jobs."github-actions-lint-scan".env.ACTIONLINT_VERSION' "${WORKFLOW}")"
+  RUN_SCRIPT="$(yq -r '.jobs."actions-lint-and-scan".steps[] | select(.name == "Execute actionlint") | .run' "${WORKFLOW}")"
+  WORKFLOW_ACTIONLINT_VERSION="$(yq -r '.jobs."actions-lint-and-scan".env.ACTIONLINT_VERSION' "${WORKFLOW}")"
   MISE_ACTIONLINT_VERSION="$(sed -n '/^\[tools\]/,/^\[/s/^actionlint = "\([^"]*\)"/\1/p' "${REPO_ROOT}/mise.toml")"
   JOB_WORKFLOW_REPOSITORY='$'"{{ job.workflow_repository }}"
   JOB_WORKFLOW_SHA='$'"{{ job.workflow_sha }}"

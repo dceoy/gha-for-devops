@@ -8,8 +8,8 @@ setup() {
   TEST_TEMP="$(mktemp -d)"
   DISCOVER_SCRIPT="${TEST_TEMP}/discover-skills.sh"
   PACKAGE_SCRIPT="${TEST_TEMP}/package-skill.sh"
-  yq -r '.jobs.discover.steps[] | select(.name == "Discover skills") | .run' "${WORKFLOW}" > "${DISCOVER_SCRIPT}"
-  yq -r '.jobs.package.steps[] | select(.name == "Package skill") | .run' "${WORKFLOW}" > "${PACKAGE_SCRIPT}"
+  yq -r '.jobs."agent-skills-discover".steps[] | select(.name == "Discover skills") | .run' "${WORKFLOW}" > "${DISCOVER_SCRIPT}"
+  yq -r '.jobs."agent-skills-package".steps[] | select(.name == "Package skill") | .run' "${WORKFLOW}" > "${PACKAGE_SCRIPT}"
 }
 
 teardown() {
@@ -165,28 +165,28 @@ run_packaging() {
 
   [ "$(yq -r '.on.workflow_call.inputs."release-tag".type' "${WORKFLOW}")" = 'string' ]
   [ "$(yq -r '.on.workflow_call.inputs."release-tag".default' "${WORKFLOW}")" = '' ]
-  attach_condition="$(yq -r '.jobs."attach-to-release".if' "${WORKFLOW}")"
+  attach_condition="$(yq -r '.jobs."agent-skills-release".if' "${WORKFLOW}")"
   [ "${attach_condition}" = "github.event_name == 'release' || inputs.release-tag != ''" ]
-  release_tag_env="$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach skill to the release") | .env.RELEASE_TAG' "${WORKFLOW}")"
+  release_tag_env="$(yq -r '.jobs."agent-skills-release".steps[] | select(.name == "Attach skill to the release") | .env.RELEASE_TAG' "${WORKFLOW}")"
   [ "${release_tag_env}" = "\${{ inputs.release-tag || github.event.release.tag_name }}" ]
-  [ "$(yq -r '.jobs.discover.steps[] | select(.name == "Checkout repository") | .with.ref' "${WORKFLOW}")" = "\${{ inputs.release-tag || github.sha }}" ]
-  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Checkout repository") | .with.ref' "${WORKFLOW}")" = "\${{ inputs.release-tag || github.sha }}" ]
+  [ "$(yq -r '.jobs."agent-skills-discover".steps[] | select(.name == "Checkout repository") | .with.ref' "${WORKFLOW}")" = "\${{ inputs.release-tag || github.sha }}" ]
+  [ "$(yq -r '.jobs."agent-skills-package".steps[] | select(.name == "Checkout repository") | .with.ref' "${WORKFLOW}")" = "\${{ inputs.release-tag || github.sha }}" ]
 }
 
 @test "uploads raw ZIP files as individual Actions artifacts" {
-  [ "$(yq -r '.jobs.package.strategy.matrix.skill' "${WORKFLOW}")" = "\${{ fromJSON(needs.discover.outputs.skills) }}" ]
-  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.archive' "${WORKFLOW}")" = 'false' ]
-  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.name' "${WORKFLOW}")" = "\${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}" ]
-  [ "$(yq -r '.jobs.package.steps[] | select(.name == "Upload skill ZIP") | .with.path' "${WORKFLOW}")" = "\${{ runner.temp }}/agent-skill-packages/\${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}" ]
-  [ "$(yq -r '.on.workflow_call.outputs."artifact-names".value' "${WORKFLOW}")" = "\${{ jobs.discover.outputs.artifact-names }}" ]
+  [ "$(yq -r '.jobs."agent-skills-package".strategy.matrix.skill' "${WORKFLOW}")" = "\${{ fromJSON(needs.agent-skills-discover.outputs.skills) }}" ]
+  [ "$(yq -r '.jobs."agent-skills-package".steps[] | select(.name == "Upload skill ZIP") | .with.archive' "${WORKFLOW}")" = 'false' ]
+  [ "$(yq -r '.jobs."agent-skills-package".steps[] | select(.name == "Upload skill ZIP") | .with.name' "${WORKFLOW}")" = "\${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}" ]
+  [ "$(yq -r '.jobs."agent-skills-package".steps[] | select(.name == "Upload skill ZIP") | .with.path' "${WORKFLOW}")" = "\${{ runner.temp }}/agent-skill-packages/\${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}" ]
+  [ "$(yq -r '.on.workflow_call.outputs."artifact-names".value' "${WORKFLOW}")" = "\${{ jobs.agent-skills-discover.outputs.artifact-names }}" ]
 }
 
 @test "release downloads only the exact matrix skill ZIP" {
-  [ "$(yq -r '.jobs."attach-to-release".strategy.matrix.skill' "${WORKFLOW}")" = "\${{ fromJSON(needs.discover.outputs.skills) }}" ]
-  [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download skill ZIP") | .with.name' "${WORKFLOW}")" = "\${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}" ]
-  [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download skill ZIP") | .with."skip-decompress"' "${WORKFLOW}")" = 'true' ]
-  [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download skill ZIP") | .with.pattern' "${WORKFLOW}")" = 'null' ]
-  [ "$(yq -r '.jobs."attach-to-release".steps[] | select(.name == "Download skill ZIP") | .with."merge-multiple"' "${WORKFLOW}")" = 'null' ]
+  [ "$(yq -r '.jobs."agent-skills-release".strategy.matrix.skill' "${WORKFLOW}")" = "\${{ fromJSON(needs.agent-skills-discover.outputs.skills) }}" ]
+  [ "$(yq -r '.jobs."agent-skills-release".steps[] | select(.name == "Download skill ZIP") | .with.name' "${WORKFLOW}")" = "\${{ format('{0}-{1}.zip', inputs.artifact-name, matrix.skill) }}" ]
+  [ "$(yq -r '.jobs."agent-skills-release".steps[] | select(.name == "Download skill ZIP") | .with."skip-decompress"' "${WORKFLOW}")" = 'true' ]
+  [ "$(yq -r '.jobs."agent-skills-release".steps[] | select(.name == "Download skill ZIP") | .with.pattern' "${WORKFLOW}")" = 'null' ]
+  [ "$(yq -r '.jobs."agent-skills-release".steps[] | select(.name == "Download skill ZIP") | .with."merge-multiple"' "${WORKFLOW}")" = 'null' ]
 }
 
 @test "release attachment renames only the selected ZIP and uploads one asset" {
@@ -194,7 +194,7 @@ run_packaging() {
   local bin_dir="${TEST_TEMP}/bin"
   local runner_temp="${TEST_TEMP}/runner"
 
-  yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach skill to the release") | .run' "${WORKFLOW}" > "${attach_script}"
+  yq -r '.jobs."agent-skills-release".steps[] | select(.name == "Attach skill to the release") | .run' "${WORKFLOW}" > "${attach_script}"
   mkdir -p "${bin_dir}" "${runner_temp}/agent-skill-release-assets"
   mkdir -p "${runner_temp}/source/alpha"
   printf '# alpha\n' > "${runner_temp}/source/alpha/SKILL.md"
@@ -229,7 +229,7 @@ EOF
   local attach_script="${TEST_TEMP}/attach-skills.sh"
   local runner_temp="${TEST_TEMP}/runner"
 
-  yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach skill to the release") | .run' "${WORKFLOW}" > "${attach_script}"
+  yq -r '.jobs."agent-skills-release".steps[] | select(.name == "Attach skill to the release") | .run' "${WORKFLOW}" > "${attach_script}"
   mkdir -p "${runner_temp}/agent-skill-release-assets"
   printf 'other' > "${runner_temp}/agent-skill-release-assets/other.zip"
 
@@ -245,7 +245,7 @@ EOF
   local attach_script="${TEST_TEMP}/attach-skills.sh"
   local runner_temp="${TEST_TEMP}/runner"
 
-  yq -r '.jobs."attach-to-release".steps[] | select(.name == "Attach skill to the release") | .run' "${WORKFLOW}" > "${attach_script}"
+  yq -r '.jobs."agent-skills-release".steps[] | select(.name == "Attach skill to the release") | .run' "${WORKFLOW}" > "${attach_script}"
   mkdir -p "${runner_temp}/agent-skill-release-assets"
   printf 'not a ZIP' > "${runner_temp}/agent-skill-release-assets/agent-skills-alpha.zip"
 

@@ -9,7 +9,7 @@ setup() {
   SOURCE="$REPO_ROOT/.github/workflows/source-security-scan.yml"
   CONTAINER="$REPO_ROOT/.github/workflows/container-security.yml"
   PUBLISH_SCRIPT="$BATS_TEST_TMPDIR/publish.sh"
-  yq -r '.jobs.submit.steps[] | select(.name == "Validate and publish dependency snapshot") | .run' "$TRIVY" > "$PUBLISH_SCRIPT"
+  yq -r '.jobs."trivy-submit".steps[] | select(.name == "Validate and publish dependency snapshot") | .run' "$TRIVY" > "$PUBLISH_SCRIPT"
   export GITHUB_STEP_SUMMARY="$BATS_TEST_TMPDIR/summary"
 }
 
@@ -23,43 +23,43 @@ prepare_conversion_config() {
 
 use_conversion_config() {
   local config
-  config="$(STEP_NAME="$1" yq -r '.jobs.scan.steps[] | select(.name == strenv(STEP_NAME)) | .env.TRIVY_CONFIG // ""' "$TRIVY")"
+  config="$(STEP_NAME="$1" yq -r '.jobs."trivy-scan".steps[] | select(.name == strenv(STEP_NAME)) | .env.TRIVY_CONFIG // ""' "$TRIVY")"
   export TRIVY_CONFIG="${config//'${{ inputs.trivy-config }}'/$BATS_TEST_TMPDIR/ci/trivy.yaml}"
 }
 
 @test "Trivy scan runs each category once and converts reports" {
-  [ "$(yq -r '[.jobs.scan.steps[] | select(.uses | contains("aquasecurity/trivy-action@"))] | length' "$TRIVY")" = 1 ]
-  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with.format' "$TRIVY")" = json ]
-  [ "$(yq -r '.jobs.scan.steps[] | select(.name == "Scan once with all requested scanners") | .with."list-all-pkgs"' "$TRIVY")" = true ]
+  [ "$(yq -r '[.jobs."trivy-scan".steps[] | select(.uses | contains("aquasecurity/trivy-action@"))] | length' "$TRIVY")" = 1 ]
+  [ "$(yq -r '.jobs."trivy-scan".steps[] | select(.name == "Scan once with all requested scanners") | .with.format' "$TRIVY")" = json ]
+  [ "$(yq -r '.jobs."trivy-scan".steps[] | select(.name == "Scan once with all requested scanners") | .with."list-all-pkgs"' "$TRIVY")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."trivy-scanners".default' "$TRIVY")" = 'vuln,secret,misconfig' ]
   grep -Fq 'trivy convert --format github' "$TRIVY"
   grep -Fq 'trivy convert --scanners "${TRIVY_SCANNERS}" --format "${REPORT_FORMAT}"' "$TRIVY"
 }
 
 @test "Only the integrated publisher is writable and gated to trusted events" {
-  [ "$(yq -r '.jobs.scan.permissions.contents' "$TRIVY")" = read ]
-  [ "$(yq -r '.jobs.submit.permissions.contents' "$TRIVY")" = null ]
-  [ "$(yq -r '.jobs.scan.permissions.contents' "$TRIVY")" = read ]
+  [ "$(yq -r '.jobs."trivy-scan".permissions.contents' "$TRIVY")" = read ]
+  [ "$(yq -r '.jobs."trivy-submit".permissions.contents' "$TRIVY")" = null ]
+  [ "$(yq -r '.jobs."trivy-scan".permissions.contents' "$TRIVY")" = read ]
   [ "$(yq -r '.permissions.contents' "$SOURCE")" = read ]
-  for job in osv-scan scan checkov; do
+  for job in source-osv-scan source-security-scan source-checkov; do
     [ "$(JOB="${job}" yq -r '.jobs[strenv(JOB)].permissions.contents' "$SOURCE")" = read ]
   done
-  [ "$(yq -r '.jobs."trivy-scan".permissions.contents' "$SOURCE")" = read ]
-  [ "$(yq -r '.jobs."trivy-scan".with."submit-dependencies"' "$SOURCE")" = '${{ inputs.submit-dependencies }}' ]
+  [ "$(yq -r '.jobs."source-trivy-scan".permissions.contents' "$SOURCE")" = read ]
+  [ "$(yq -r '.jobs."source-trivy-scan".with."submit-dependencies"' "$SOURCE")" = '${{ inputs.submit-dependencies }}' ]
   for workflow in docker-lint-and-scan terraform-lint-and-scan; do
     file="$REPO_ROOT/.github/workflows/${workflow}.yml"
     [ "$(yq -r '.permissions.contents' "$file")" = read ]
-    [ "$(yq -r '.jobs.lint-and-scan.permissions.contents' "$file")" = read ]
-    [ "$(yq -r '.jobs.security-scan.permissions.contents' "$file")" = read ]
-    [ "$(yq -r '.jobs.security-scan.with."submit-dependencies"' "$file")" = '${{ inputs.submit-dependencies }}' ]
+    [ "$(yq -r '.jobs.* | select(has("runs-on")).permissions.contents' "$file")" = read ]
+    [ "$(yq -r '.jobs.* | select(has("uses")).permissions.contents' "$file")" = read ]
+    [ "$(yq -r '.jobs.* | select(has("uses")).with."submit-dependencies"' "$file")" = '${{ inputs.submit-dependencies }}' ]
   done
   [ "$(yq -r '.permissions.contents' "$CONTAINER")" = read ]
-  [ "$(yq -r '.jobs.scan.permissions | keys | join(",")' "$CONTAINER")" = contents ]
-  [ "$(yq -r '.jobs."trivy-scan".uses' "$SOURCE")" = '$/.github/workflows/trivy-scan.yml' ]
-  [ "$(yq -r '.jobs.scan.uses' "$CONTAINER")" = '$/.github/workflows/trivy-scan.yml' ]
+  [ "$(yq -r '.jobs."container-scan".permissions | keys | join(",")' "$CONTAINER")" = contents ]
+  [ "$(yq -r '.jobs."source-trivy-scan".uses' "$SOURCE")" = '$/.github/workflows/trivy-scan.yml' ]
+  [ "$(yq -r '.jobs."container-scan".uses' "$CONTAINER")" = '$/.github/workflows/trivy-scan.yml' ]
   [ ! -e "$REPO_ROOT/.github/workflows/dependency-submission.yml" ]
   local cond
-  cond="$(yq -r '.jobs.submit.if' "$TRIVY")"
+  cond="$(yq -r '.jobs."trivy-submit".if' "$TRIVY")"
   [[ "$cond" == *"inputs.submit-dependencies"* ]]
   [[ "$cond" == *"github.event_name == 'push'"* ]]
   [[ "$cond" == *"github.event_name == 'schedule'"* ]]
@@ -97,7 +97,7 @@ SH
 }
 
 @test "Stable correlator is injected into each converted snapshot" {
-  [ "$(yq -r '.jobs.prepare.steps[] | select(.id == "targets") | .env.CORRELATOR' "$TRIVY")" = '${{ inputs.snapshot-correlator }}' ]
+  [ "$(yq -r '.jobs."trivy-prepare".steps[] | select(.id == "targets") | .env.CORRELATOR' "$TRIVY")" = '${{ inputs.snapshot-correlator }}' ]
   grep -Fq 'jq -e --arg correlator "${SNAPSHOT_CORRELATOR}"' "$TRIVY"
   grep -Fq '.job.correlator=$correlator' "$TRIVY"
 }
@@ -112,8 +112,8 @@ SH
 {"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"package-lock.json","Class":"lang-pkgs","Type":"npm","Packages":[{"ID":"lodash@4.17.20","Name":"lodash","Version":"4.17.20"}],"Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash","PkgID":"lodash@4.17.20","InstalledVersion":"4.17.20","FixedVersion":"4.17.21","Severity":"HIGH","Title":"fixture vulnerability"}]}]}
 JSON
   prepare_conversion_config
-  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
-  yq -r '.jobs.scan.steps[] | select(.name == "Convert dependency snapshot without rescanning") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/snapshot.sh"
+  yq -r '.jobs."trivy-scan".steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
+  yq -r '.jobs."trivy-scan".steps[] | select(.name == "Convert dependency snapshot without rescanning") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/snapshot.sh"
   cd "$BATS_TEST_TMPDIR"
   use_conversion_config "Convert report from JSON"
   local format
@@ -135,7 +135,7 @@ JSON
   export TRIVY_SCANNERS=vuln TRIVY_SEVERITY=HIGH,CRITICAL
   printf '%s\n' '{"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"fixture","Class":"lang-pkgs","Type":"npm","Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash","InstalledVersion":"4.17.20","Severity":"HIGH"}]}]}' > "$RAW_REPORT"
   prepare_conversion_config
-  yq -r '.jobs.scan.steps[] | select(.name == "Enforce findings policy") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/enforce.sh"
+  yq -r '.jobs."trivy-scan".steps[] | select(.name == "Enforce findings policy") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/enforce.sh"
   cd "$BATS_TEST_TMPDIR"
   use_conversion_config "Enforce findings policy"
   local code
@@ -151,8 +151,8 @@ JSON
   cat > "$RAW_REPORT" << 'JSON'
 {"SchemaVersion":2,"ArtifactName":"fixture","ArtifactType":"filesystem","Results":[{"Target":"package-lock<script>.json","Class":"lang-pkgs","Type":"npm","Vulnerabilities":[{"VulnerabilityID":"CVE-2026-1234","PkgName":"lodash<&>","InstalledVersion":"4.17.20","Severity":"HIGH","Title":"SECRET_SENTINEL","Description":"SECRET_SENTINEL"}]},{"Target":"Dockerfile<script>","Class":"config","Type":"dockerfile","Misconfigurations":[{"ID":"DS002","AVDID":"AVD-DS-0002","Severity":"HIGH","Title":"SECRET_SENTINEL","Message":"SECRET_SENTINEL","CauseMetadata":{"StartLine":42,"EndLine":42}}]},{"Target":"secret.env","Class":"secret","Secrets":[{"RuleID":"generic-api-key","Severity":"HIGH","Title":"SECRET_SENTINEL","Match":"SECRET_SENTINEL","StartLine":1,"EndLine":1}]}]}
 JSON
-  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
-  yq -r '.jobs.scan.steps[] | select(.name == "Enforce findings policy") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/enforce.sh"
+  yq -r '.jobs."trivy-scan".steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
+  yq -r '.jobs."trivy-scan".steps[] | select(.name == "Enforce findings policy") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/enforce.sh"
   [ "$(yq -r '.on.workflow_call.inputs."trivy-report-artifact-name".default' "$SOURCE")" = null ]
   [ "$(yq -r '.on.workflow_call.inputs."trivy-report-artifact-name".default' "$CONTAINER")" = null ]
   local format
@@ -179,7 +179,7 @@ JSON
   jq -n '{SchemaVersion:2,ArtifactName:"fixture",ArtifactType:"filesystem",Results:[
     {Target:("p" * 600),Class:"lang-pkgs",Type:"npm",Vulnerabilities:[range(99) | {VulnerabilityID:("CVE-" + tostring),PkgName:("x" * 300),InstalledVersion:"1.0",Severity:"HIGH"}]},
     {Target:"Dockerfile",Class:"config",Type:"dockerfile",Misconfigurations:[{ID:"DS002",AVDID:"AVD-DS-0002",Severity:"HIGH"},{ID:"DS003",AVDID:"AVD-DS-0003",Severity:"HIGH"}]}]}' > "$RAW_REPORT"
-  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
+  yq -r '.jobs."trivy-scan".steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$BATS_TEST_TMPDIR/report.sh"
   run env REPORT_FORMAT=table bash -euo pipefail "$BATS_TEST_TMPDIR/report.sh"
   [ "$status" -eq 0 ]
   [ "$(grep -c '<tr><td>' "$GITHUB_STEP_SUMMARY")" -eq 100 ]
@@ -191,7 +191,7 @@ JSON
 @test "Table summary omits matching secret values" {
   local script
   script="$BATS_TEST_TMPDIR/report.sh"
-  yq -r '.jobs.scan.steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$script"
+  yq -r '.jobs."trivy-scan".steps[] | select(.name == "Convert report from JSON") | .run' "$TRIVY" > "$script"
   export TRIVY_SEVERITY=HIGH,CRITICAL TRIVY_SCANNERS=vuln,secret,misconfig REPORT_FORMAT=table RAW_REPORT="$BATS_TEST_TMPDIR/trivy.json" REPORT="$BATS_TEST_TMPDIR/report.txt"
   printf '%s\n' '{"Results":[{"Target":"SECRET_PATH","Secrets":[{"Title":"SECRET_SENTINEL"}],"Vulnerabilities":[{"VulnerabilityID":"CVE-1"}]}]}' > "$RAW_REPORT"
   mkdir -p "$BATS_TEST_TMPDIR/bin"
@@ -212,14 +212,14 @@ SH
   local wrapper
   for wrapper in security-pr security-audit; do
     # shellcheck disable=SC2016
-    [ "$(yq -r '.jobs.source.with."semgrep-working-directory"' "${REPO_ROOT}/.github/workflows/${wrapper}.yml")" = '${{ inputs.package-path }}' ]
+    [ "$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml").with."semgrep-working-directory"' "${REPO_ROOT}/.github/workflows/${wrapper}.yml")" = '${{ inputs.package-path }}' ]
   done
 }
 
 @test "Security PR history uses full mode for branch-creation pushes" {
   # shellcheck disable=SC2016
-  [ "$(yq -r '.jobs.history.with."scan-mode"' "${REPO_ROOT}/.github/workflows/security-pr.yml")" = '${{ github.event_name == '\''push'\'' && github.event.created && '\''full'\'' || '\''range'\'' }}' ]
-  yq -r '.jobs.trufflehog.steps[] | select(.id == "range") | .run' "${REPO_ROOT}/.github/workflows/git-secret-scan.yml" > "${BATS_TEST_TMPDIR}/range.sh"
+  [ "$(yq -r '.jobs."security-pr-history".with."scan-mode"' "${REPO_ROOT}/.github/workflows/security-pr.yml")" = '${{ github.event_name == '\''push'\'' && github.event.created && '\''full'\'' || '\''range'\'' }}' ]
+  yq -r '.jobs."git-secret-scan".steps[] | select(.id == "range") | .run' "${REPO_ROOT}/.github/workflows/git-secret-scan.yml" > "${BATS_TEST_TMPDIR}/range.sh"
   cd "${REPO_ROOT}"
   run env SCAN_MODE=full BASE_INPUT= PR_BASE= PUSH_BEFORE=0000000000000000000000000000000000000000 GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/range-output" bash -euo pipefail "${BATS_TEST_TMPDIR}/range.sh"
   [ "${status}" -eq 0 ]

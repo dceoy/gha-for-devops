@@ -31,7 +31,7 @@ extract_step() {
   local step_name="$1"
   local output_script="$2"
 
-  yq -r ".jobs.test.steps[] | select(.name == \"${step_name}\") | .run" "${WORKFLOW}" > "${output_script}"
+  yq -r ".jobs."go-package-test".steps[] | select(.name == \"${step_name}\") | .run" "${WORKFLOW}" > "${output_script}"
 }
 
 run_step() {
@@ -180,7 +180,7 @@ EOF
   : > "${module_b}/go.sum"
 
   mapfile -t patterns < <(
-    yq -r '.jobs.test.steps[] | select(.name == "Set up Go") | .with."cache-dependency-path"' "${WORKFLOW}" \
+    yq -r '.jobs."go-package-test".steps[] | select(.name == "Set up Go") | .with."cache-dependency-path"' "${WORKFLOW}" \
       | sed "s#\${{ inputs.working-directory }}#${workspace}#g"
   )
 
@@ -202,7 +202,7 @@ EOF
   [ "${status}" -eq 0 ]
   [ "${output}" = "go-coverage" ]
 
-  run yq -r '.jobs.test.steps[] | select(.name == "Upload coverage profile") | .with.name' "${WORKFLOW}"
+  run yq -r '.jobs."go-package-test".steps[] | select(.name == "Upload coverage profile") | .with.name' "${WORKFLOW}"
   [ "${status}" -eq 0 ]
   # shellcheck disable=SC2016
   [ "${output}" = '${{ inputs.coverage-artifact-name }}' ]

@@ -6,8 +6,8 @@ setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   REUSABLE="${REPO_ROOT}/.github/workflows/scorecard-assessment.yml"
   DEDICATED="${REPO_ROOT}/.github/workflows/maintenance.yml"
-  yq -r '.jobs.scorecard.steps[] | select(.name == "Validate inputs") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/validate.sh"
-  yq -r '.jobs.scorecard.steps[] | select(.id == "summary") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/summary.sh"
+  yq -r '.jobs."scorecard-assessment".steps[] | select(.name == "Validate inputs") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/validate.sh"
+  yq -r '.jobs."scorecard-assessment".steps[] | select(.id == "summary") | .run' "${REUSABLE}" > "${BATS_TEST_TMPDIR}/summary.sh"
   export GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary"
   : > "${GITHUB_STEP_SUMMARY}"
   cat > "${BATS_TEST_TMPDIR}/scorecard.json" << 'JSON'
@@ -28,8 +28,8 @@ run_summary() {
   [ "$(yq -r '.permissions.actions' "${REUSABLE}")" = read ]
   [ "$(yq -r '.on.workflow_call.inputs | has("publish-results")' "${REUSABLE}")" = false ]
   [ "$(yq -r '.jobs | has("analysis")' "${REUSABLE}")" = false ]
-  [ "$(yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = false ]
-  yq -r '.jobs.scorecard.steps[] | select(.uses == "ossf/scorecard-action*") | .uses' "${REUSABLE}" \
+  [ "$(yq -r '.jobs."scorecard-assessment".steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = false ]
+  yq -r '.jobs."scorecard-assessment".steps[] | select(.uses == "ossf/scorecard-action*") | .uses' "${REUSABLE}" \
     | grep -Eq '^ossf/scorecard-action@[a-f0-9]{40}$'
   [ "$(yq -r '.on.workflow_call.inputs."min-score".default' "${REUSABLE}")" = "" ]
   [ "$(yq -r '.on.workflow_call.secrets.SCORECARD_TOKEN.required' "${REUSABLE}")" = false ]
@@ -37,12 +37,12 @@ run_summary() {
 
 @test "Result upload is not gated on hashFiles outside the workspace" {
   run ! grep -Fq 'hashFiles' "${REUSABLE}"
-  [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard result") | .if' "${REUSABLE}")" != "" ]
+  [ "$(yq -r '.jobs."scorecard-assessment".steps[] | select(.name == "Upload Scorecard result") | .if' "${REUSABLE}")" != "" ]
 }
 
 @test "Empty artifact name disables upload while summary uses the local result" {
-  [ "$(yq -r '.jobs.scorecard.steps[] | select(.name == "Upload Scorecard result") | .if' "${REUSABLE}")" = "\${{ !cancelled() && inputs.results-artifact-name != '' }}" ]
-  [ "$(yq -r '.jobs.scorecard.steps[] | select(.id == "summary") | .env.RESULT_FILE' "${REUSABLE}")" = "\${{ runner.temp }}/scorecard.json" ]
+  [ "$(yq -r '.jobs."scorecard-assessment".steps[] | select(.name == "Upload Scorecard result") | .if' "${REUSABLE}")" = "\${{ !cancelled() && inputs.results-artifact-name != '' }}" ]
+  [ "$(yq -r '.jobs."scorecard-assessment".steps[] | select(.id == "summary") | .env.RESULT_FILE' "${REUSABLE}")" = "\${{ runner.temp }}/scorecard.json" ]
   run ! grep -Fq 'scorecard-summary-transfer' "${REUSABLE}"
 }
 
@@ -72,7 +72,7 @@ run_summary() {
   for caller in "${ci}" "${DEDICATED}"; do
     [ "$(yq -r '.jobs."github-actions-lint-and-scan".with | has("checkov-exempt-file")' "${caller}")" = false ]
   done
-  [ "$(yq -r '[.jobs.checkov.steps[] | select(.name == "Verify top-level permissions except approved reusable workflow")] | length' "${scanner}")" = 0 ]
+  [ "$(yq -r '[.jobs."source-checkov".steps[] | select(.name == "Verify top-level permissions except approved reusable workflow")] | length' "${scanner}")" = 0 ]
   grep -Fq -- 'uv run --locked checkov --framework=all --output=github_failed_only --directory=.' "${qa}"
   run ! grep -Fq -- '--skip-check CKV2_GHA_1' "${qa}"
 }

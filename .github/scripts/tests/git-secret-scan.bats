@@ -6,9 +6,9 @@ setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
   WORKFLOW="${REPO_ROOT}/.github/workflows/git-secret-scan.yml"
   for id in range trufflehog; do
-    yq -r ".jobs.trufflehog.steps[] | select(.id == \"${id}\") | .run" "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/${id}.sh"
+    yq -r ".jobs."git-secret-scan".steps[] | select(.id == \"${id}\") | .run" "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/${id}.sh"
   done
-  yq -r '.jobs.trufflehog.steps[] | select(.name == "Report and enforce results") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/report.sh"
+  yq -r '.jobs."git-secret-scan".steps[] | select(.name == "Report and enforce results") | .run' "${WORKFLOW}" > "${BATS_TEST_TMPDIR}/report.sh"
   export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/output"
   export GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary"
   export RUNNER_TEMP="${BATS_TEST_TMPDIR}/runner"
@@ -52,9 +52,9 @@ step_output() {
   [ "$(yq -r '.on.workflow_call.inputs."fail-on-unverified".default' "${WORKFLOW}")" = false ]
   [ "$(yq -r '.on.workflow_call.secrets // "none"' "${WORKFLOW}")" = none ]
   grep -Eq 'trufflesecurity/trufflehog:[0-9.]+@sha256:[0-9a-f]{64}' "${WORKFLOW}"
-  yq -r '.jobs.trufflehog.steps[] | select(.name == "Checkout repository") | .uses' "${WORKFLOW}" \
+  yq -r '.jobs."git-secret-scan".steps[] | select(.name == "Checkout repository") | .uses' "${WORKFLOW}" \
     | grep -Eq '^actions/checkout@[a-f0-9]{40}$'
-  [ "$(yq -r '.jobs.trufflehog.steps[] | select(.name == "Checkout repository") | .with."persist-credentials"' "${WORKFLOW}")" = false ]
+  [ "$(yq -r '.jobs."git-secret-scan".steps[] | select(.name == "Checkout repository") | .with."persist-credentials"' "${WORKFLOW}")" = false ]
   run ! grep -Fq 'upload-artifact' "${WORKFLOW}"
   run ! grep -Fq -- '--fail' "${WORKFLOW}"
   run ! grep -Eq '^\s*uses: .*@(v[0-9]|main|master)' "${WORKFLOW}"
@@ -64,15 +64,15 @@ step_output() {
   local src="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
   run ! grep -Eqi 'trufflehog|scorecard|zaproxy|zap-|cosign' "${src}"
   [ "$(yq -r '.permissions | keys | join(",")' "${src}")" = contents ]
-  for job in osv-scan scan checkov; do
+  for job in source-osv-scan source-security-scan source-checkov; do
     [ "$(JOB="${job}" yq -r '.jobs[strenv(JOB)].permissions.contents' "${src}")" = read ]
   done
 }
 
 @test "Checkout fetches full history and rejects pull_request_target" {
-  [ "$(yq -r '.jobs.trufflehog.steps[] | select(.name == "Checkout repository") | .with."fetch-depth"' "${WORKFLOW}")" = 0 ]
-  [ "$(yq -r '.jobs.trufflehog.steps[0].if' "${WORKFLOW}")" = "github.event_name == 'pull_request_target'" ]
-  run bash -c "$(yq -r '.jobs.trufflehog.steps[0].run' "${WORKFLOW}")"
+  [ "$(yq -r '.jobs."git-secret-scan".steps[] | select(.name == "Checkout repository") | .with."fetch-depth"' "${WORKFLOW}")" = 0 ]
+  [ "$(yq -r '.jobs."git-secret-scan".steps[0].if' "${WORKFLOW}")" = "github.event_name == 'pull_request_target'" ]
+  run bash -c "$(yq -r '.jobs."git-secret-scan".steps[0].run' "${WORKFLOW}")"
   [ "${status}" -eq 1 ]
   [[ "${output}" == *"pull_request_target is not supported"* ]]
 }
