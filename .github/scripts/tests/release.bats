@@ -121,6 +121,25 @@ MOCK
   grep -qx 'yq = "latest"' "${BATS_TEST_DIRNAME}/../../../mise.toml"
 }
 
+@test 'rerunning a manual release on an already released commit only syncs the major tag' {
+  git tag v1.2.4 "${RELEASE_SHA}"
+  local bump
+  for bump in major-release minor-release patch-release; do
+    : > "${GITHUB_OUTPUT}"
+    run env FAKE_LATEST=v1.2.4 RELEASE_BUMP="${bump}" bash "${PLAN_SCRIPT}"
+    [ "$status" -eq 0 ]
+    [ "$(cat "${GITHUB_OUTPUT}")" = 'sync-major=true' ]
+    [ ! -e "${FAKE_STATE}/mutations" ]
+  done
+}
+
+@test 'manual release rerun handles an annotated latest release tag' {
+  git tag -a v1.2.4 -m "Release v1.2.4" "${RELEASE_SHA}"
+  run env FAKE_LATEST=v1.2.4 RELEASE_BUMP=major-release bash "${PLAN_SCRIPT}"
+  [ "$status" -eq 0 ]
+  [ "$(cat "${GITHUB_OUTPUT}")" = 'sync-major=true' ]
+}
+
 @test 'manual major release plans the next major version' {
   run env RELEASE_BUMP=major-release bash "${PLAN_SCRIPT}"
   [ "$status" -eq 0 ]

@@ -99,6 +99,14 @@ case "${1:-}" in
       exit 1
     fi
 
+    # Reruns must never publish another version of an already released commit.
+    if [[ "${RELEASE_BUMP:-auto}" =~ ^(major|minor|patch)-release$ ]] \
+      && [[ "$(git rev-parse "${previous_tag}^{commit}")" == "${RELEASE_SHA}" ]]; then
+      echo "::notice::${previous_tag} already releases ${RELEASE_SHA}; synchronizing the major tag only."
+      echo 'sync-major=true' >> "${GITHUB_OUTPUT:?}"
+      exit 0
+    fi
+
     case "${RELEASE_BUMP:-auto}" in
       major-release)
         major=$((major + 1))
