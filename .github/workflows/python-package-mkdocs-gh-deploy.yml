@@ -6,7 +6,7 @@ on:
       package-path:
         required: false
         type: string
-        description: Package path relative to the repository root (no absolute paths or ..)
+        description: Repository-relative package path (forward slashes only, no .. or glob characters)
         default: .
       python-version:
         required: false
@@ -62,7 +62,7 @@ on:
       package-path:
         required: false
         type: string
-        description: Package path relative to the repository root (no absolute paths or ..)
+        description: Repository-relative package path (forward slashes only, no .. or glob characters)
         default: .
       python-version:
         required: false
@@ -140,6 +140,10 @@ jobs:
         if: hashFiles(format('{0}/uv.lock', inputs.package-path)) != ''
         working-directory: ${{ inputs.package-path }}
         run: |
+          if [[ "${PACKAGE_PATH}" == /* || "${PACKAGE_PATH}" == [A-Za-z]:* || "${PACKAGE_PATH}" == *\\* || "/${PACKAGE_PATH}/" == *"/../"* || "${PACKAGE_PATH}" == *[\?\*\[\]\!\{\}\(\)\+\@\|]* ]]; then
+            echo "::error::package-path must be relative, use forward slashes, and contain no .. or glob characters" >&2
+            exit 1
+          fi
           uv sync --all-groups
           echo "EXECUTOR_KIND=uv" >> "${GITHUB_ENV}"
       - name: Set up Python
@@ -151,8 +155,8 @@ jobs:
         if: hashFiles(format('{0}/uv.lock', inputs.package-path)) == ''
         working-directory: ${{ inputs.package-path }}
         run: |
-          if [[ "${PACKAGE_PATH}" == /* || "${PACKAGE_PATH}" =~ ^[A-Za-z]:[/\\] || "/${PACKAGE_PATH}/" == *"/../"* ]]; then
-            echo "::error::package-path must be relative to the repository root" >&2
+          if [[ "${PACKAGE_PATH}" == /* || "${PACKAGE_PATH}" == [A-Za-z]:* || "${PACKAGE_PATH}" == *\\* || "/${PACKAGE_PATH}/" == *"/../"* || "${PACKAGE_PATH}" == *[\?\*\[\]\!\{\}\(\)\+\@\|]* ]]; then
+            echo "::error::package-path must be relative, use forward slashes, and contain no .. or glob characters" >&2
             exit 1
           fi
           uv pip install --system mkdocs

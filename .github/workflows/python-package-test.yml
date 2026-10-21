@@ -6,7 +6,7 @@ on:
       package-path:
         required: false
         type: string
-        description: Package path relative to the repository root (no absolute paths or ..)
+        description: Repository-relative package path (forward slashes only, no .. or glob characters)
         default: .
       python-version:
         required: false
@@ -80,6 +80,10 @@ jobs:
         env:
           INPUTS_ADDITIONAL_PYTHON_PACKAGES: ${{ inputs.additional-python-packages }}
         run: |
+          if [[ "${PACKAGE_PATH}" == /* || "${PACKAGE_PATH}" == [A-Za-z]:* || "${PACKAGE_PATH}" == *\\* || "/${PACKAGE_PATH}/" == *"/../"* || "${PACKAGE_PATH}" == *[\?\*\[\]\!\{\}\(\)\+\@\|]* ]]; then
+            echo "::error::package-path must be relative, use forward slashes, and contain no .. or glob characters" >&2
+            exit 1
+          fi
           uv sync --all-groups
           for p in $(tr ' ' '\n' <<< "${INPUTS_ADDITIONAL_PYTHON_PACKAGES}"); do
             if [[ -n "${p}" ]]; then
@@ -99,8 +103,8 @@ jobs:
           REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
         working-directory: ${{ inputs.package-path }}
         run: |
-          if [[ "${PACKAGE_PATH}" == /* || "${PACKAGE_PATH}" =~ ^[A-Za-z]:[/\\] || "/${PACKAGE_PATH}/" == *"/../"* ]]; then
-            echo "::error::package-path must be relative to the repository root" >&2
+          if [[ "${PACKAGE_PATH}" == /* || "${PACKAGE_PATH}" == [A-Za-z]:* || "${PACKAGE_PATH}" == *\\* || "/${PACKAGE_PATH}/" == *"/../"* || "${PACKAGE_PATH}" == *[\?\*\[\]\!\{\}\(\)\+\@\|]* ]]; then
+            echo "::error::package-path must be relative, use forward slashes, and contain no .. or glob characters" >&2
             exit 1
           fi
           if [[ -n "${REQUIREMENTS_TXT_PATH}" ]]; then
