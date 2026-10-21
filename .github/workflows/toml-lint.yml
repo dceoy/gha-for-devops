@@ -20,7 +20,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  lint:
+  toml-lint:
     runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Checkout repository

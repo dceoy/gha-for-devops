@@ -100,7 +100,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  security-scan:
+  python-package-lint-and-scan-security-scan:
     if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
     uses: $/.github/workflows/source-security-scan.yml
     with:
@@ -114,7 +114,7 @@ jobs:
       semgrep-working-directory: ${{ inputs.package-path }}
       semgrep-includes: |
         *.py
-  lint-and-scan:
+  python-package-lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days

@@ -34,7 +34,7 @@ permissions:
   actions: read           # only required for workflows in private repositories
   contents: read          # only required for workflows in private repositories
 jobs:
-  codeql-analysis:
+  github-codeql-analysis:
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ (matrix.language == 'swift' && 120) || 360 }}
     strategy:

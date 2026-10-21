@@ -195,16 +195,16 @@ on:
     outputs:
       metadata-json:
         description: Metadata JSON extracted from Git reference and GitHub events
-        value: ${{ jobs.build-and-push.outputs.metadata-json }}
+        value: ${{ jobs.docker-build-and-push.outputs.metadata-json }}
       build-push-imageid:
         description: Docker image ID
-        value: ${{ jobs.build-and-push.outputs.build-push-imageid }}
+        value: ${{ jobs.docker-build-and-push.outputs.build-push-imageid }}
       build-push-digest:
         description: Docker image digest
-        value: ${{ jobs.build-and-push.outputs.build-push-digest }}
+        value: ${{ jobs.docker-build-and-push.outputs.build-push-digest }}
       image-ref:
         description: Primary Docker image reference
-        value: ${{ jobs.build-and-push.outputs.image-ref }}
+        value: ${{ jobs.docker-build-and-push.outputs.image-ref }}
 permissions:
   contents: write
   packages: write
@@ -213,7 +213,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  prebuild-lint-and-scan:
+  docker-build-and-push-prebuild-lint-and-scan:
     if: >
       inputs.scan-before-build
     uses: $/.github/workflows/docker-lint-and-scan.yml
@@ -232,11 +232,11 @@ jobs:
       runs-on: ${{ inputs.runs-on }}
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-  build-and-push:
+  docker-build-and-push:
     if: >
       (! (failure() || cancelled()))
     needs:
-      - prebuild-lint-and-scan
+      - docker-build-and-push-prebuild-lint-and-scan
     permissions:
       contents: write
       packages: write
@@ -368,7 +368,7 @@ jobs:
           path: /tmp/docker-build-output.json
           retention-days: ${{ inputs.image-artifact-retention-days }}
           overwrite: true
-  postbuild-scan:
+  docker-build-and-push-postbuild-scan:
     if: >-
       inputs.scan-after-build
       || (
@@ -377,15 +377,15 @@ jobs:
         && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       )
-    needs: build-and-push
+    needs: docker-build-and-push
     permissions:
       contents: write
       packages: read
     uses: $/.github/workflows/trivy-scan.yml
     with:
       scan-type: image
-      image-refs-json: ${{ needs.build-and-push.outputs.image-ref && format('[{0}]', toJSON(needs.build-and-push.outputs.image-ref)) || '[]' }}
-      image-targets-json: ${{ inputs.submit-dependencies && inputs.push && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && needs.build-and-push.outputs.build-push-digest != '' && format('[{{"image_ref":{0},"correlator":{1}}}]', toJSON(format('{0}@{1}', needs.build-and-push.outputs.image-ref, needs.build-and-push.outputs.build-push-digest)), toJSON(format('docker-image-{0}-{1}', inputs.registry || 'default', inputs.image-name))) || '' }}
+      image-refs-json: ${{ needs.docker-build-and-push.outputs.image-ref && format('[{0}]', toJSON(needs.docker-build-and-push.outputs.image-ref)) || '[]' }}
+      image-targets-json: ${{ inputs.submit-dependencies && inputs.push && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && needs.docker-build-and-push.outputs.build-push-digest != '' && format('[{{"image_ref":{0},"correlator":{1}}}]', toJSON(format('{0}@{1}', needs.docker-build-and-push.outputs.image-ref, needs.docker-build-and-push.outputs.build-push-digest)), toJSON(format('docker-image-{0}-{1}', inputs.registry || 'default', inputs.image-name))) || '' }}
       image-artifact-name: ${{ inputs.image-artifact-name }}
       registry: ${{ inputs.registry || '' }}
       registry-user: ${{ inputs.registry-user }}

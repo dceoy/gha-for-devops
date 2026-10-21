@@ -61,7 +61,7 @@ defaults:
 env:
   MISE_USE_VERSIONS_HOST_TRACK: 'false'
 jobs:
-  format-and-pr:
+  markdown-format-and-pr:
     runs-on: ${{ inputs.runs-on }}
     env:
       npm_config_min_release_age: '7'

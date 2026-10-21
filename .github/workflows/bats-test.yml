@@ -45,7 +45,7 @@ env:
   NPM_CONFIG_MIN_RELEASE_AGE: '1'
   PNPM_CONFIG_MINIMUM_RELEASE_AGE: '10080'
 jobs:
-  test:
+  bats-test:
     runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Checkout repository

@@ -95,7 +95,7 @@ on:
     outputs:
       image-refs-json:
         description: JSON array of pulled Docker image references
-        value: ${{ jobs.pull-and-save.outputs.image-refs-json }}
+        value: ${{ jobs.docker-pull-from-aws-pull-and-save.outputs.image-refs-json }}
 permissions:
   contents: read    # This is required for actions/checkout
   id-token: write   # This is required for requesting the JWT
@@ -104,7 +104,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  pull-and-save:
+  docker-pull-from-aws-pull-and-save:
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:
@@ -180,15 +180,15 @@ jobs:
           path: ${{ env.IMAGE_TAR }}
           retention-days: ${{ inputs.image-artifact-retention-days }}
           overwrite: ${{ inputs.image-artifact-overwrite }}
-  postpull-scan:
+  docker-pull-from-aws-postpull-scan:
     if: >
       inputs.scan-after-pull
     needs:
-      - pull-and-save
+      - docker-pull-from-aws-pull-and-save
     uses: $/.github/workflows/container-security.yml
     with:
       verify-signatures: false  # Tag/tarball scan; verify digest-pinned images for deployment
-      image-refs-json: ${{ needs.pull-and-save.outputs.image-refs-json }}
+      image-refs-json: ${{ needs.docker-pull-from-aws-pull-and-save.outputs.image-refs-json }}
       image-artifact-name: ${{ inputs.image-artifact-name }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
       trivy-severity: ${{ inputs.trivy-severity }}

@@ -153,7 +153,7 @@ env:
 permissions:
   contents: read
 jobs:
-  security-scan:
+  terraform-lint-and-scan-security-scan:
     permissions:
       contents: read
     if: inputs.use-semgrep || inputs.use-trivy || inputs.use-checkov
@@ -188,7 +188,7 @@ jobs:
         *.hcl
     secrets:
       BC_API_KEY: ${{ secrets.BC_API_KEY }}
-  lint-and-scan:
+  terraform-lint-and-scan:
     permissions:
       contents: read
     runs-on: ${{ inputs.runs-on }}

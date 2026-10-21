@@ -69,7 +69,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  bundle:
+  python-pyinstaller:
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days

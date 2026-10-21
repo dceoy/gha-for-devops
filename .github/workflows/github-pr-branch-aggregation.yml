@@ -42,10 +42,10 @@ on:
     outputs:
       merged-pr-branches-json:
         description: JSON array of the merged branches
-        value: ${{ jobs.branch-list.outputs.pr_branches_json }}
+        value: ${{ jobs.github-pr-branch-aggregation-branch-list.outputs.pr_branches_json }}
       merged-pr-branch-records-json:
         description: JSON array of selected pull request branch records
-        value: ${{ jobs.branch-list.outputs.pr_branch_records_json }}
+        value: ${{ jobs.github-pr-branch-aggregation-branch-list.outputs.pr_branch_records_json }}
     secrets:
       GH_TOKEN:
         required: false
@@ -60,7 +60,7 @@ defaults:
 env:
   GH_TELEMETRY: 'false'
 jobs:
-  branch-list:
+  github-pr-branch-aggregation-branch-list:
     if: >
       github.event_name == 'pull_request'
       && inputs.branch-prefix != null
@@ -105,19 +105,19 @@ jobs:
             echo "pr_branch_records_json=$(jq -cr . <<< "${records_json}")"
             echo "pr_branches_json=$(jq -cr '[.[].branch]' <<< "${records_json}")"
           } | tee -a "${GITHUB_OUTPUT}"
-  branch-merge:
+  github-pr-branch-aggregation-branch-merge:
     if: >
-      needs.branch-list.result == 'success'
-      && needs.branch-list.outputs.pr_branches_json != '[]'
+      needs.github-pr-branch-aggregation-branch-list.result == 'success'
+      && needs.github-pr-branch-aggregation-branch-list.outputs.pr_branches_json != '[]'
     needs:
-      - branch-list
+      - github-pr-branch-aggregation-branch-list
     permissions:
       contents: write
       pull-requests: read
     runs-on: ${{ inputs.runs-on }}
     env:
       BRANCH_PREFIX: ${{ inputs.branch-prefix }}
-      BRANCH_RECORDS_JSON: ${{ needs.branch-list.outputs.pr_branch_records_json }}
+      BRANCH_RECORDS_JSON: ${{ needs.github-pr-branch-aggregation-branch-list.outputs.pr_branch_records_json }}
       HEAD_REF: ${{ github.head_ref }}
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
     steps:

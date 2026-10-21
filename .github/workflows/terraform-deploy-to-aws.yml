@@ -108,7 +108,7 @@ defaults:
 env:
   CHECKPOINT_DISABLE: '1'
 jobs:
-  deploy:
+  terraform-deploy-to-aws:
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:

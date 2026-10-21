@@ -78,7 +78,7 @@ on:
     outputs:
       page-url:
         description: URL of the deployed GitHub Pages site
-        value: ${{ jobs.deploy.outputs.page-url }}
+        value: ${{ jobs.hugo-deploy-to-gh-pages-deploy.outputs.page-url }}
 permissions:
   contents: read
   id-token: write
@@ -91,7 +91,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  build:
+  hugo-deploy-to-gh-pages-build:
     permissions:
       contents: read
     runs-on: ${{ inputs.runs-on }}
@@ -141,9 +141,9 @@ jobs:
         with:
           name: github-pages
           path: ${{ inputs.site-path }}/${{ inputs.destination-dir }}
-  deploy:
+  hugo-deploy-to-gh-pages-deploy:
     needs:
-      - build
+      - hugo-deploy-to-gh-pages-build
     permissions:
       id-token: write
       pages: write

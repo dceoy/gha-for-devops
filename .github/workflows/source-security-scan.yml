@@ -117,7 +117,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  osv-scan:
+  source-security-scan-osv-scan:
     permissions:
       contents: read
     if: inputs.use-osv-scanner
@@ -193,7 +193,7 @@ jobs:
             exit 0
           fi
           exit "${status}"
-  scan:
+  source-security-scan:
     permissions:
       contents: read
     if: inputs.use-semgrep
@@ -251,7 +251,7 @@ jobs:
       - name: Enforce security scan results
         if: ${{ !cancelled() && steps.semgrep.outcome == 'failure' }}
         run: exit 1
-  trivy-scan:
+  source-security-scan-trivy-scan:
     if: inputs.use-trivy
     permissions:
       contents: read
@@ -270,7 +270,7 @@ jobs:
       report-format: sarif
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
       runs-on: ${{ inputs.runs-on }}
-  checkov:
+  source-security-scan-checkov:
     permissions:
       contents: read
     if: inputs.use-checkov

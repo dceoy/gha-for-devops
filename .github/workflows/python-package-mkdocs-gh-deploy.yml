@@ -116,7 +116,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  build-and-deploy:
+  python-package-mkdocs-gh-deploy:
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days

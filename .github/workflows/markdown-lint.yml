@@ -70,7 +70,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  lint:
+  markdown-lint:
     runs-on: ${{ inputs.runs-on }}
     env:
       npm_config_min_release_age: '7'
