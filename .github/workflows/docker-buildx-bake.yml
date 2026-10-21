@@ -184,7 +184,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  docker-buildx-bake-prebuild-lint-and-scan:
+  docker-bake-prebuild-lint:
     if: >
       inputs.scan-before-build
     uses: $/.github/workflows/docker-lint-and-scan.yml
@@ -207,7 +207,7 @@ jobs:
     if: >
       (! (failure() || cancelled()))
     needs:
-      - docker-buildx-bake-prebuild-lint-and-scan
+      - docker-bake-prebuild-lint
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:
@@ -328,7 +328,7 @@ jobs:
           path: ${{ env.IMAGE_TAR }}
           retention-days: ${{ inputs.image-artifact-retention-days }}
           overwrite: ${{ inputs.image-artifact-overwrite }}
-  docker-buildx-bake-postbuild-scan:
+  docker-bake-postbuild-scan:
     if: >-
       inputs.scan-after-build
       || (

@@ -40,7 +40,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  json-schema-validation-lint:
+  json-schema-lint:
     if: inputs.lint-before-validation
     uses: $/.github/workflows/json-lint.yml
     with:
@@ -48,7 +48,7 @@ jobs:
   json-schema-validation:
     if: (! (failure() || cancelled()))
     needs:
-      - json-schema-validation-lint
+      - json-schema-lint
     runs-on: ${{ inputs.runs-on }}
     env:
       npm_config_min_release_age: '7'

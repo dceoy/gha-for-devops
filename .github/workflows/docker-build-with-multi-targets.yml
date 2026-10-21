@@ -175,16 +175,16 @@ on:
     outputs:
       target-matrix-json:
         description: JSON array of image name and target stage matrix entries
-        value: ${{ jobs.docker-build-with-multi-targets-create-target-matrix.outputs.target-matrix-json }}
+        value: ${{ jobs.docker-multitarget-matrix.outputs.target-matrix-json }}
       image-refs-json:
         description: JSON array of primary Docker image references
-        value: ${{ jobs.docker-build-with-multi-targets-collect-outputs.outputs.image-refs-json }}
+        value: ${{ jobs.docker-multitarget-collect.outputs.image-refs-json }}
       build-push-digests-json:
         description: JSON array of Docker image digests
-        value: ${{ jobs.docker-build-with-multi-targets-collect-outputs.outputs.build-push-digests-json }}
+        value: ${{ jobs.docker-multitarget-collect.outputs.build-push-digests-json }}
       image-artifact-names-json:
         description: JSON array of image tarball artifact names
-        value: ${{ jobs.docker-build-with-multi-targets-collect-outputs.outputs.image-artifact-names-json }}
+        value: ${{ jobs.docker-multitarget-collect.outputs.image-artifact-names-json }}
 permissions:
   contents: write
   packages: write
@@ -193,7 +193,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  docker-build-with-multi-targets-create-target-matrix:
+  docker-multitarget-matrix:
     if: inputs.image-name-to-target-stage-json != null
     runs-on: ubuntu-slim
     outputs:
@@ -211,7 +211,7 @@ jobs:
               <<< "${IMAGE_NAME_TO_TARGET_STAGE_JSON}"
             echo "${delimiter}"
           } | tee -a "${GITHUB_OUTPUT}"
-  docker-build-with-multi-targets-prebuild-lint-and-scan:
+  docker-multitarget-prebuild:
     if: inputs.scan-before-build
     uses: $/.github/workflows/docker-lint-and-scan.yml
     with:
@@ -226,14 +226,14 @@ jobs:
       trivy-config: ${{ inputs.trivy-config }}
       trivy-timeout: ${{ inputs.trivy-timeout }}
       runs-on: ${{ inputs.runs-on }}
-  docker-build-with-multi-targets-build-and-push:
+  docker-multitarget-build:
     if: >-
       always()
-      && needs.docker-build-with-multi-targets-create-target-matrix.result == 'success'
-      && (needs.docker-build-with-multi-targets-prebuild-lint-and-scan.result == 'success' || needs.docker-build-with-multi-targets-prebuild-lint-and-scan.result == 'skipped')
+      && needs.docker-multitarget-matrix.result == 'success'
+      && (needs.docker-multitarget-prebuild.result == 'success' || needs.docker-multitarget-prebuild.result == 'skipped')
     needs:
-      - docker-build-with-multi-targets-create-target-matrix
-      - docker-build-with-multi-targets-prebuild-lint-and-scan
+      - docker-multitarget-matrix
+      - docker-multitarget-prebuild
     permissions:
       contents: write
       packages: write
@@ -241,7 +241,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image-to-target: ${{ fromJSON(needs.docker-build-with-multi-targets-create-target-matrix.outputs.target-matrix-json) }}
+        image-to-target: ${{ fromJSON(needs.docker-multitarget-matrix.outputs.target-matrix-json) }}
     uses: $/.github/workflows/docker-build-and-push.yml
     with:
       registry: ${{ inputs.registry }}
@@ -281,9 +281,9 @@ jobs:
       BUILD_SECRETS: ${{ secrets.BUILD_SECRETS }}
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  docker-build-with-multi-targets-collect-outputs:
+  docker-multitarget-collect:
     needs:
-      - docker-build-with-multi-targets-build-and-push
+      - docker-multitarget-build
     runs-on: ubuntu-slim
     outputs:
       image-refs-json: ${{ steps.outputs.outputs.image_refs_json }}

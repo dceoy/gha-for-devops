@@ -105,7 +105,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  typescript-package-lint-and-scan-security-scan:
+  typescript-security-scan:
     if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
     uses: $/.github/workflows/source-security-scan.yml
     with:

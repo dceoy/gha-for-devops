@@ -141,7 +141,7 @@ defaults:
 permissions:
   contents: read
 jobs:
-  docker-lint-and-scan-security-scan:
+  docker-security-scan:
     permissions:
       contents: read
     uses: $/.github/workflows/source-security-scan.yml

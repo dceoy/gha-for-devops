@@ -61,7 +61,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  go-package-lint-and-scan-security-scan:
+  go-security-scan:
     if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
     uses: $/.github/workflows/source-security-scan.yml
     with:

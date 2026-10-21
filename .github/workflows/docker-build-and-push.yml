@@ -213,7 +213,7 @@ defaults:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
-  docker-build-and-push-prebuild-lint-and-scan:
+  docker-prebuild-lint:
     if: >
       inputs.scan-before-build
     uses: $/.github/workflows/docker-lint-and-scan.yml
@@ -236,7 +236,7 @@ jobs:
     if: >
       (! (failure() || cancelled()))
     needs:
-      - docker-build-and-push-prebuild-lint-and-scan
+      - docker-prebuild-lint
     permissions:
       contents: write
       packages: write
@@ -368,7 +368,7 @@ jobs:
           path: /tmp/docker-build-output.json
           retention-days: ${{ inputs.image-artifact-retention-days }}
           overwrite: true
-  docker-build-and-push-postbuild-scan:
+  docker-postbuild-scan:
     if: >-
       inputs.scan-after-build
       || (
