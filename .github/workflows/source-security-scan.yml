@@ -252,28 +252,9 @@ jobs:
         if: ${{ !cancelled() && steps.semgrep.outcome == 'failure' }}
         run: exit 1
   source-trivy-scan:
-    if: inputs.use-trivy && !inputs.submit-dependencies
+    if: inputs.use-trivy
     permissions:
       contents: read
-    uses: $/.github/workflows/trivy-scan.yml
-    with:
-      scan-type: filesystem
-      scan-ref: ${{ inputs.package-path }}
-      submit-dependencies: ${{ inputs.submit-dependencies }}
-      snapshot-correlator: ${{ inputs.snapshot-correlator }}
-      trivy-scanners: ${{ inputs.trivy-scanners }}
-      trivy-severity: ${{ inputs.trivy-severity }}
-      trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
-      trivy-config: ${{ inputs.trivy-config }}
-      trivy-timeout: ${{ inputs.trivy-timeout }}
-      trivy-exit-code: ${{ inputs.trivy-exit-code }}
-      report-format: sarif
-      trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
-      runs-on: ${{ inputs.runs-on }}
-  source-trivy-submit:
-    if: inputs.use-trivy && inputs.submit-dependencies
-    permissions:
-      contents: write
     uses: $/.github/workflows/trivy-scan.yml
     with:
       scan-type: filesystem
