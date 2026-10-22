@@ -48,14 +48,25 @@ use_conversion_config() {
   [ "$(yq -r '.jobs."source-trivy-scan".with."submit-dependencies"' "$SOURCE")" = '${{ inputs.submit-dependencies }}' ]
   local docker_workflow="$REPO_ROOT/.github/workflows/docker-lint-and-scan.yml"
   [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "$docker_workflow")" = true ]
-  [ "$(yq -r '.jobs."docker-security-scan".with."use-trivy"' "$docker_workflow")" = '${{ inputs.use-trivy }}' ]
-  for workflow in docker-lint-and-scan terraform-lint-and-scan; do
-    file="$REPO_ROOT/.github/workflows/${workflow}.yml"
-    [ "$(yq -r '.permissions.contents' "$file")" = read ]
-    [ "$(yq -r '.jobs.* | select(has("runs-on")).permissions.contents' "$file")" = read ]
-    [ "$(yq -r '.jobs.* | select(has("uses")).permissions.contents' "$file")" = read ]
-    [ "$(yq -r '.jobs.* | select(has("uses")).with."submit-dependencies"' "$file")" = '${{ inputs.submit-dependencies }}' ]
-  done
+  [ "$(yq -r '.permissions.contents' "$docker_workflow")" = read ]
+  [ "$(yq -r '.jobs."docker-security-scan".permissions.contents' "$docker_workflow")" = read ]
+  [ "$(yq -r '.jobs."docker-lint-and-scan".permissions.contents' "$docker_workflow")" = read ]
+  [ "$(yq -r '.jobs."docker-trivy-submit".permissions.contents' "$docker_workflow")" = write ]
+  [ "$(yq -r '.jobs."docker-trivy-submit".uses' "$docker_workflow")" = '$/.github/workflows/trivy-scan.yml' ]
+  [ "$(yq -r '.jobs."docker-trivy-submit".with."submit-dependencies"' "$docker_workflow")" = true ]
+  [ "$(yq -r '.jobs."docker-security-scan".with."submit-dependencies"' "$docker_workflow")" = '${{ inputs.submit-dependencies }}' ]
+  local scan_if submit_if
+  scan_if="$(yq -r '.jobs."docker-security-scan".with."use-trivy"' "$docker_workflow")"
+  submit_if="$(yq -r '.jobs."docker-trivy-submit".if' "$docker_workflow")"
+  [[ "$scan_if" == *"inputs.use-trivy && !"* ]]
+  [[ "$scan_if" == *"inputs.submit-dependencies"* ]]
+  [[ "$submit_if" == *"inputs.submit-dependencies"* ]]
+  [[ "$submit_if" == *"github.event.repository.default_branch"* ]]
+  local file="$REPO_ROOT/.github/workflows/terraform-lint-and-scan.yml"
+  [ "$(yq -r '.permissions.contents' "$file")" = read ]
+  [ "$(yq -r '.jobs.* | select(has("runs-on")).permissions.contents' "$file")" = read ]
+  [ "$(yq -r '.jobs.* | select(has("uses")).permissions.contents' "$file")" = read ]
+  [ "$(yq -r '.jobs.* | select(has("uses")).with."submit-dependencies"' "$file")" = '${{ inputs.submit-dependencies }}' ]
   [ "$(yq -r '.permissions.contents' "$CONTAINER")" = read ]
   [ "$(yq -r '.jobs."container-scan".permissions | keys | join(",")' "$CONTAINER")" = contents ]
   [ "$(yq -r '.jobs."source-trivy-scan".uses' "$SOURCE")" = '$/.github/workflows/trivy-scan.yml' ]
