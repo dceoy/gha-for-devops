@@ -83,6 +83,19 @@ on:
         type: boolean
         description: Search for Dockerfile recursively from the project root
         default: true
+      use-syft-grype:
+        type: boolean
+        default: false
+        description: Enable Syft SBOM and Grype vulnerability scan
+      grype-fail-on:
+        type: string
+        default: high
+      grype-only-fixed:
+        type: boolean
+        default: true
+      sbom-artifact-name:
+        type: string
+        default: null
       trivy-scanners:
         required: false
         type: string
@@ -256,7 +269,11 @@ jobs:
       scan-after-build: ${{ inputs.scan-after-build }}
       hadolint-failure-threshold: ${{ inputs.hadolint-failure-threshold }}
       hadolint-recursive: ${{ inputs.hadolint-recursive }}
+      use-syft-grype: ${{ inputs.use-syft-grype }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
+      grype-fail-on: ${{ inputs.grype-fail-on }}
+      grype-only-fixed: ${{ inputs.grype-only-fixed }}
+      sbom-artifact-name: ${{ inputs.sbom-artifact-name }}
       trivy-severity: ${{ inputs.trivy-severity }}
       trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
       trivy-filesystem-exit-code: ${{ inputs.trivy-filesystem-exit-code }}
@@ -287,7 +304,11 @@ jobs:
       image-artifact-retention-days: ${{ inputs.docker-image-artifact-retention-days }}
       image-artifact-overwrite: ${{ inputs.docker-image-artifact-overwrite }}
       scan-after-pull: ${{ inputs.scan-after-pull }}
+      use-syft-grype: ${{ inputs.use-syft-grype }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
+      grype-fail-on: ${{ inputs.grype-fail-on }}
+      grype-only-fixed: ${{ inputs.grype-only-fixed }}
+      sbom-artifact-name: ${{ inputs.sbom-artifact-name }}
       trivy-severity: ${{ inputs.trivy-severity }}
       trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
       trivy-exit-code: ${{ inputs.trivy-image-exit-code }}
