@@ -253,8 +253,9 @@ jobs:
         run: exit 1
   source-trivy-scan:
     if: inputs.use-trivy
-    # Pass through caller permissions to the gated Trivy snapshot publisher.
-    # Trivy preparation and scan jobs explicitly use contents: read.
+    # Relay the caller's requested write permission for trusted dependency submission.
+    permissions:
+      contents: write
     uses: $/.github/workflows/trivy-scan.yml
     with:
       scan-type: filesystem
