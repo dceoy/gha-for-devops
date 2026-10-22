@@ -43,6 +43,19 @@ on:
         type: boolean
         description: Scan the image after pull
         default: true
+      use-syft-grype:
+        type: boolean
+        default: false
+        description: Enable Syft SBOM and Grype vulnerability scan
+      grype-fail-on:
+        type: string
+        default: high
+      grype-only-fixed:
+        type: boolean
+        default: true
+      sbom-artifact-name:
+        type: string
+        default: null
       trivy-scanners:
         required: false
         type: string
@@ -190,6 +203,10 @@ jobs:
       verify-signatures: false  # Tag/tarball scan; verify digest-pinned images for deployment
       image-refs-json: ${{ needs.docker-aws-pull-and-save.outputs.image-refs-json }}
       image-artifact-name: ${{ inputs.image-artifact-name }}
+      use-syft-grype: ${{ inputs.use-syft-grype }}
+      grype-fail-on: ${{ inputs.grype-fail-on }}
+      grype-only-fixed: ${{ inputs.grype-only-fixed }}
+      sbom-artifact-name: ${{ inputs.sbom-artifact-name }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
       trivy-severity: ${{ inputs.trivy-severity }}
       trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
