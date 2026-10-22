@@ -126,12 +126,6 @@ Publication is opt-in and limited to default-branch `push`, `schedule`, or `work
 
 Docker build, multi-target, and Bake workflows reuse their postbuild scan for publication. Set `submit-dependencies: true` and `push: true`; grant `contents: write` and `packages: read` for GHCR, and pass `DOCKER_TOKEN` for registry access. Avoid submitting the same inventory twice.
 
-### Syft and Grype
-
-Call `syft-grype-scan.yml` directly for standalone filesystem or image vulnerability checks, or pass `use-syft-grype: true` to the source, container, and Docker build/pull workflows. This optional check is disabled by default for existing callers.
-
-Syft generates Syft JSON and CycloneDX JSON once per target; Grype evaluates the native SBOM. The default policy is `grype-fail-on: high` with `grype-only-fixed: true`. Set an empty `grype-fail-on` for report-only mode, and set `sbom-artifact-name` to upload Syft and Grype JSON reports (disabled by default).
-
 ## Local QA
 
 Install the tools in `mise.toml`, then run:

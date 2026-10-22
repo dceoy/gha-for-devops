@@ -6,21 +6,27 @@ on:
       scan-type:
         type: string
         default: filesystem
+        description: Target type to scan, either filesystem or image
       scan-ref:
         type: string
         default: .
+        description: Filesystem path to scan when scan-type is filesystem
       image-refs-json:
         type: string
         default: '[]'
+        description: JSON array of container image references to scan when scan-type is image
       image-artifact-name:
         type: string
         default: null
+        description: Optional artifact containing an image tarball to scan
       registry:
         type: string
         default: null
+        description: Container registry to authenticate to before scanning images
       registry-user:
         type: string
         default: ${{ github.repository_owner }}
+        description: Username for container registry authentication
       grype-fail-on:
         type: string
         default: high
@@ -28,6 +34,7 @@ on:
       grype-only-fixed:
         type: boolean
         default: true
+        description: Report only vulnerabilities with an available fix
       sbom-artifact-name:
         type: string
         default: null
@@ -35,6 +42,7 @@ on:
       runs-on:
         type: string
         default: ubuntu-latest
+        description: GitHub Actions runner to use
     secrets:
       DOCKER_TOKEN:
         required: false

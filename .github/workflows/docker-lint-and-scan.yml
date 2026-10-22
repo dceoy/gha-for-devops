@@ -44,12 +44,15 @@ on:
       grype-fail-on:
         type: string
         default: high
+        description: Minimum vulnerability severity that fails the scan; empty disables the severity threshold
       grype-only-fixed:
         type: boolean
         default: true
+        description: Report only vulnerabilities with an available fix
       sbom-artifact-name:
         type: string
         default: null
+        description: Optional artifact name prefix for Syft SBOMs and Grype JSON; empty disables report upload
       trivy-scanners:
         required: false
         type: string
