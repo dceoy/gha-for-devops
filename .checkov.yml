@@ -1,0 +1,4 @@
+# Scoped Checkov baseline for three reusable-workflow permission relays.
+# They must inherit caller contents:write for trusted dependency submissions;
+# all executable scanning jobs explicitly retain contents:read.
+baseline: .checkov.baseline
