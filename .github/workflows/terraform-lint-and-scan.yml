@@ -155,7 +155,7 @@ permissions:
 jobs:
   terraform-security-scan:
     permissions:
-      contents: write
+      contents: read
     if: inputs.use-semgrep || inputs.use-trivy || inputs.use-checkov
     uses: $/.github/workflows/source-security-scan.yml
     with:
