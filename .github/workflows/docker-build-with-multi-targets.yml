@@ -202,8 +202,7 @@ on:
         description: JSON array of image tarball artifact names
         value: ${{ jobs.docker-multitarget-collect.outputs.image-artifact-names-json }}
 permissions:
-  contents: write
-  packages: write
+  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}

@@ -222,8 +222,7 @@ on:
         description: Primary Docker image reference
         value: ${{ jobs.docker-build-and-push.outputs.image-ref }}
 permissions:
-  contents: write
-  packages: write
+  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
