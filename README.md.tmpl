@@ -37,7 +37,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | ------------------------------ | ------------------------ | ----------------------------------------------------------- |
 | Pull requests                  | `security-pr.yml`        | OSV-Scanner, Trivy, Semgrep, TruffleHog commit range        |
 | Scheduled/manual audits        | `security-audit.yml`     | Source scan, Git history, CodeQL, Scorecard; optional Joern |
-| Container releases             | `container-security.yml` | Trivy image scan, then Cosign signature verification        |
+| Container releases             | `container-security.yml` | Trivy, optional Syft + Grype, then Cosign verification      |
 | Authorized staging/API testing | `web-dast-scan.yml`      | OWASP ZAP                                                   |
 
 PR checks need `contents: read`. Audits skip PR events; set `codeql-languages` and grant `contents: read`, `actions: read`, and `security-events: write` for the default jobs. Enable Joern with `use-joern: true`.

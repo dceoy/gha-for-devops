@@ -26,6 +26,22 @@ on:
       snapshot-correlator:
         type: string
         default: source-root
+      use-syft-grype:
+        type: boolean
+        default: false
+        description: Enable optional Syft SBOM generation and Grype scanning
+      grype-fail-on:
+        type: string
+        default: high
+        description: Minimum vulnerability severity that fails the scan; empty disables the severity threshold
+      grype-only-fixed:
+        type: boolean
+        default: true
+        description: Report only vulnerabilities with an available fix
+      sbom-artifact-name:
+        type: string
+        default: null
+        description: Optional artifact name prefix for Syft SBOMs and Grype JSON; empty disables report upload
       trivy-scanners:
         type: string
         default: vuln,secret,misconfig
@@ -269,6 +285,18 @@ jobs:
       trivy-exit-code: ${{ inputs.trivy-exit-code }}
       report-format: sarif
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
+      runs-on: ${{ inputs.runs-on }}
+  source-syft-grype-scan:
+    if: inputs.use-syft-grype
+    permissions:
+      contents: read
+    uses: $/.github/workflows/syft-grype-scan.yml
+    with:
+      scan-type: filesystem
+      scan-ref: ${{ inputs.package-path }}
+      grype-fail-on: ${{ inputs.grype-fail-on }}
+      grype-only-fixed: ${{ inputs.grype-only-fixed }}
+      sbom-artifact-name: ${{ inputs.sbom-artifact-name }}
       runs-on: ${{ inputs.runs-on }}
   source-checkov:
     permissions:

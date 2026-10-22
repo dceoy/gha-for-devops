@@ -39,24 +39,24 @@ if [[ "${N_PYTHON_FILES}" -gt 0 ]]; then
     PACKAGE_DIRECTORY=''
   fi
   if [[ -n "${PACKAGE_DIRECTORY}" ]] && [[ -f "${PACKAGE_DIRECTORY}/uv.lock" ]]; then
-    uv run --locked --directory "${PACKAGE_DIRECTORY}" ruff format .
-    uv run --locked --directory "${PACKAGE_DIRECTORY}" ruff check --fix .
+    uv run --locked --directory "${PACKAGE_DIRECTORY}" ruff format --extend-exclude=node_modules,.venv .
+    uv run --locked --directory "${PACKAGE_DIRECTORY}" ruff check --extend-exclude=node_modules,.venv --fix .
     uv run --locked --directory "${PACKAGE_DIRECTORY}" pyright .
   elif [[ -n "${PACKAGE_DIRECTORY}" ]]; then
-    uv run --locked ruff format "${PACKAGE_DIRECTORY}"
-    uv run --locked ruff check --fix "${PACKAGE_DIRECTORY}"
+    uv run --locked ruff format --extend-exclude=node_modules,.venv "${PACKAGE_DIRECTORY}"
+    uv run --locked ruff check --extend-exclude=node_modules,.venv --fix "${PACKAGE_DIRECTORY}"
     uv run --locked pyright "${PACKAGE_DIRECTORY}"
   else
-    uv run --locked ruff format --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
-    uv run --locked ruff check --fix --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --select="${RUFF_LINT_SELECT}" --ignore="${RUFF_LINT_IGNORE}" --config "${RUFF_LINT_PER_FILE_IGNORES}" --config "lint.pydocstyle.convention = 'google'" --config 'lint.pylint.max-args = 10' --config 'lint.pylint.max-public-methods = 40' .
+    uv run --locked ruff format --extend-exclude=node_modules,.venv --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" .
+    uv run --locked ruff check --extend-exclude=node_modules,.venv --fix --preview --exclude=build --exclude=.venv "--line-length=${PYTHON_LINE_LENGTH}" --select="${RUFF_LINT_SELECT}" --ignore="${RUFF_LINT_IGNORE}" --config "${RUFF_LINT_PER_FILE_IGNORES}" --config "lint.pydocstyle.convention = 'google'" --config 'lint.pylint.max-args = 10' --config 'lint.pylint.max-public-methods = 40' .
 
     (
       PYRIGHT_CONFIG_FILE="${REPO_ROOT}/.pyrightconfig.local-qa.$$.json"
       trap 'rm -f "${PYRIGHT_CONFIG_FILE}"' EXIT
       if [[ -d .venv ]]; then
-        printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"venvPath":".","venv":".venv","typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
+        printf '%s\n' '{"include":["."],"exclude":["build","**/.venv","**/node_modules"],"venvPath":".","venv":".venv","typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
       else
-        printf '%s\n' '{"include":["."],"exclude":["build",".venv"],"typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
+        printf '%s\n' '{"include":["."],"exclude":["build","**/.venv","**/node_modules"],"typeCheckingMode":"strict"}' > "${PYRIGHT_CONFIG_FILE}"
       fi
       uv run --locked pyright --threads=0 --project "${PYRIGHT_CONFIG_FILE}"
     )
@@ -88,16 +88,16 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
   fi
 
   if command -v biome > /dev/null 2>&1; then
-    pnpm exec biome check --write "${PACKAGE_DIRECTORY}"
+    pnpm exec biome check --write --vcs-enabled=true --vcs-client-kind=git --vcs-use-ignore-file=true "${PACKAGE_DIRECTORY}"
   fi
   if ! command -v biome > /dev/null 2>&1; then
-    pnpm exec oxfmt --write --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss}"
+    pnpm exec oxfmt --write --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss}" '!**/node_modules/**' '!**/.venv/**'
   fi
   if command -v oxlint > /dev/null 2>&1; then
     if [[ -f "${TSCONFIG_JSON_FILE}" ]]; then
-      pnpm exec oxlint --fix --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
+      pnpm exec oxlint --fix --ignore-pattern '**/node_modules/**' --ignore-pattern '**/.venv/**' --type-aware --tsconfig "${TSCONFIG_JSON_FILE}" "${PACKAGE_DIRECTORY}"
     else
-      pnpm exec oxlint --fix "${PACKAGE_DIRECTORY}"
+      pnpm exec oxlint --fix --ignore-pattern '**/node_modules/**' --ignore-pattern '**/.venv/**' "${PACKAGE_DIRECTORY}"
     fi
   fi
 
@@ -112,10 +112,10 @@ fi
 
 # Always format Markdown and HTML, including in mixed JavaScript/TypeScript projects.
 if [[ "${N_HTML_FILES}" -gt 0 ]]; then
-  pnpm exec oxfmt --write --no-error-on-unmatched-pattern './**/*.{html,htm}'
+  pnpm exec oxfmt --write --no-error-on-unmatched-pattern './**/*.{html,htm}' '!**/node_modules/**' '!**/.venv/**'
 fi
 if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then
-  pnpm exec oxfmt --write --no-error-on-unmatched-pattern './**/*.{md,markdown,mdx}'
+  pnpm exec oxfmt --write --no-error-on-unmatched-pattern './**/*.{md,markdown,mdx}' '!**/node_modules/**' '!**/.venv/**'
 fi
 
 if [[ "${N_MARKDOWN_FILES}" -gt 0 ]]; then

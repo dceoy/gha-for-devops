@@ -15,8 +15,19 @@ Repository = "https://github.com/dceoy/gha-for-devops.git"
 [tool.uv]
 package = false
 exclude-newer = "7 days"
+# Admit only the patched certifi release while the seven-day cutoff matures.
+exclude-newer-package = { certifi = "2026-10-20T02:24:17Z" }
 # Upstream QA tools still pin vulnerable versions; smoke-test these compatible fixes.
-override-dependencies = ["asteval>=1.0.9,<2", "mcp>=1.30.0,<2"]
+override-dependencies = [
+    "asteval>=1.0.9,<2",
+    "mcp>=1.30.0,<2",
+    # Keep Semgrep's telemetry stack aligned with the patched API.
+    "opentelemetry-api~=1.45.1",
+    "opentelemetry-sdk~=1.45.1",
+    "opentelemetry-exporter-otlp-proto-http~=1.45.1",
+    "opentelemetry-instrumentation-requests~=0.66b1",
+    "opentelemetry-instrumentation-threading~=0.66b1",
+]
 
 [dependency-groups]
 dev = [
