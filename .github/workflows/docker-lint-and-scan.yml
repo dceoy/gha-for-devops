@@ -23,6 +23,11 @@ on:
         type: string
         description: Scan reference
         default: .
+      use-trivy:
+        required: false
+        type: boolean
+        description: Run Trivy source scanning
+        default: true
       submit-dependencies:
         required: false
         type: boolean
@@ -152,7 +157,7 @@ jobs:
       package-path: ${{ inputs.trivy-scan-ref }}
       submit-dependencies: ${{ inputs.submit-dependencies }}
       snapshot-correlator: ${{ inputs.snapshot-correlator }}
-      use-trivy: true
+      use-trivy: ${{ inputs.use-trivy }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
       trivy-severity: ${{ inputs.trivy-severity }}
       trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}

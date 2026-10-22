@@ -46,6 +46,9 @@ use_conversion_config() {
   done
   [ "$(yq -r '.jobs."source-trivy-scan".permissions.contents' "$SOURCE")" = read ]
   [ "$(yq -r '.jobs."source-trivy-scan".with."submit-dependencies"' "$SOURCE")" = '${{ inputs.submit-dependencies }}' ]
+  local docker_workflow="$REPO_ROOT/.github/workflows/docker-lint-and-scan.yml"
+  [ "$(yq -r '.on.workflow_call.inputs."use-trivy".default' "$docker_workflow")" = true ]
+  [ "$(yq -r '.jobs."docker-security-scan".with."use-trivy"' "$docker_workflow")" = '${{ inputs.use-trivy }}' ]
   for workflow in docker-lint-and-scan terraform-lint-and-scan; do
     file="$REPO_ROOT/.github/workflows/${workflow}.yml"
     [ "$(yq -r '.permissions.contents' "$file")" = read ]
