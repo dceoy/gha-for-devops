@@ -280,7 +280,7 @@ jobs:
       trivy-scanners: ${{ inputs.trivy-scanners }}
       grype-fail-on: ${{ inputs.grype-fail-on }}
       grype-only-fixed: ${{ inputs.grype-only-fixed }}
-      sbom-artifact-name: ${{ inputs.sbom-artifact-name }}
+      sbom-artifact-name: ${{ inputs.sbom-artifact-name && format('{0}-{1}', inputs.sbom-artifact-name, matrix.image-to-target.artifact) || '' }}
       trivy-severity: ${{ inputs.trivy-severity }}
       trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
       trivy-filesystem-exit-code: ${{ inputs.trivy-filesystem-exit-code }}
