@@ -150,12 +150,10 @@ defaults:
     working-directory: .
 env:
   CHECKPOINT_DISABLE: '1'
-permissions:
-  contents: read
 jobs:
   terraform-security-scan:
-    permissions:
-      contents: read
+    # Preserve caller permissions across nested workflows for dependency submission.
+    # All executable scan jobs remain explicitly read-only.
     if: inputs.use-semgrep || inputs.use-trivy || inputs.use-checkov
     uses: $/.github/workflows/source-security-scan.yml
     with:
