@@ -110,6 +110,8 @@ on:
     secrets:
       BC_API_KEY:
         required: false
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
