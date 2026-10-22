@@ -73,6 +73,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [security-pr.yml](.github/workflows/security-pr.yml)                                                             | Security PR checks                                                |
 | [shell-lint.yml](.github/workflows/shell-lint.yml)                                                               | Lint for Shell                                                    |
 | [source-security-scan.yml](.github/workflows/source-security-scan.yml)                                           | Source security scan                                              |
+| [syft-grype-scan.yml](.github/workflows/syft-grype-scan.yml)                                                     | Generate SBOM and scan with Grype                                 |
 | [terraform-deploy-to-aws.yml](.github/workflows/terraform-deploy-to-aws.yml)                                     | Deployment of AWS resources using Terraform                       |
 | [terraform-format-and-pr.yml](.github/workflows/terraform-format-and-pr.yml)                                     | Formatting for Terraform                                          |
 | [terraform-lint-and-scan.yml](.github/workflows/terraform-lint-and-scan.yml)                                     | Lint and security scan for Terraform                              |
@@ -94,7 +95,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | ------------------------------ | ------------------------ | ----------------------------------------------------------- |
 | Pull requests                  | `security-pr.yml`        | OSV-Scanner, Trivy, Semgrep, TruffleHog commit range        |
 | Scheduled/manual audits        | `security-audit.yml`     | Source scan, Git history, CodeQL, Scorecard; optional Joern |
-| Container releases             | `container-security.yml` | Trivy image scan, then Cosign signature verification        |
+| Container releases             | `container-security.yml` | Trivy, optional Syft + Grype, then Cosign verification      |
 | Authorized staging/API testing | `web-dast-scan.yml`      | OWASP ZAP                                                   |
 
 PR checks need `contents: read`. Audits skip PR events; set `codeql-languages` and grant `contents: read`, `actions: read`, and `security-events: write` for the default jobs. Enable Joern with `use-joern: true`.
@@ -124,6 +125,12 @@ jobs:
 Publication is opt-in and limited to default-branch `push`, `schedule`, or `workflow_dispatch` events. Scan jobs use `contents: read`; publication requires the caller to grant `contents: write`. Keep a distinct, stable correlator for each inventory.
 
 Docker build, multi-target, and Bake workflows reuse their postbuild scan for publication. Set `submit-dependencies: true` and `push: true`; grant `contents: write` and `packages: read` for GHCR, and pass `DOCKER_TOKEN` for registry access. Avoid submitting the same inventory twice.
+
+### Syft and Grype
+
+Call `syft-grype-scan.yml` directly for standalone filesystem or image vulnerability checks, or pass `use-syft-grype: true` to the source, container, and Docker build/pull workflows. This optional check is disabled by default for existing callers.
+
+Syft generates Syft JSON and CycloneDX JSON once per target; Grype evaluates the native SBOM. The default policy is `grype-fail-on: high` with `grype-only-fixed: true`. Set an empty `grype-fail-on` for report-only mode, and set `sbom-artifact-name` to upload Syft and Grype JSON reports (disabled by default).
 
 ## Local QA
 
