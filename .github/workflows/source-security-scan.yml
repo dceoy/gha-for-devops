@@ -110,8 +110,6 @@ on:
     secrets:
       BC_API_KEY:
         required: false
-permissions:
-  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -253,8 +251,8 @@ jobs:
         run: exit 1
   source-trivy-scan:
     if: inputs.use-trivy
-    permissions:
-      contents: read
+    # Pass through caller permissions to the gated Trivy snapshot publisher.
+    # Trivy preparation and scan jobs explicitly use contents: read.
     uses: $/.github/workflows/trivy-scan.yml
     with:
       scan-type: filesystem
