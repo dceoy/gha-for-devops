@@ -25,6 +25,19 @@ on:
         type: string
         description: Registry username
         default: ${{ github.repository_owner }}
+      use-syft-grype:
+        type: boolean
+        default: false
+        description: Enable optional Syft SBOM generation and Grype scanning
+      grype-fail-on:
+        type: string
+        default: high
+      grype-only-fixed:
+        type: boolean
+        default: true
+      sbom-artifact-name:
+        type: string
+        default: null
       trivy-scanners:
         required: false
         type: string
@@ -113,6 +126,23 @@ jobs:
       trivy-config: ${{ inputs.trivy-config || '' }}
       trivy-timeout: ${{ inputs.trivy-timeout }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name || '' }}
+      runs-on: ${{ inputs.runs-on }}
+    secrets:
+      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+  container-syft-grype-scan:
+    if: inputs.use-syft-grype
+    permissions:
+      contents: read
+    uses: $/.github/workflows/syft-grype-scan.yml
+    with:
+      scan-type: image
+      image-refs-json: ${{ inputs.image-refs-json }}
+      image-artifact-name: ${{ inputs.image-artifact-name || '' }}
+      registry: ${{ inputs.registry || '' }}
+      registry-user: ${{ inputs.registry-user }}
+      grype-fail-on: ${{ inputs.grype-fail-on }}
+      grype-only-fixed: ${{ inputs.grype-only-fixed }}
+      sbom-artifact-name: ${{ inputs.sbom-artifact-name }}
       runs-on: ${{ inputs.runs-on }}
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
