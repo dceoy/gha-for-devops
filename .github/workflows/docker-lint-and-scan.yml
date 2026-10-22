@@ -142,7 +142,6 @@ permissions:
   contents: read
 jobs:
   docker-security-scan:
-    # Preserve write access only for the gated dependency submission path.
     permissions:
       contents: write
     uses: $/.github/workflows/source-security-scan.yml
