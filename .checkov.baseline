@@ -1,0 +1,37 @@
+{
+  "failed_checks": [
+    {
+      "file": "/docker-lint-and-scan.yml",
+      "findings": [
+        {
+          "resource": "on(Lint and security scan for Dockerfile)",
+          "check_ids": [
+            "CKV2_GHA_1"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "/source-security-scan.yml",
+      "findings": [
+        {
+          "resource": "on(Source security scan)",
+          "check_ids": [
+            "CKV2_GHA_1"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "/terraform-lint-and-scan.yml",
+      "findings": [
+        {
+          "resource": "on(Lint and security scan for Terraform)",
+          "check_ids": [
+            "CKV2_GHA_1"
+          ]
+        }
+      ]
+    }
+  ]
+}
