@@ -138,6 +138,8 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
+permissions:
+  contents: read
 jobs:
   docker-security-scan:
     # Preserve caller permissions across nested workflows for dependency submission.
