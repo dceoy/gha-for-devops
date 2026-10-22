@@ -1,0 +1,186 @@
+---
+name: Generate SBOM and scan with Grype
+on:
+  workflow_call:
+    inputs:
+      scan-type:
+        type: string
+        default: filesystem
+      scan-ref:
+        type: string
+        default: .
+      image-refs-json:
+        type: string
+        default: '[]'
+      image-artifact-name:
+        type: string
+        default: null
+      registry:
+        type: string
+        default: null
+      registry-user:
+        type: string
+        default: ${{ github.repository_owner }}
+      grype-fail-on:
+        type: string
+        default: high
+        description: Minimum severity to fail; empty disables the gate
+      grype-only-fixed:
+        type: boolean
+        default: true
+      sbom-artifact-name:
+        type: string
+        default: null
+        description: Optional artifact prefix for SBOM and Grype JSON
+      runs-on:
+        type: string
+        default: ubuntu-latest
+    secrets:
+      DOCKER_TOKEN:
+        required: false
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+jobs:
+  syft-grype-prepare:
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.targets.outputs.targets }}
+    steps:
+      - id: targets
+        env:
+          SCAN_TYPE: ${{ inputs.scan-type }}
+          SCAN_REF: ${{ inputs.scan-ref }}
+          IMAGE_REFS: ${{ inputs.image-refs-json }}
+        run: |
+          case "${SCAN_TYPE}" in
+            filesystem)
+              [[ -n "${SCAN_REF}" ]] || exit 1
+              targets="$(jq -cn --arg ref "${SCAN_REF}" '[{id:"0",ref:$ref}]')"
+              ;;
+            image)
+              targets="$(jq -ce 'if type == "array" and length > 0 and all(.[]; type == "string" and length > 0) then to_entries | map({id:(.key|tostring),ref:.value}) else error("Invalid image references") end' <<< "${IMAGE_REFS}")"
+              ;;
+            *) echo '::error::Invalid scan-type'; exit 1 ;;
+          esac
+          echo "targets=${targets}" >> "${GITHUB_OUTPUT}"
+  syft-grype-scan:
+    needs: syft-grype-prepare
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.syft-grype-prepare.outputs.targets) }}
+    env:
+      MISE_USE_VERSIONS_HOST_TRACK: 'false'
+      # renovate: datasource=github-releases depName=jdx/mise
+      MISE_VERSION: 2026.8.5
+      # renovate: datasource=github-releases depName=anchore/syft
+      SYFT_VERSION: 1.54.1
+      # renovate: datasource=github-releases depName=anchore/grype
+      GRYPE_VERSION: 0.120.1
+      SYFT_CHECK_FOR_APP_UPDATE: 'false'
+      GRYPE_CHECK_FOR_APP_UPDATE: 'false'
+    steps:
+      - name: Checkout repository
+        if: inputs.scan-type == 'filesystem'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download image tarball
+        if: inputs.scan-type == 'image' && inputs.image-artifact-name != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: ${{ inputs.image-artifact-name }}
+          path: ${{ runner.temp }}}/image
+      - name: Load image tarball
+        if: inputs.scan-type == 'image' && inputs.image-artifact-name != ''
+        env:
+          IMAGE_TAR: ${{ runner.temp }}}/image/${{ inputs.image-artifact-name }}.tar
+        run: docker load -i "${IMAGE_TAR}"
+      - name: Login to Docker registry
+        if: inputs.scan-type == 'image' && inputs.registry != ''
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ inputs.registry-user }}
+          password: ${{ secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+      - name: Set up mise
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8  # v5.1.2
+        with:
+          version: ${{ env.MISE_VERSION }}
+          install: false
+          cache: false
+          working_directory: ${{ runner.temp }}
+      - name: Install pinned Syft and Grype
+        working-directory: ${{ runner.temp }}
+        env:
+          MISE_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          trusted_dir="${RUNNER_TEMP}/syft-grype-mise"
+          mkdir -p "${trusted_dir}"
+          cd "${trusted_dir}"
+          export MISE_CEILING_PATHS="${RUNNER_TEMP}"
+          printf '[tools]\nsyft = "%s"\ngrype = "%s"\n' "${SYFT_VERSION}" "${GRYPE_VERSION}" > mise.toml
+          mise trust "${trusted_dir}/mise.toml"
+          mise install
+          echo "SYFT_BIN=$(mise which syft)" >> "${GITHUB_ENV}"
+          echo "GRYPE_BIN=$(mise which grype)" >> "${GITHUB_ENV}"
+      - name: Generate Syft SBOM
+        env:
+          SCAN_TYPE: ${{ inputs.scan-type }}
+          SCAN_REF: ${{ matrix.ref }}
+          SBOM: ${{ runner.temp }}}/sbom.syft.json
+          CYCLONEDX: ${{ runner.temp }}}/sbom.cyclonedx.json
+        run: |
+          if [[ "${SCAN_TYPE}" == filesystem ]]; then
+            [[ -d "${SCAN_REF}" ]] || { echo '::error::Scan directory missing'; exit 1; }
+            source="dir:${SCAN_REF}"
+          else
+            source="${SCAN_REF}"
+          fi
+          "${SYFT_BIN}" "${source}" -o "syft-json=${SBOM}" -o "cyclonedx-json=${CYCLONEDX}"
+          jq -e '.artifacts | type == "array"' "${SBOM}" > /dev/null
+          echo "Syft packages: $(jq '.artifacts | length' "${SBOM}")" >> "${GITHUB_STEP_SUMMARY}"
+      - name: Scan SBOM with Grype
+        id: grype
+        env:
+          FAIL_ON: ${{ inputs.grype-fail-on }}
+          ONLY_FIXED: ${{ inputs.grype-only-fixed }}
+          SBOM: ${{ runner.temp }}}/sbom.syft.json
+          REPORT: ${{ runner.temp }}}/grype.json
+        run: |
+          args=(--output json --file "${REPORT}")
+          if [[ -n "${FAIL_ON}" ]]; then
+            case "${FAIL_ON}" in negligible|low|medium|high|critical) ;; *) exit 1 ;; esac
+            args+=(--fail-on "${FAIL_ON}")
+          fi
+          if [[ "${ONLY_FIXED}" == true ]]; then args+=(--only-fixed); fi
+          status=0
+          "${GRYPE_BIN}" "sbom:${SBOM}" "${args[@]}" || status=$?
+          [[ -s "${REPORT}" ]] || { echo '::error::Grype report missing'; exit 1; }
+          echo "exit-code=${status}" >> "${GITHUB_OUTPUT}"
+          jq -r '"Grype vulnerabilities: \(.matches | length)"' "${REPORT}" >> "${GITHUB_STEP_SUMMARY}"
+      - name: Upload SBOM and vulnerability report
+        if: inputs.sbom-artifact-name != '' && steps.grype.outputs.exit-code != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: ${{ inputs.sbom-artifact-name }}-${{ matrix.id }}
+          path: |
+            ${{ runner.temp }}}/sbom.syft.json
+            ${{ runner.temp }}}/sbom.cyclonedx.json
+            ${{ runner.temp }}}/grype.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Enforce Grype policy
+        if: steps.grype.outputs.exit-code != ''
+        env:
+          EXIT_CODE: ${{ steps.grype.outputs.exit-code }}
+        run: exit "${EXIT_CODE}"
