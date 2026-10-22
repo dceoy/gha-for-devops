@@ -150,6 +150,8 @@ defaults:
     working-directory: .
 env:
   CHECKPOINT_DISABLE: '1'
+permissions:
+  contents: read
 jobs:
   terraform-security-scan:
     # Preserve caller permissions across nested workflows for dependency submission.
