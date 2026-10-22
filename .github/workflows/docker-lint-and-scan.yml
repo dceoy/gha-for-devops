@@ -138,12 +138,10 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
-permissions:
-  contents: read
 jobs:
   docker-security-scan:
-    permissions:
-      contents: read
+    # Preserve caller permissions across nested workflows for dependency submission.
+    # All executable scan jobs remain explicitly read-only.
     uses: $/.github/workflows/source-security-scan.yml
     with:
       runs-on: ${{ inputs.security-runs-on }}
