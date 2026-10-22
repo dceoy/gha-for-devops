@@ -63,7 +63,6 @@ step_output() {
 @test "Source security scan stays limited to OSV-Scanner, Trivy, and Semgrep" {
   local src="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
   run ! grep -Eqi 'trufflehog|scorecard|zaproxy|zap-|cosign' "${src}"
-  # Caller permissions are forwarded only to the nested Trivy publisher.
   [ "$(yq -r '.permissions.contents' "${src}")" = read ]
   for job in source-osv-scan source-security-scan source-checkov; do
     [ "$(JOB="${job}" yq -r '.jobs[strenv(JOB)].permissions.contents' "${src}")" = read ]
