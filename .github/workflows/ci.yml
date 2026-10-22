@@ -114,7 +114,6 @@ jobs:
     uses: $/.github/workflows/github-actions-lint-and-scan.yml
     with:
       search-path: .github/workflows
-      checkov-config-file: .checkov.yml
       zizmor-search-path: .github
       go-version: stable
       python-version: 3.x
