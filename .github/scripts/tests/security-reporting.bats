@@ -41,18 +41,18 @@ use_conversion_config() {
   [ "$(yq -r '.jobs."trivy-scan".permissions.contents' "$TRIVY")" = read ]
   [ "$(yq -r '.jobs."trivy-submit".permissions.contents' "$TRIVY")" = null ]
   [ "$(yq -r '.jobs."trivy-scan".permissions.contents' "$TRIVY")" = read ]
-  [ "$(yq -r '.permissions.contents' "$SOURCE")" = null ]
+  [ "$(yq -r '.permissions.contents' "$SOURCE")" = read ]
   for job in source-osv-scan source-security-scan source-checkov; do
     [ "$(JOB="${job}" yq -r '.jobs[strenv(JOB)].permissions.contents' "$SOURCE")" = read ]
   done
-  # Only the trusted publisher inherits the caller's write permission through these relays.
-  [ "$(yq -r '.jobs."source-trivy-scan".permissions.contents' "$SOURCE")" = null ]
+  # Only the trusted submission path can request write access; scanning jobs stay read-only.
+  [ "$(yq -r '.jobs."source-trivy-scan".permissions.contents' "$SOURCE")" = write ]
   [ "$(yq -r '.jobs."source-trivy-scan".with."submit-dependencies"' "$SOURCE")" = '${{ inputs.submit-dependencies }}' ]
   for workflow in docker-lint-and-scan terraform-lint-and-scan; do
     file="$REPO_ROOT/.github/workflows/${workflow}.yml"
-    [ "$(yq -r '.permissions.contents' "$file")" = null ]
+    [ "$(yq -r '.permissions.contents' "$file")" = read ]
     [ "$(yq -r '.jobs.* | select(has("runs-on")).permissions.contents' "$file")" = read ]
-    [ "$(yq -r '.jobs.* | select(has("uses")).permissions.contents' "$file")" = null ]
+    [ "$(yq -r '.jobs.* | select(has("uses")).permissions.contents' "$file")" = write ]
     [ "$(yq -r '.jobs.* | select(has("uses")).with."submit-dependencies"' "$file")" = '${{ inputs.submit-dependencies }}' ]
   done
   [ "$(yq -r '.permissions.contents' "$CONTAINER")" = read ]
