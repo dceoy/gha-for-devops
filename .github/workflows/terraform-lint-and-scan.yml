@@ -154,7 +154,6 @@ permissions:
   contents: read
 jobs:
   terraform-security-scan:
-    # Relay the caller's requested write permission for trusted dependency submission.
     permissions:
       contents: write
     if: inputs.use-semgrep || inputs.use-trivy || inputs.use-checkov
