@@ -45,7 +45,6 @@ use_conversion_config() {
   for job in source-osv-scan source-security-scan source-checkov; do
     [ "$(JOB="${job}" yq -r '.jobs[strenv(JOB)].permissions.contents' "$SOURCE")" = read ]
   done
-  # Only the trusted submission path can request write access; scanning jobs stay read-only.
   [ "$(yq -r '.jobs."source-trivy-scan".permissions.contents' "$SOURCE")" = write ]
   [ "$(yq -r '.jobs."source-trivy-scan".with."submit-dependencies"' "$SOURCE")" = '${{ inputs.submit-dependencies }}' ]
   for workflow in docker-lint-and-scan terraform-lint-and-scan; do
