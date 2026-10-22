@@ -97,6 +97,19 @@ on:
         type: boolean
         description: Search for Dockerfile recursively from the project root
         default: true
+      use-syft-grype:
+        type: boolean
+        default: false
+        description: Enable Syft SBOM and Grype container scanning
+      grype-fail-on:
+        type: string
+        default: high
+      grype-only-fixed:
+        type: boolean
+        default: true
+      sbom-artifact-name:
+        type: string
+        default: null
       trivy-scanners:
         required: false
         type: string
@@ -399,6 +412,25 @@ jobs:
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name && format('{0}-image', inputs.trivy-report-artifact-name) || '' }}
       submit-dependencies: ${{ inputs.submit-dependencies && inputs.push }}
       snapshot-artifact-prefix: ${{ inputs.snapshot-artifact-prefix }}
+      runs-on: ${{ inputs.runs-on }}
+    secrets:
+      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+  docker-postbuild-syft-grype:
+    if: inputs.use-syft-grype && inputs.scan-after-build
+    needs: docker-build-and-push
+    permissions:
+      contents: read
+      packages: read
+    uses: $/.github/workflows/syft-grype-scan.yml
+    with:
+      scan-type: image
+      image-refs-json: ${{ needs.docker-build-and-push.outputs.image-ref && format('[{0}]', toJSON(needs.docker-build-and-push.outputs.image-ref)) || '[]' }}
+      image-artifact-name: ${{ inputs.image-artifact-name }}
+      registry: ${{ inputs.registry || '' }}
+      registry-user: ${{ inputs.registry-user }}
+      grype-fail-on: ${{ inputs.grype-fail-on }}
+      grype-only-fixed: ${{ inputs.grype-only-fixed }}
+      sbom-artifact-name: ${{ inputs.sbom-artifact-name && format('{0}-image', inputs.sbom-artifact-name) || '' }}
       runs-on: ${{ inputs.runs-on }}
     secrets:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
