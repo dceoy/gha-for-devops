@@ -214,6 +214,45 @@ checksum = "sha256:49ab3cfecaf3e5c5953e8e7e02a16046994f2c40251867455b9cc87c87f23
 url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.0/gomplate_windows-amd64.exe"
 url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/652125265"
 
+[[tools.grype]]
+version = "0.120.1"
+backend = "aqua:anchore/grype"
+
+[tools.grype."platforms.linux-arm64"]
+checksum = "sha256:29f47391dc283aa79fcc38e65224cd61f64dec0ecfd0db7074128ebf8ff23514"
+url = "https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/grype/releases/assets/616618024"
+
+[tools.grype."platforms.linux-arm64-musl"]
+checksum = "sha256:29f47391dc283aa79fcc38e65224cd61f64dec0ecfd0db7074128ebf8ff23514"
+url = "https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/grype/releases/assets/616618024"
+
+[tools.grype."platforms.linux-x64"]
+checksum = "sha256:0a9ee97ef5ae2ee953b0a80098105052e846cdbe319a57d808b519c33cd1343d"
+url = "https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/grype/releases/assets/616618032"
+
+[tools.grype."platforms.linux-x64-musl"]
+checksum = "sha256:0a9ee97ef5ae2ee953b0a80098105052e846cdbe319a57d808b519c33cd1343d"
+url = "https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/grype/releases/assets/616618032"
+
+[tools.grype."platforms.macos-arm64"]
+checksum = "sha256:cf97957fa467d25575ec2cc3228289f391ea51cf88b9cffc5f83dc03d4cbc732"
+url = "https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/grype/releases/assets/616618097"
+
+[tools.grype."platforms.macos-x64"]
+checksum = "sha256:5313004ccbc524c8757521dc3913f1edf4309f56bef06a2fb2d0c0eeade7cc62"
+url = "https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/grype/releases/assets/616618114"
+
+[tools.grype."platforms.windows-x64"]
+checksum = "sha256:32e3c811f31822d17592908bafdc6288aaaca3d52583c479167a8dc8399ed65d"
+url = "https://github.com/anchore/grype/releases/download/v0.120.1/grype_0.120.1_windows_amd64.zip"
+url_api = "https://api.github.com/repos/anchore/grype/releases/assets/616618127"
+
 [[tools.osv-scanner]]
 version = "2.7.0"
 backend = "aqua:google/osv-scanner"
@@ -396,6 +435,45 @@ url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320946"
 checksum = "sha256:13629ce28442ca80b6b5a819f7574ab39e1c28c6e26734ca816c9714e04851df"
 url = "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_windows_amd64.exe"
 url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/547320827"
+
+[[tools.syft]]
+version = "1.54.1"
+backend = "aqua:anchore/syft"
+
+[tools.syft."platforms.linux-arm64"]
+checksum = "sha256:dfdf0537610113edbefe1f1fc6548bc957b2d77439636ec824fcf0e10d46d054"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916319"
+
+[tools.syft."platforms.linux-arm64-musl"]
+checksum = "sha256:dfdf0537610113edbefe1f1fc6548bc957b2d77439636ec824fcf0e10d46d054"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916319"
+
+[tools.syft."platforms.linux-x64"]
+checksum = "sha256:c069905b391cc4c20a5ba65ad5c10be2a7ba074f8ea6ad203e24d14e303dad47"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916330"
+
+[tools.syft."platforms.linux-x64-musl"]
+checksum = "sha256:c069905b391cc4c20a5ba65ad5c10be2a7ba074f8ea6ad203e24d14e303dad47"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916330"
+
+[tools.syft."platforms.macos-arm64"]
+checksum = "sha256:b4319c3abaa87a0170ab76ee83ea2260ca34b53aecfa3ab0dd5428d2319d744f"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916332"
+
+[tools.syft."platforms.macos-x64"]
+checksum = "sha256:2956322838b2f64e470eea474495f0cd96be4f222b1ac037258cdc47d965064e"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916329"
+
+[tools.syft."platforms.windows-x64"]
+checksum = "sha256:8b56e8285e295e0bbed26eeea9b16ed51c493be97ccdf42dae6326c84fe8e19f"
+url = "https://github.com/anchore/syft/releases/download/v1.54.1/syft_1.54.1_windows_amd64.zip"
+url_api = "https://api.github.com/repos/anchore/syft/releases/assets/615916316"
 
 [[tools.terraform]]
 version = "1.16.6"
