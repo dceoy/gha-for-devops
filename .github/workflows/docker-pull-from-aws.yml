@@ -113,14 +113,16 @@ on:
         description: JSON array of pulled Docker image references
         value: ${{ jobs.docker-aws-pull-and-save.outputs.image-refs-json }}
 permissions:
-  contents: read    # This is required for actions/checkout
-  id-token: write   # This is required for requesting the JWT
+  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   docker-aws-pull-and-save:
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:

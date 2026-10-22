@@ -55,7 +55,6 @@ on:
         default: ubuntu-slim
 permissions:
   contents: read
-  security-events: write
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -75,6 +74,9 @@ jobs:
       semgrep-includes: |
         *.go
   go-package-lint-and-scan:
+    permissions:
+      contents: read
+      security-events: write
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days

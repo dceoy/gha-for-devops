@@ -193,8 +193,7 @@ on:
         description: JSON array of Docker image references from Bake
         value: ${{ jobs.docker-buildx-bake.outputs.image-refs-json }}
 permissions:
-  contents: write
-  packages: write
+  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -224,6 +223,9 @@ jobs:
       (! (failure() || cancelled()))
     needs:
       - docker-bake-prebuild-lint
+    permissions:
+      contents: read
+      packages: write
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:

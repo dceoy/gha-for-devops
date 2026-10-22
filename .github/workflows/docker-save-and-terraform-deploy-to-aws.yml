@@ -240,8 +240,7 @@ on:
         required: false
         description: GitHub token
 permissions:
-  contents: read    # This is required for actions/checkout
-  id-token: write   # This is required for requesting the JWT
+  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -297,6 +296,9 @@ jobs:
     if: >
       inputs.apply && inputs.docker-image-name-to-target-stage-json == null
       && (inputs.docker-image-names-to-pull != null || inputs.docker-tag-source-to-target-json != null)
+    permissions:
+      contents: read
+      id-token: write
     uses: $/.github/workflows/docker-pull-from-aws.yml
     with:
       image-names: ${{ inputs.docker-image-names-to-pull }}
@@ -327,6 +329,9 @@ jobs:
     needs:
       - docker-terraform-build
       - docker-terraform-pull
+    permissions:
+      contents: read
+      id-token: write
     uses: $/.github/workflows/terraform-deploy-to-aws.yml
     with:
       aws-iam-role-to-assume: ${{ inputs.target-aws-iam-role-to-assume }}

@@ -177,8 +177,6 @@ on:
         description: Bridgecrew or Prisma Cloud API key
 permissions:
   contents: read
-  security-events: write
-  actions: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -211,6 +209,10 @@ jobs:
     secrets:
       BC_API_KEY: ${{ secrets.BC_API_KEY }}
   actions-lint-and-scan:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 7 days
