@@ -32,6 +32,19 @@ on:
         required: false
         type: string
         default: source-root
+      use-syft-grype:
+        type: boolean
+        default: false
+        description: Enable optional Syft SBOM generation and Grype scanning
+      grype-fail-on:
+        type: string
+        default: high
+      grype-only-fixed:
+        type: boolean
+        default: true
+      sbom-artifact-name:
+        type: string
+        default: null
       trivy-scanners:
         required: false
         type: string
@@ -153,6 +166,10 @@ jobs:
       submit-dependencies: ${{ inputs.submit-dependencies }}
       snapshot-correlator: ${{ inputs.snapshot-correlator }}
       use-trivy: true
+      use-syft-grype: ${{ inputs.use-syft-grype }}
+      grype-fail-on: ${{ inputs.grype-fail-on }}
+      grype-only-fixed: ${{ inputs.grype-only-fixed }}
+      sbom-artifact-name: ${{ inputs.sbom-artifact-name }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
       trivy-severity: ${{ inputs.trivy-severity }}
       trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
