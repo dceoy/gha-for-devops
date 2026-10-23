@@ -93,6 +93,10 @@ on:
         type: string
         description: Optional artifact name for the Trivy SARIF report
         default: ""
+      semgrep-exclude-cooldown-rules:
+        type: boolean
+        default: false
+        description: Exclude Semgrep p/default dependency cooldown rules (Dependabot, Renovate, pnpm, uv)
       use-semgrep:
         required: false
         type: boolean
@@ -125,6 +129,7 @@ jobs:
       use-trivy: ${{ inputs.use-trivy }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
       use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-exclude-cooldown-rules: ${{ inputs.semgrep-exclude-cooldown-rules }}
       semgrep-working-directory: ${{ inputs.package-path }}
       semgrep-includes: |
         *.html

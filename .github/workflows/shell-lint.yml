@@ -36,6 +36,10 @@ on:
         type: string
         description: Optional value used to bust the linter caches
         default: null
+      semgrep-exclude-cooldown-rules:
+        type: boolean
+        default: false
+        description: Exclude Semgrep p/default dependency cooldown rules (Dependabot, Renovate, pnpm, uv)
       use-semgrep:
         required: false
         type: boolean
@@ -66,6 +70,7 @@ jobs:
       use-osv-scanner: false
       use-trivy: false
       use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-exclude-cooldown-rules: ${{ inputs.semgrep-exclude-cooldown-rules }}
       semgrep-working-directory: ${{ inputs.search-path }}
       semgrep-restrict-to-files: true
       semgrep-file-names: ${{ inputs.file-names }}

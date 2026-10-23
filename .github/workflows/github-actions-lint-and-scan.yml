@@ -153,6 +153,10 @@ on:
         type: boolean
         description: Always return exit code 0 from Checkov
         default: false
+      semgrep-exclude-cooldown-rules:
+        type: boolean
+        default: false
+        description: Exclude Semgrep p/default dependency cooldown rules (Dependabot, Renovate, pnpm, uv)
       use-semgrep:
         required: false
         type: boolean
@@ -192,6 +196,7 @@ jobs:
       use-osv-scanner: false
       use-trivy: false
       use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-exclude-cooldown-rules: ${{ inputs.semgrep-exclude-cooldown-rules }}
       package-path: ${{ inputs.search-path }}
       use-checkov: ${{ inputs.use-checkov }}
       checkov-framework: ${{ inputs.checkov-framework }}

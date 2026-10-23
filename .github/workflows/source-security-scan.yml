@@ -62,6 +62,10 @@ on:
         type: boolean
         default: false
         description: Run Semgrep OSS SAST
+      semgrep-exclude-cooldown-rules:
+        type: boolean
+        default: false
+        description: Exclude Semgrep p/default dependency cooldown rules (Dependabot, Renovate, pnpm, uv)
       semgrep-working-directory:
         type: string
         default: .
@@ -236,8 +240,17 @@ jobs:
           SEMGREP_TARGET: ${{ inputs.semgrep-target }}
           SEMGREP_FILE_NAMES: ${{ inputs.semgrep-file-names }}
           SEMGREP_RESTRICT_TO_FILES: ${{ inputs.semgrep-restrict-to-files }}
+          SEMGREP_EXCLUDE_COOLDOWN_RULES: ${{ inputs.semgrep-exclude-cooldown-rules }}
         run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
           args=(semgrep scan --config p/default --metrics off --error)
+          if [[ "${SEMGREP_EXCLUDE_COOLDOWN_RULES}" == true ]]; then
+            args+=(
+              --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown
+              --exclude-rule package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age
+              --exclude-rule package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age
+              --exclude-rule package_managers.uv.uv-missing-dependency-cooldown.uv-missing-dependency-cooldown
+            )
+          fi
           while IFS= read -r pattern; do
             if [[ -n "${pattern}" ]]; then
               args+=(--include "${pattern}")
