@@ -117,7 +117,7 @@ jobs:
   python-package-lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
-      UV_EXCLUDE_NEWER: 7 days
+      UV_EXCLUDE_NEWER: 1 day
       UV_MALWARE_CHECK: "1"
       PACKAGE_PATH: ${{ inputs.package-path }}
     steps:
