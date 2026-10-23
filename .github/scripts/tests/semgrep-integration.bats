@@ -102,51 +102,7 @@ run_semgrep_step() {
   run_semgrep_step "${CONSUMER}" "SEMGREP_EXCLUDE_COOLDOWN_RULES=true"
   [ "${status}" -eq 0 ]
   mapfile -d '' -t args < "${SEMGREP_ARGS}"
-  [ "$(printf '%s\n' "${args[@]}" | grep -c '^--exclude-rule
-  prepare_consumer
-  mkdir -p "${CONSUMER}/docker files"
-  touch "${CONSUMER}/docker files/Dockerfile"
-  for target in 'docker files/Dockerfile' 'docker files'; do
-    run_semgrep_step "${CONSUMER}" "SEMGREP_TARGET=${target}"
-    [ "${status}" -eq 0 ]
-    mapfile -d '' -t args < "${SEMGREP_ARGS}"
-    [ "${args[-2]}" = -- ]
-    [ "${args[-1]}" = "${target}" ]
-  done
-}
-
-@test "Shell Semgrep restricts targets to selected tracked files" {
-  prepare_consumer
-  run_semgrep_step "${CONSUMER}/nested" \
-    "SEMGREP_RESTRICT_TO_FILES=true" "SEMGREP_FILE_NAMES=selected file.sh"
-  [ "${status}" -eq 0 ]
-  mapfile -d '' -t args < "${SEMGREP_ARGS}"
-  [ "${args[-2]}" = -- ]
-  [ "${args[-1]}" = 'selected file.sh' ]
-  [[ " ${args[*]} " != *unrelated.sh* ]]
-}
-
-@test "Shell Semgrep skips unmatched selections and rejects an empty file list" {
-  prepare_consumer
-  run_semgrep_step "${CONSUMER}" \
-    "SEMGREP_RESTRICT_TO_FILES=true" "SEMGREP_FILE_NAMES=missing.sh"
-  [ "${status}" -eq 0 ]
-  [ ! -e "${SEMGREP_ARGS}" ]
-  run_semgrep_step "${CONSUMER}" \
-    "SEMGREP_RESTRICT_TO_FILES=true" "SEMGREP_FILE_NAMES="
-  [ "${status}" -eq 1 ]
-  [ ! -e "${SEMGREP_ARGS}" ]
-}
-
-@test "Shared Semgrep uses uvx with one-day cooldown and setup-uv caching" {
-  run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
-  # shellcheck disable=SC2016
-  grep -Fq 'uvx "${args[@]}"' "${SCAN_WORKFLOW}"
-  [ "$(yq -r '.jobs."source-security-scan".env.UV_EXCLUDE_NEWER' "${SCAN_WORKFLOW}")" = "1 day" ]
-  [ "$(yq -r '.jobs."source-security-scan".steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${SCAN_WORKFLOW}")" = auto ]
-  run ! grep -Fq SEMGREP_VERSION "${SCAN_WORKFLOW}"
-}
-)" -eq 4 ]
+  [ "$(printf '%s\n' "${args[@]}" | grep -c '^--exclude-rule$')" -eq 4 ]
   [[ " ${args[*]} " == *" --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown "* ]]
   [[ " ${args[*]} " == *" --exclude-rule package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age "* ]]
   [[ " ${args[*]} " == *" --exclude-rule package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age "* ]]
