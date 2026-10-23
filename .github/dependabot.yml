@@ -9,9 +9,9 @@ updates:
       default-days: 7
     open-pull-requests-limit: 10
     groups:
-      codeql:
+      github-actions-dependencies:
         patterns:
-          - 'github/codeql-action*'
+          - '*'
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -19,6 +19,10 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
+    groups:
+      npm-dependencies:
+        patterns:
+          - '*'
   - package-ecosystem: uv
     directory: /
     schedule:
@@ -26,3 +30,7 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
+    groups:
+      uv-dependencies:
+        patterns:
+          - '*'
