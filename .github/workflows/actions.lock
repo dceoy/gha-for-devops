@@ -38,11 +38,11 @@ workflows:
         - 'jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9'
+        - 'anthropics/claude-code-action@f27be6b65a4652f08a2ba3cff79114829b588967'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/claude-code-review.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9'
+        - 'anthropics/claude-code-action@f27be6b65a4652f08a2ba3cff79114829b588967'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/container-security.yml':
         - 'docker/login-action@dbcb813823bdd20940b903addbd779551569679f'
@@ -352,9 +352,9 @@ dependencies:
         repo_id: 496012378
         uses:
             - 'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f'
-    'anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9':
-        ref: 'v1.0.251'
-        commit: 'sha1-374f254f5efaf968abfe15d399fd90972e8138b9'
+    'anthropics/claude-code-action@f27be6b65a4652f08a2ba3cff79114829b588967':
+        ref: 'v1.0.252'
+        commit: 'sha1-f27be6b65a4652f08a2ba3cff79114829b588967'
         owner_id: 76263028
         repo_id: 986421638
         uses:
@@ -452,14 +452,14 @@ dependencies:
         commit: 'sha1-cc9c08ba6c8df3b93a8f2db63e89b98368ae2ae8'
         owner_id: 26386270
         repo_id: 209101661
-    'github/codeql-action@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee':
-        ref: 'v4.39.0'
-        commit: 'sha1-6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee'
-        owner_id: 9919
-        repo_id: 259445878
     'github/codeql-action@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2':
         ref: 'v4.38.2'
         commit: 'sha1-2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2'
+        owner_id: 9919
+        repo_id: 259445878
+    'github/codeql-action@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee':
+        ref: 'v4.39.0'
+        commit: 'sha1-6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee'
         owner_id: 9919
         repo_id: 259445878
     'google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093':
