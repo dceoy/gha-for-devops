@@ -1,6 +1,4 @@
-minimumReleaseAge: 10080
-minimumReleaseAgeExclude:
-  - markdown-it@14.3.3
+minimumReleaseAge: 1440
 
 # Fixed transitive releases while Markdown tooling still pins older versions.
 overrides:
