@@ -21,7 +21,7 @@ rules:
           - pattern-inside: |
               updates:
                 ...
-          - pattern-regex: 'default-days\s*:\s*(?P<DAYS>\d+)'
+          - pattern-regex: '(?m)^[ \t]*(?:default-days|semver-(?:major|minor|patch)-days)[ \t]*:[ \t]*(?P<DAYS>\d+)'
           - metavariable-comparison:
               metavariable: $DAYS
               comparison: int($DAYS) < 1
@@ -30,13 +30,11 @@ rules:
           - pattern-inside: |
               updates:
                 ...
-          - pattern: |
-              cooldown:
-                default-days: $DAYS
+          - pattern-regex: '(?m)^[ \t]*(?:default-days|semver-(?:major|minor|patch)-days)[ \t]*:[ \t]*(?P<VAL>[^#\r\n]*?)[ \t]*(?:#.*)?$'
           - metavariable-regex:
-              metavariable: $DAYS
-              regex: '^\D'
-          - focus-metavariable: $DAYS
+              metavariable: $VAL
+              regex: '^(?!\d+$)'
+          - focus-metavariable: $VAL
     message: >-
       This Dependabot configuration does not set a one-day cooldown. Add a
       `cooldown` block with `default-days: 1` to each `package-ecosystem` entry
@@ -72,44 +70,24 @@ rules:
   - id: local-qa-renovate-one-day-release-age
     pattern-either:
       - patterns:
-          - pattern-inside: |
-              "packageRules": [
-                ...
-              ]
           - pattern-either:
               - pattern: |
-                  { ..., "matchPackageNames": [...], ... }
+                  { ..., "$schema": $SCHEMA, ... }
               - pattern: |
-                  { ..., "matchPackagePatterns": [...], ... }
+                  { ..., "extends": $EXTENDS, ... }
               - pattern: |
-                  { ..., "matchDepTypes": [...], ... }
+                  { ..., "packageRules": [...], ... }
+              - pattern: |
+                  { ..., "customManagers": [...], ... }
           - pattern-not: |
-              {
-                ...,
-                "minimumReleaseAge": $AGE,
-                ...
-              }
-          - pattern-not: |
-              {
-                ...,
-                "minimumReleaseAge": false,
-                ...
-              }
+              { ..., "minimumReleaseAge": "$AGE", ... }
       - patterns:
-          - pattern-inside: |
-              "packageRules": [
-                ...
-              ]
-          - pattern-regex: '"minimumReleaseAge":\s*"(?P<AGE>\d+) days?"'
+          - pattern-regex: '"minimumReleaseAge"\s*:\s*"(?P<AGE>\d+) days?"'
           - metavariable-comparison:
               metavariable: $AGE
               comparison: int($AGE) < 1
           - focus-metavariable: $AGE
       - patterns:
-          - pattern-inside: |
-              "packageRules": [
-                ...
-              ]
           - pattern: |
               "minimumReleaseAge": "$AGE"
           - metavariable-regex:
@@ -117,10 +95,10 @@ rules:
               regex: '^(?!\d+ days?$)'
           - focus-metavariable: $AGE
     message: >-
-      This Renovate configuration does not set a one-day minimum release age.
-      Add `"minimumReleaseAge": "1 day"` within each dependency-matching
-      `packageRules` entry. Set `"minimumReleaseAge": false` to declare an
-      intentional exception.
+      This Renovate configuration does not enforce a one-day minimum release
+      age. Set the root `"minimumReleaseAge"` to at least `"1 day"`; keep any
+      `packageRules` override at one day or longer. A rule-level `false` remains
+      an explicit exception.
       Reference: https://docs.renovatebot.com/configuration-options/#minimumreleaseage
     languages:
       - json
@@ -166,7 +144,7 @@ rules:
         - "**/pnpm-workspace.yaml"
     pattern-either:
       - patterns:
-          - pattern-regex: '(?ms)(?:\A|^---$\n)(?:(?!^minimumReleaseAge\s*:)(?!^---$)[\s\S])*?(?P<TARGET>^(?:packages|catalog)\s*:)(?:(?!^minimumReleaseAge\s*:)(?!^---$)[\s\S])*?(?=^---$|\z)'
+          - pattern-regex: '(?ms)(?:\A|^---$\n)(?:(?!^minimumReleaseAge\s*:)(?!^---$)[\s\S])*?(?P<TARGET>^(?!minimumReleaseAge\s*:)[^\s#][^:\r\n]*:)(?:(?!^minimumReleaseAge\s*:)(?!^---$)[\s\S])*?(?=^---$|\z)'
           - focus-metavariable: $TARGET
       - patterns:
           - pattern-regex: '^\s*minimumReleaseAge\s*:\s*(?P<AGE>\d+)'
@@ -205,19 +183,19 @@ rules:
   - id: local-qa-uv-one-day-dependency-cooldown
     pattern-either:
       - patterns:
-          - pattern-regex: '(?ms)\[tool\.uv\](?P<TARGET>[^\[]*?)(?=\[|\z)'
+          - pattern-regex: '(?ms)^[ \t]*\[tool\.uv\][ \t]*(?:#.*)?(?:\r?\n|(?=\z))(?P<TARGET>(?:(?!^[ \t]*\[{1,2}[^\]\r\n]+\]{1,2}[ \t]*(?:#.*)?\r?$)[\s\S])*)'
           - metavariable-regex:
               metavariable: $TARGET
-              regex: '^(?![\s\S]*exclude-newer)'
+              regex: '(?m)^(?![\s\S]*^[ \t]*exclude-newer[ \t]*=)'
           - focus-metavariable: $TARGET
       - patterns:
-          - pattern-regex: 'exclude-newer\s*=\s*"(?P<DAYS>\d+)\s*d(?:ays?)?"'
+          - pattern-regex: '(?ms)^[ \t]*\[tool\.uv\][^\r\n]*\r?\n(?:(?!^[ \t]*\[{1,2}[^\]\r\n]+\]{1,2}[ \t]*(?:#.*)?\r?$)[\s\S])*?^[ \t]*exclude-newer[ \t]*=[ \t]*"(?P<DAYS>\d+)\s*d(?:ays?)?"'
           - metavariable-comparison:
               metavariable: $DAYS
               comparison: int($DAYS) < 1
           - focus-metavariable: $DAYS
       - patterns:
-          - pattern-regex: 'exclude-newer\s*=\s*"(?P<VAL>[^"]+)"'
+          - pattern-regex: '(?ms)^[ \t]*\[tool\.uv\][^\r\n]*\r?\n(?:(?!^[ \t]*\[{1,2}[^\]\r\n]+\]{1,2}[ \t]*(?:#.*)?\r?$)[\s\S])*?^[ \t]*exclude-newer[ \t]*=[ \t]*"(?P<VAL>[^"\r\n]+)"'
           - metavariable-regex:
               metavariable: $VAL
               regex: '(?i)^(?!\d+\s*d(?:ays?)?\b)(?!\d+\s*(?:weeks?|wks?|w|months?|mos?|mo|years?|yrs?|y)\b)(?!P[^Tt]*[WMY])(?!P[1-9]\d*D\b)'
@@ -233,6 +211,57 @@ rules:
     paths:
       include:
         - "**/pyproject.toml"
+    metadata:
+      category: security
+      technology:
+        - uv
+        - python
+      cwe:
+        - "CWE-829: Inclusion of Functionality from Untrusted Control Sphere"
+      owasp:
+        - A08:2021 - Software and Data Integrity Failures
+      confidence: HIGH
+      likelihood: LOW
+      impact: HIGH
+      subcategory:
+        - audit
+      vulnerability_class:
+        - Insecure Configuration
+      references:
+        - https://docs.astral.sh/uv/concepts/resolution/#dependency-cooldowns
+      replaces:
+        - package_managers.uv.uv-missing-dependency-cooldown.uv-missing-dependency-cooldown
+
+  - id: local-qa-uv-toml-one-day-dependency-cooldown
+    pattern-either:
+      - patterns:
+          - pattern-regex: '(?ms)\A(?P<TARGET>(?:(?!^[ \t]*\[{1,2}[^\]\r\n]+\]{1,2}[ \t]*(?:#.*)?\r?$)[\s\S])*)'
+          - metavariable-regex:
+              metavariable: $TARGET
+              regex: '(?m)^(?![\s\S]*^[ \t]*exclude-newer[ \t]*=)'
+          - focus-metavariable: $TARGET
+      - patterns:
+          - pattern-regex: '(?ms)\A(?:(?!^[ \t]*\[{1,2}[^\]\r\n]+\]{1,2}[ \t]*(?:#.*)?\r?$)[\s\S])*?^[ \t]*exclude-newer[ \t]*=[ \t]*"(?P<DAYS>\d+)\s*d(?:ays?)?"'
+          - metavariable-comparison:
+              metavariable: $DAYS
+              comparison: int($DAYS) < 1
+          - focus-metavariable: $DAYS
+      - patterns:
+          - pattern-regex: '(?ms)\A(?:(?!^[ \t]*\[{1,2}[^\]\r\n]+\]{1,2}[ \t]*(?:#.*)?\r?$)[\s\S])*?^[ \t]*exclude-newer[ \t]*=[ \t]*"(?P<VAL>[^"\r\n]+)"'
+          - metavariable-regex:
+              metavariable: $VAL
+              regex: '(?i)^(?!\d+\s*d(?:ays?)?\b)(?!\d+\s*(?:weeks?|wks?|w|months?|mos?|mo|years?|yrs?|y)\b)(?!P[^Tt]*[WMY])(?!P[1-9]\d*D\b)'
+          - focus-metavariable: $VAL
+    message: >-
+      This uv.toml configures uv but does not set a one-day dependency
+      cooldown. Add `exclude-newer = "1 day"` at the file root to wait one day
+      before resolving newly published package versions.
+      Reference: https://docs.astral.sh/uv/concepts/resolution/#dependency-cooldowns
+    languages:
+      - generic
+    severity: MEDIUM
+    paths:
+      include:
         - "**/uv.toml"
     metadata:
       category: security
