@@ -81,7 +81,7 @@ SH
   export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
   export CURL_ARGS="$BATS_TEST_TMPDIR/curl-args"
   export SNAPSHOT="$BATS_TEST_TMPDIR/snapshot.json"
-  printf '%s\n' '{"version":0,"detector":{"name":"trivy"},"job":{"correlator":"stable-image-target"},"manifests":{}}' > "$SNAPSHOT"
+  printf '%s\n' '{"version":0,"detector":{"name":"trivy"},"job":{"correlator":"stable-image-target"},"manifests":{"package-lock.json":{"resolved":{"lodash":{"package_url":"pkg:npm/lodash@4.17.20"}}}}}' > "$SNAPSHOT"
   local code
   for code in 0 22 7; do
     : > "$GITHUB_STEP_SUMMARY"
