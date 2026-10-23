@@ -76,7 +76,7 @@ jobs:
   shell-lint:
     runs-on: ${{ inputs.runs-on }}
     env:
-      UV_EXCLUDE_NEWER: 7 days
+      UV_EXCLUDE_NEWER: 1 day
       # renovate: datasource=github-releases depName=koalaman/shellcheck
       SHELLCHECK_VERSION: v0.11.0
       # renovate: datasource=github-releases depName=mvdan/sh
