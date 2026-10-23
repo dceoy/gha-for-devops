@@ -119,7 +119,7 @@ jobs:
   python-package-mkdocs-gh-deploy:
     runs-on: ${{ inputs.runs-on }}
     env:
-      UV_EXCLUDE_NEWER: 7 days
+      UV_EXCLUDE_NEWER: 1 day
       UV_MALWARE_CHECK: "1"
       PACKAGE_PATH: ${{ inputs.package-path }}
       MKDOCS_SITE_DIR: ${{ inputs.package-path }}/site

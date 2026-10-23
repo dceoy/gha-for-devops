@@ -153,6 +153,10 @@ on:
         type: boolean
         description: Always return exit code 0 from Checkov
         default: false
+      semgrep-exclude-cooldown-rules:
+        type: boolean
+        default: false
+        description: Exclude Semgrep p/default dependency cooldown and minimum release age rules
       use-semgrep:
         required: false
         type: boolean
@@ -192,6 +196,7 @@ jobs:
       use-osv-scanner: false
       use-trivy: false
       use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-exclude-cooldown-rules: ${{ inputs.semgrep-exclude-cooldown-rules }}
       package-path: ${{ inputs.search-path }}
       use-checkov: ${{ inputs.use-checkov }}
       checkov-framework: ${{ inputs.checkov-framework }}
@@ -215,7 +220,7 @@ jobs:
       actions: read
     runs-on: ${{ inputs.runs-on }}
     env:
-      UV_EXCLUDE_NEWER: 7 days
+      UV_EXCLUDE_NEWER: 1 day
       # renovate: datasource=github-releases depName=rhysd/actionlint
       ACTIONLINT_VERSION: v1.7.12
       # renovate: datasource=github-releases depName=koalaman/shellcheck

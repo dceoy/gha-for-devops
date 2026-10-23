@@ -13,6 +13,10 @@ on:
       use-codeql:
         type: boolean
         default: true
+      semgrep-exclude-cooldown-rules:
+        type: boolean
+        default: false
+        description: Exclude Semgrep p/default dependency cooldown and minimum release age rules
       use-joern:
         type: boolean
         default: false
@@ -38,6 +42,7 @@ jobs:
       use-osv-scanner: true
       use-trivy: true
       use-semgrep: true
+      semgrep-exclude-cooldown-rules: ${{ inputs.semgrep-exclude-cooldown-rules }}
   security-audit-history:
     if: inputs.use-git-history && github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     uses: $/.github/workflows/git-secret-scan.yml

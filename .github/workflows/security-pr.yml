@@ -12,6 +12,10 @@ on:
       use-trivy:
         type: boolean
         default: true
+      semgrep-exclude-cooldown-rules:
+        type: boolean
+        default: false
+        description: Exclude Semgrep p/default dependency cooldown and minimum release age rules
       use-semgrep:
         type: boolean
         default: true
@@ -33,6 +37,7 @@ jobs:
       use-osv-scanner: ${{ inputs.use-osv-scanner }}
       use-trivy: ${{ inputs.use-trivy }}
       use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-exclude-cooldown-rules: ${{ inputs.semgrep-exclude-cooldown-rules }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
   security-pr-history:
     if: inputs.use-git-history && (github.event_name == 'pull_request' || github.event_name == 'push')

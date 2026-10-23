@@ -133,6 +133,10 @@ on:
         type: boolean
         description: Always return exit code 0 from Checkov
         default: false
+      semgrep-exclude-cooldown-rules:
+        type: boolean
+        default: false
+        description: Exclude Semgrep p/default dependency cooldown and minimum release age rules
       use-semgrep:
         required: false
         type: boolean
@@ -170,6 +174,7 @@ jobs:
       runs-on: ${{ inputs.security-runs-on }}
       use-osv-scanner: false
       use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-exclude-cooldown-rules: ${{ inputs.semgrep-exclude-cooldown-rules }}
       package-path: ${{ inputs.trivy-scan-ref }}
       submit-dependencies: ${{ inputs.submit-dependencies }}
       snapshot-correlator: ${{ inputs.snapshot-correlator }}
@@ -205,7 +210,7 @@ jobs:
       contents: read
     runs-on: ${{ inputs.runs-on }}
     env:
-      UV_EXCLUDE_NEWER: 7 days
+      UV_EXCLUDE_NEWER: 1 day
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

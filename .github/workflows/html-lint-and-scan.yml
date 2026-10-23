@@ -93,6 +93,10 @@ on:
         type: string
         description: Optional artifact name for the Trivy SARIF report
         default: ""
+      semgrep-exclude-cooldown-rules:
+        type: boolean
+        default: false
+        description: Exclude Semgrep p/default dependency cooldown and minimum release age rules
       use-semgrep:
         required: false
         type: boolean
@@ -125,6 +129,7 @@ jobs:
       use-trivy: ${{ inputs.use-trivy }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
       use-semgrep: ${{ inputs.use-semgrep }}
+      semgrep-exclude-cooldown-rules: ${{ inputs.semgrep-exclude-cooldown-rules }}
       semgrep-working-directory: ${{ inputs.package-path }}
       semgrep-includes: |
         *.html
@@ -132,10 +137,10 @@ jobs:
   html-lint-and-scan:
     runs-on: ${{ inputs.runs-on }}
     env:
-      UV_EXCLUDE_NEWER: 7 days
-      npm_config_min_release_age: '7'
-      NPM_CONFIG_MINIMUM_RELEASE_AGE: '10080'
-      PNPM_CONFIG_MINIMUM_RELEASE_AGE: '10080'
+      UV_EXCLUDE_NEWER: 1 day
+      npm_config_min_release_age: '1'
+      NPM_CONFIG_MINIMUM_RELEASE_AGE: '1440'
+      PNPM_CONFIG_MINIMUM_RELEASE_AGE: '1440'
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1

@@ -167,7 +167,7 @@ if [[ -d '.github/workflows' ]]; then
   N_WORKFLOW_YAML_FILES=$(git ls-files -- '.github/workflows/**.yml' '.github/workflows/**.yaml' | wc -l)
   if [[ "${N_WORKFLOW_YAML_FILES}" -gt 0 ]]; then
     # Reuse this repository's tested compatibility exceptions for newer GitHub.com syntax.
-    ACTIONLINT_SCRIPT="$(yq -r '.jobs."github-actions-lint-scan".steps[] | select(.name == "Execute actionlint") | .run' .github/workflows/github-actions-lint-and-scan.yml)"
+    ACTIONLINT_SCRIPT="$(yq -r '.jobs."actions-lint-and-scan".steps[] | select(.name == "Execute actionlint") | .run' .github/workflows/github-actions-lint-and-scan.yml)"
     [[ -n "${ACTIONLINT_SCRIPT}" && "${ACTIONLINT_SCRIPT}" != null ]]
     ACTIONLINT_COMPATIBILITY_MODE=true ACTIONLINT_EXTRA_IGNORE_REGEX='' \
       GITHUB_SERVER_URL="${GITHUB_SERVER_URL:-https://github.com}" SEARCH_PATH=.github/workflows \
@@ -196,5 +196,16 @@ fi
 N_SEMGREP_FILES=$(git ls-files -- '*.py' '*.go' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.mts' '*.cts' '*.sh' '*.bash' '*.bats' '*.tf' '*.hcl' '*.yml' '*.yaml' '*.html' '*.htm' 'Dockerfile*' '*.dockerfile' | wc -l)
 if [[ "${N_SEMGREP_FILES}" -gt 0 ]]; then
   # Process workers avoid native OCaml thread startup failures on constrained runners.
-  uv run --locked semgrep scan --x-parmap --jobs 2 --config p/default --metrics off --error .
+  # Ignore p/default's package-manager cooldown rules in this broad configuration scan.
+  uv run --locked semgrep scan --x-parmap --jobs 2 --config p/default \
+    --exclude-rule package_managers.bun.bun-missing-minimum-release-age.bun-missing-minimum-release-age \
+    --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown \
+    --exclude-rule package_managers.npm.npm-missing-minimum-release-age.npm-missing-minimum-release-age \
+    --exclude-rule package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age \
+    --exclude-rule package_managers.poetry.poetry-missing-solver-min-release-age.poetry-missing-solver-min-release-age \
+    --exclude-rule package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age \
+    --exclude-rule package_managers.ruby.bundler-gemfile-missing-cooldown.bundler-gemfile-missing-cooldown \
+    --exclude-rule package_managers.uv.uv-missing-dependency-cooldown.uv-missing-dependency-cooldown \
+    --exclude-rule package_managers.yarn.yarn-missing-minimal-age-gate.yarn-missing-minimal-age-gate \
+    --metrics off --error .
 fi

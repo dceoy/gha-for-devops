@@ -40,7 +40,7 @@ run_semgrep_step() {
   yq -r '.jobs."source-security-scan".steps[] | select(.name == "Run Semgrep SAST scan") | .run' "${SCAN_WORKFLOW}" > "${script}"
   # shellcheck disable=SC2016
   run env "SEMGREP_INCLUDES=*.sh" "SEMGREP_TARGET=." "SEMGREP_FILE_NAMES=" \
-    "SEMGREP_RESTRICT_TO_FILES=false" "$@" \
+    "SEMGREP_RESTRICT_TO_FILES=false" "SEMGREP_EXCLUDE_COOLDOWN_RULES=false" "$@" \
     bash -c 'cd "$1" && exec bash -euo pipefail "$2"' _ "${directory}" "${script}"
 }
 
@@ -92,6 +92,39 @@ run_semgrep_step() {
   [ "${status}" -eq 1 ]
 }
 
+@test "Semgrep cooldown exclusions require explicit opt-in" {
+  prepare_consumer
+  run_semgrep_step "${CONSUMER}"
+  [ "${status}" -eq 0 ]
+  mapfile -d '' -t args < "${SEMGREP_ARGS}"
+  [[ " ${args[*]} " != *' --exclude-rule '* ]]
+
+  run_semgrep_step "${CONSUMER}" "SEMGREP_EXCLUDE_COOLDOWN_RULES=true"
+  [ "${status}" -eq 0 ]
+  mapfile -d '' -t args < "${SEMGREP_ARGS}"
+  [ "$(printf '%s\n' "${args[@]}" | grep -c '^--exclude-rule$')" -eq 9 ]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.bun.bun-missing-minimum-release-age.bun-missing-minimum-release-age "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.npm.npm-missing-minimum-release-age.npm-missing-minimum-release-age "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.poetry.poetry-missing-solver-min-release-age.poetry-missing-solver-min-release-age "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.ruby.bundler-gemfile-missing-cooldown.bundler-gemfile-missing-cooldown "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.uv.uv-missing-dependency-cooldown.uv-missing-dependency-cooldown "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.yarn.yarn-missing-minimal-age-gate.yarn-missing-minimal-age-gate "* ]]
+}
+
+@test "All Semgrep reusable workflows forward the cooldown exclusion input" {
+  # shellcheck disable=SC2016
+  local forwarded='${{ inputs.semgrep-exclude-cooldown-rules }}'
+  [ "$(yq -r '.on.workflow_call.inputs."semgrep-exclude-cooldown-rules".default' "${SCAN_WORKFLOW}")" = false ]
+  for workflow in "${WORKFLOWS[@]}" security-pr.yml security-audit.yml; do
+    local path="${REPO_ROOT}/.github/workflows/${workflow}"
+    [ "$(yq -r '.on.workflow_call.inputs."semgrep-exclude-cooldown-rules".default' "${path}")" = false ]
+    [ "$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml").with."semgrep-exclude-cooldown-rules"' "${path}")" = "${forwarded}" ]
+  done
+}
+
 @test "Docker Semgrep handles a single file and a directory with spaces" {
   prepare_consumer
   mkdir -p "${CONSUMER}/docker files"
@@ -132,7 +165,7 @@ run_semgrep_step() {
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
   # shellcheck disable=SC2016
   grep -Fq 'uvx "${args[@]}"' "${SCAN_WORKFLOW}"
-  [ "$(yq -r '.jobs."source-security-scan".env.UV_EXCLUDE_NEWER' "${SCAN_WORKFLOW}")" = "7 days" ]
+  [ "$(yq -r '.jobs."source-security-scan".env.UV_EXCLUDE_NEWER' "${SCAN_WORKFLOW}")" = "1 day" ]
   [ "$(yq -r '.jobs."source-security-scan".steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${SCAN_WORKFLOW}")" = auto ]
   run ! grep -Fq SEMGREP_VERSION "${SCAN_WORKFLOW}"
 }

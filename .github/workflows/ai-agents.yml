@@ -7,9 +7,6 @@ on:
     types:
       - opened
       - ready_for_review
-  issue_comment:
-    types:
-      - created
   pull_request_review_comment:
     types:
       - created
@@ -50,10 +47,6 @@ jobs:
   claude-code-bot:
     if: >
       (
-        github.event_name == 'issue_comment'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
-        && contains(github.event.comment.body, '@claude')
-      ) || (
         github.event_name == 'pull_request_review_comment'
         && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
         && contains(github.event.comment.body, '@claude')
@@ -103,7 +96,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   opencode-bot:
     if: >
-      (github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment')
+      github.event_name == 'pull_request_review_comment'
       && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
       && (contains(github.event.comment.body, ' /oc') || contains(github.event.comment.body, ' /opencode'))
     concurrency:
