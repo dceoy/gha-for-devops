@@ -136,7 +136,7 @@ pnpm install --frozen-lockfile
 pnpm qa
 ```
 
-QA uses committed lockfiles and a seven-day dependency release cooldown. See [osv-scanner.toml](osv-scanner.toml) for the temporary Checkov/ecdsa vulnerability assessment, guarded scope, and expiration.
+QA uses committed lockfiles and a one-day dependency release cooldown. See [osv-scanner.toml](osv-scanner.toml) for the temporary Checkov/ecdsa vulnerability assessment, guarded scope, and expiration.
 
 ## License
 

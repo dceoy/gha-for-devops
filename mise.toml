@@ -1,5 +1,5 @@
 [settings]
-minimum_release_age = "7d"
+minimum_release_age = "1d"
 use_versions_host_track = false
 
 [tools]

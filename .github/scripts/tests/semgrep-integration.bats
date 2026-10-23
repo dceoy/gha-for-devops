@@ -128,7 +128,7 @@ run_semgrep_step() {
   [ ! -e "${SEMGREP_ARGS}" ]
 }
 
-@test "Shared Semgrep uses uvx with seven-day cooldown and setup-uv caching" {
+@test "Shared Semgrep uses uvx with one-day cooldown and setup-uv caching" {
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
   # shellcheck disable=SC2016
   grep -Fq 'uvx "${args[@]}"' "${SCAN_WORKFLOW}"
