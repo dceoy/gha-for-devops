@@ -1,0 +1,256 @@
+---
+rules:
+  # These rules replace only p/default's seven-day cooldown checks. Keep this
+  # local policy aligned with the one-day settings enforced by local QA.
+  - id: local-qa-dependabot-one-day-cooldown
+    pattern-either:
+      - patterns:
+          - pattern-inside: |
+              updates:
+                ...
+          - pattern: |
+              - package-ecosystem: $ECOSYSTEM
+                ...
+          - pattern-not: |
+              - package-ecosystem: $ECOSYSTEM
+                ...
+                cooldown:
+                  ...
+                ...
+      - patterns:
+          - pattern-inside: |
+              updates:
+                ...
+          - pattern-regex: 'default-days\s*:\s*(?P<DAYS>\d+)'
+          - metavariable-comparison:
+              metavariable: $DAYS
+              comparison: int($DAYS) < 1
+          - focus-metavariable: $DAYS
+      - patterns:
+          - pattern-inside: |
+              updates:
+                ...
+          - pattern: |
+              cooldown:
+                default-days: $DAYS
+          - metavariable-regex:
+              metavariable: $DAYS
+              regex: '^\D'
+          - focus-metavariable: $DAYS
+    message: >-
+      This Dependabot configuration does not set a one-day cooldown. Add a
+      `cooldown` block with `default-days: 1` to each `package-ecosystem` entry
+      under `updates`.
+      Reference: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#cooldown
+    languages:
+      - yaml
+    severity: MEDIUM
+    paths:
+      include:
+        - "**/.github/dependabot.yml"
+        - "**/.github/dependabot.yaml"
+    metadata:
+      category: security
+      technology:
+        - dependabot
+      cwe:
+        - "CWE-829: Inclusion of Functionality from Untrusted Control Sphere"
+      owasp:
+        - A08:2021 - Software and Data Integrity Failures
+      confidence: HIGH
+      likelihood: LOW
+      impact: HIGH
+      subcategory:
+        - audit
+      vulnerability_class:
+        - Insecure Configuration
+      references:
+        - https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#cooldown
+      replaces:
+        - package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown
+
+  - id: local-qa-renovate-one-day-release-age
+    pattern-either:
+      - patterns:
+          - pattern-inside: |
+              "packageRules": [
+                ...
+              ]
+          - pattern-either:
+              - pattern: |
+                  { ..., "matchPackageNames": [...], ... }
+              - pattern: |
+                  { ..., "matchPackagePatterns": [...], ... }
+              - pattern: |
+                  { ..., "matchDepTypes": [...], ... }
+          - pattern-not: |
+              {
+                ...,
+                "minimumReleaseAge": $AGE,
+                ...
+              }
+          - pattern-not: |
+              {
+                ...,
+                "minimumReleaseAge": false,
+                ...
+              }
+      - patterns:
+          - pattern-inside: |
+              "packageRules": [
+                ...
+              ]
+          - pattern-regex: '"minimumReleaseAge":\s*"(?P<AGE>\d+) days?"'
+          - metavariable-comparison:
+              metavariable: $AGE
+              comparison: int($AGE) < 1
+          - focus-metavariable: $AGE
+      - patterns:
+          - pattern-inside: |
+              "packageRules": [
+                ...
+              ]
+          - pattern: |
+              "minimumReleaseAge": "$AGE"
+          - metavariable-regex:
+              metavariable: $AGE
+              regex: '^(?!\d+ days?$)'
+          - focus-metavariable: $AGE
+    message: >-
+      This Renovate configuration does not set a one-day minimum release age.
+      Add `"minimumReleaseAge": "1 day"` within each dependency-matching
+      `packageRules` entry. Set `"minimumReleaseAge": false` to declare an
+      intentional exception.
+      Reference: https://docs.renovatebot.com/configuration-options/#minimumreleaseage
+    languages:
+      - json
+    severity: MEDIUM
+    paths:
+      include:
+        - "**/renovate.json"
+        - "**/renovate.json5"
+        - "**/.renovaterc"
+        - "**/.renovaterc.json"
+        - "**/.renovaterc.json5"
+    metadata:
+      category: security
+      technology:
+        - renovate
+      cwe:
+        - "CWE-829: Inclusion of Functionality from Untrusted Control Sphere"
+      owasp:
+        - A08:2021 - Software and Data Integrity Failures
+      confidence: HIGH
+      likelihood: LOW
+      impact: HIGH
+      subcategory:
+        - audit
+      vulnerability_class:
+        - Insecure Configuration
+      references:
+        - https://docs.renovatebot.com/configuration-options/#minimumreleaseage
+      replaces:
+        - package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age
+
+  - id: local-qa-pnpm-one-day-release-age
+    message: >-
+      This pnpm workspace configuration does not set a one-day minimum release
+      age. Add `minimumReleaseAge: 1440` (minutes) to wait at least one day
+      before installing newly published package versions.
+      Reference: https://pnpm.io/settings#minimumreleaseage
+    languages:
+      - yaml
+    severity: MEDIUM
+    paths:
+      include:
+        - "**/pnpm-workspace.yaml"
+    pattern-either:
+      - patterns:
+          - pattern-regex: '(?ms)(?:\A|^---$\n)(?:(?!^minimumReleaseAge\s*:)(?!^---$)[\s\S])*?(?P<TARGET>^(?:packages|catalog)\s*:)(?:(?!^minimumReleaseAge\s*:)(?!^---$)[\s\S])*?(?=^---$|\z)'
+          - focus-metavariable: $TARGET
+      - patterns:
+          - pattern-regex: '^\s*minimumReleaseAge\s*:\s*(?P<AGE>\d+)'
+          - metavariable-comparison:
+              metavariable: $AGE
+              comparison: int($AGE) < 1440
+          - focus-metavariable: $AGE
+      - patterns:
+          - pattern: |
+              minimumReleaseAge: $AGE
+          - metavariable-regex:
+              metavariable: $AGE
+              regex: '^\D'
+          - focus-metavariable: $AGE
+      - pattern-regex: '(?m)^\s*minimumReleaseAge\s*:\s*$'
+    metadata:
+      category: security
+      technology:
+        - pnpm
+      cwe:
+        - "CWE-829: Inclusion of Functionality from Untrusted Control Sphere"
+      owasp:
+        - A08:2021 - Software and Data Integrity Failures
+      confidence: HIGH
+      likelihood: LOW
+      impact: HIGH
+      subcategory:
+        - audit
+      vulnerability_class:
+        - Insecure Configuration
+      references:
+        - https://pnpm.io/settings#minimumreleaseage
+      replaces:
+        - package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age
+
+  - id: local-qa-uv-one-day-dependency-cooldown
+    pattern-either:
+      - patterns:
+          - pattern-regex: '(?ms)\[tool\.uv\](?P<TARGET>[^\[]*?)(?=\[|\z)'
+          - metavariable-regex:
+              metavariable: $TARGET
+              regex: '^(?![\s\S]*exclude-newer)'
+          - focus-metavariable: $TARGET
+      - patterns:
+          - pattern-regex: 'exclude-newer\s*=\s*"(?P<DAYS>\d+)\s*d(?:ays?)?"'
+          - metavariable-comparison:
+              metavariable: $DAYS
+              comparison: int($DAYS) < 1
+          - focus-metavariable: $DAYS
+      - patterns:
+          - pattern-regex: 'exclude-newer\s*=\s*"(?P<VAL>[^"]+)"'
+          - metavariable-regex:
+              metavariable: $VAL
+              regex: '(?i)^(?!\d+\s*d(?:ays?)?\b)(?!\d+\s*(?:weeks?|wks?|w|months?|mos?|mo|years?|yrs?|y)\b)(?!P[^Tt]*[WMY])(?!P[1-9]\d*D\b)'
+          - focus-metavariable: $VAL
+    message: >-
+      This pyproject.toml configures uv but does not set a one-day dependency
+      cooldown. Add `exclude-newer = "1 day"` under `[tool.uv]` to wait one day
+      before resolving newly published package versions.
+      Reference: https://docs.astral.sh/uv/concepts/resolution/#dependency-cooldowns
+    languages:
+      - generic
+    severity: MEDIUM
+    paths:
+      include:
+        - "**/pyproject.toml"
+        - "**/uv.toml"
+    metadata:
+      category: security
+      technology:
+        - uv
+        - python
+      cwe:
+        - "CWE-829: Inclusion of Functionality from Untrusted Control Sphere"
+      owasp:
+        - A08:2021 - Software and Data Integrity Failures
+      confidence: HIGH
+      likelihood: LOW
+      impact: HIGH
+      subcategory:
+        - audit
+      vulnerability_class:
+        - Insecure Configuration
+      references:
+        - https://docs.astral.sh/uv/concepts/resolution/#dependency-cooldowns
+      replaces:
+        - package_managers.uv.uv-missing-dependency-cooldown.uv-missing-dependency-cooldown

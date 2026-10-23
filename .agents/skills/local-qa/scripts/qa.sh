@@ -196,5 +196,12 @@ fi
 N_SEMGREP_FILES=$(git ls-files -- '*.py' '*.go' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.mts' '*.cts' '*.sh' '*.bash' '*.bats' '*.tf' '*.hcl' '*.yml' '*.yaml' '*.html' '*.htm' 'Dockerfile*' '*.dockerfile' | wc -l)
 if [[ "${N_SEMGREP_FILES}" -gt 0 ]]; then
   # Process workers avoid native OCaml thread startup failures on constrained runners.
-  uv run --locked semgrep scan --x-parmap --jobs 2 --config p/default --metrics off --error .
+  # Replace only p/default's seven-day dependency cooldown rules with the
+  # repository's one-day policy rules; every other p/default rule stays active.
+  uv run --locked semgrep scan --x-parmap --jobs 2 --config p/default \
+    --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown \
+    --exclude-rule package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age \
+    --exclude-rule package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age \
+    --exclude-rule package_managers.uv.uv-missing-dependency-cooldown.uv-missing-dependency-cooldown \
+    --config .agents/skills/local-qa/semgrep/one-day-cooldown.yml --metrics off --error .
 fi
