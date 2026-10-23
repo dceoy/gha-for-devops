@@ -70,7 +70,7 @@ has_pnpm_version_source_in_fixture() {
 
   run yq -r '.env.UV_EXCLUDE_NEWER' "${workflow}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "7 days" ]
+  [ "${output}" = "1 day" ]
 
   run grep -F 'npm_config_min_release_age:' "${workflow}"
   [ "${status}" -ne 0 ]
