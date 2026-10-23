@@ -124,6 +124,8 @@ jobs:
 
 Publication is opt-in and limited to default-branch `push`, `schedule`, or `workflow_dispatch` events. Scan jobs use `contents: read`; publication requires the caller to grant `contents: write`. Keep a distinct, stable correlator for each inventory.
 
+When a scan finds no resolved package URLs, the workflow skips submission so an empty inventory does not replace the repository's existing dependency graph.
+
 Docker build, multi-target, and Bake workflows reuse their postbuild scan for publication. Set `submit-dependencies: true` and `push: true`; grant `contents: write` and `packages: read` for GHCR, and pass `DOCKER_TOKEN` for registry access. Avoid submitting the same inventory twice.
 
 ## Local QA

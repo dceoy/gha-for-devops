@@ -203,8 +203,18 @@ jobs:
           RAW_REPORT: ${{ runner.temp }}/trivy.json
           SNAPSHOT: ${{ runner.temp }}/dependency-snapshot.json
         run: |
-          trivy convert --format github --severity "${TRIVY_SEVERITY}" --exit-code 0 --output "${SNAPSHOT}.raw" "${RAW_REPORT}"
-          jq -e --arg correlator "${SNAPSHOT_CORRELATOR}" '.job.correlator=$correlator | select(.version==0 and (.manifests|type=="object"))' "${SNAPSHOT}.raw" > "${SNAPSHOT}"
+          jq -e '.Results == null or (.Results | type == "array")' "${RAW_REPORT}" > /dev/null
+          if jq -e '[.Results[]?.Packages[]?] | length > 0' "${RAW_REPORT}" > /dev/null; then
+            trivy convert --format github --severity "${TRIVY_SEVERITY}" --exit-code 0 --output "${SNAPSHOT}.raw" "${RAW_REPORT}"
+            jq -e --arg correlator "${SNAPSHOT_CORRELATOR}" \
+              'select(.version == 0 and (.manifests == null or (.manifests | type == "object")))
+              | .job.correlator = $correlator
+              | .manifests = (.manifests // {})' "${SNAPSHOT}.raw" > "${SNAPSHOT}"
+          else
+            jq -n --arg correlator "${SNAPSHOT_CORRELATOR}" \
+              '{version:0,detector:{name:"trivy"},job:{correlator:$correlator},manifests:{}}' > "${SNAPSHOT}"
+            echo 'No dependency packages were found. An empty snapshot artifact will be used to skip publication and preserve the existing dependency graph.' >> "${GITHUB_STEP_SUMMARY}"
+          fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: >-
           inputs.submit-dependencies
@@ -254,6 +264,10 @@ jobs:
           jq -e '.version == 0 and (.detector.name | type == "string") and
             (.job.correlator | type == "string" and length > 0) and
             (.manifests | type == "object")' "${SNAPSHOT}" > /dev/null
+          if ! jq -e '[.manifests[]?.resolved[]?.package_url? | select(type == "string" and length > 0)] | length > 0' "${SNAPSHOT}" > /dev/null; then
+            echo 'No resolved package URLs were found. Dependency publication was skipped, preserving the existing dependency graph.' >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
           curl --fail-with-body --silent --show-error --retry 3 --output /dev/null \
             --request POST \
             --header 'Accept: application/vnd.github+json' \
