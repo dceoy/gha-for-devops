@@ -167,7 +167,7 @@ if [[ -d '.github/workflows' ]]; then
   N_WORKFLOW_YAML_FILES=$(git ls-files -- '.github/workflows/**.yml' '.github/workflows/**.yaml' | wc -l)
   if [[ "${N_WORKFLOW_YAML_FILES}" -gt 0 ]]; then
     # Reuse this repository's tested compatibility exceptions for newer GitHub.com syntax.
-    ACTIONLINT_SCRIPT="$(yq -r '.jobs."github-actions-lint-scan".steps[] | select(.name == "Execute actionlint") | .run' .github/workflows/github-actions-lint-and-scan.yml)"
+    ACTIONLINT_SCRIPT="$(yq -r '.jobs."actions-lint-and-scan".steps[] | select(.name == "Execute actionlint") | .run' .github/workflows/github-actions-lint-and-scan.yml)"
     [[ -n "${ACTIONLINT_SCRIPT}" && "${ACTIONLINT_SCRIPT}" != null ]]
     ACTIONLINT_COMPATIBILITY_MODE=true ACTIONLINT_EXTRA_IGNORE_REGEX='' \
       GITHUB_SERVER_URL="${GITHUB_SERVER_URL:-https://github.com}" SEARCH_PATH=.github/workflows \
