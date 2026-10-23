@@ -102,7 +102,7 @@ SH
 @test "Stable correlator is injected into each converted snapshot" {
   [ "$(yq -r '.jobs."trivy-prepare".steps[] | select(.id == "targets") | .env.CORRELATOR' "$TRIVY")" = '${{ inputs.snapshot-correlator }}' ]
   grep -Fq 'jq -e --arg correlator "${SNAPSHOT_CORRELATOR}"' "$TRIVY"
-  grep -Fq '.job.correlator=$correlator' "$TRIVY"
+  grep -Fq '.job.correlator = $correlator' "$TRIVY"
 }
 
 @test "Conversions retain requested findings despite repository severity and exit settings" {
