@@ -132,7 +132,7 @@ run_semgrep_step() {
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
   # shellcheck disable=SC2016
   grep -Fq 'uvx "${args[@]}"' "${SCAN_WORKFLOW}"
-  [ "$(yq -r '.jobs."source-security-scan".env.UV_EXCLUDE_NEWER' "${SCAN_WORKFLOW}")" = "7 days" ]
+  [ "$(yq -r '.jobs."source-security-scan".env.UV_EXCLUDE_NEWER' "${SCAN_WORKFLOW}")" = "1 day" ]
   [ "$(yq -r '.jobs."source-security-scan".steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${SCAN_WORKFLOW}")" = auto ]
   run ! grep -Fq SEMGREP_VERSION "${SCAN_WORKFLOW}"
 }

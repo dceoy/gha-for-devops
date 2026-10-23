@@ -193,7 +193,7 @@ jobs:
       contents: read
     runs-on: ubuntu-slim
     env:
-      npm_config_min_release_age: '7'
+      npm_config_min_release_age: '1'
       # renovate: datasource=npm depName=oxfmt
       OXFMT_VERSION: 0.72.0
     steps:

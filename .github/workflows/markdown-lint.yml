@@ -73,7 +73,7 @@ jobs:
   markdown-lint:
     runs-on: ${{ inputs.runs-on }}
     env:
-      npm_config_min_release_age: '7'
+      npm_config_min_release_age: '1'
       # renovate: datasource=npm depName=markdownlint-cli2
       MARKDOWNLINT_CLI2_VERSION: 0.23.2
       # renovate: datasource=npm depName=oxfmt
