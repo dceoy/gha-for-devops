@@ -156,7 +156,7 @@ on:
       semgrep-exclude-cooldown-rules:
         type: boolean
         default: false
-        description: Exclude Semgrep p/default dependency cooldown rules (Dependabot, Renovate, pnpm, uv)
+        description: Exclude Semgrep p/default dependency cooldown and minimum release age rules
       use-semgrep:
         required: false
         type: boolean

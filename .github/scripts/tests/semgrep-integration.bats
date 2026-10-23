@@ -102,11 +102,16 @@ run_semgrep_step() {
   run_semgrep_step "${CONSUMER}" "SEMGREP_EXCLUDE_COOLDOWN_RULES=true"
   [ "${status}" -eq 0 ]
   mapfile -d '' -t args < "${SEMGREP_ARGS}"
-  [ "$(printf '%s\n' "${args[@]}" | grep -c '^--exclude-rule$')" -eq 4 ]
+  [ "$(printf '%s\n' "${args[@]}" | grep -c '^--exclude-rule$')" -eq 9 ]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.bun.bun-missing-minimum-release-age.bun-missing-minimum-release-age "* ]]
   [[ " ${args[*]} " == *" --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown "* ]]
-  [[ " ${args[*]} " == *" --exclude-rule package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.npm.npm-missing-minimum-release-age.npm-missing-minimum-release-age "* ]]
   [[ " ${args[*]} " == *" --exclude-rule package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.poetry.poetry-missing-solver-min-release-age.poetry-missing-solver-min-release-age "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.ruby.bundler-gemfile-missing-cooldown.bundler-gemfile-missing-cooldown "* ]]
   [[ " ${args[*]} " == *" --exclude-rule package_managers.uv.uv-missing-dependency-cooldown.uv-missing-dependency-cooldown "* ]]
+  [[ " ${args[*]} " == *" --exclude-rule package_managers.yarn.yarn-missing-minimal-age-gate.yarn-missing-minimal-age-gate "* ]]
 }
 
 @test "All Semgrep reusable workflows forward the cooldown exclusion input" {

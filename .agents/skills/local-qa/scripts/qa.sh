@@ -196,11 +196,16 @@ fi
 N_SEMGREP_FILES=$(git ls-files -- '*.py' '*.go' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.mts' '*.cts' '*.sh' '*.bash' '*.bats' '*.tf' '*.hcl' '*.yml' '*.yaml' '*.html' '*.htm' 'Dockerfile*' '*.dockerfile' | wc -l)
 if [[ "${N_SEMGREP_FILES}" -gt 0 ]]; then
   # Process workers avoid native OCaml thread startup failures on constrained runners.
-  # Ignore p/default's dependency cooldown rules in this broad configuration scan.
+  # Ignore p/default's package-manager cooldown rules in this broad configuration scan.
   uv run --locked semgrep scan --x-parmap --jobs 2 --config p/default \
+    --exclude-rule package_managers.bun.bun-missing-minimum-release-age.bun-missing-minimum-release-age \
     --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown \
-    --exclude-rule package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age \
+    --exclude-rule package_managers.npm.npm-missing-minimum-release-age.npm-missing-minimum-release-age \
     --exclude-rule package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age \
+    --exclude-rule package_managers.poetry.poetry-missing-solver-min-release-age.poetry-missing-solver-min-release-age \
+    --exclude-rule package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age \
+    --exclude-rule package_managers.ruby.bundler-gemfile-missing-cooldown.bundler-gemfile-missing-cooldown \
     --exclude-rule package_managers.uv.uv-missing-dependency-cooldown.uv-missing-dependency-cooldown \
+    --exclude-rule package_managers.yarn.yarn-missing-minimal-age-gate.yarn-missing-minimal-age-gate \
     --metrics off --error .
 fi
