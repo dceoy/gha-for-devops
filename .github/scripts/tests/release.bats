@@ -67,18 +67,19 @@ setup() {
   [ "$(yq -o=json '.jobs' "${ci_workflow}" | jq -r 'has("weekly-release")')" = false ]
 }
 
-@test 'release exposes exact file exclusions to reusable and manual calls' {
+@test 'release supports ! path exclusions through a single input' {
   for event in workflow_call workflow_dispatch; do
-    [ "$(yq -r ".on.${event}.inputs.\"release-exclude-paths\".type" "${RELEASE_WORKFLOW}")" = string ]
+    [ "$(yq -r ".on.${event}.inputs.\"release-trigger-paths\".type" "${RELEASE_WORKFLOW}")" = string ]
+    [ "$(yq -r ".on.${event}.inputs | has(\"release-exclude-paths\")" "${RELEASE_WORKFLOW}")" = false ]
   done
-  [ "$(yq -r '.jobs."github-release".steps[] | select(.id == "plan") | .env.RELEASE_EXCLUDE_PATHS' "${RELEASE_WORKFLOW}")" = "\${{ inputs.release-exclude-paths }}" ]
-  local excluded
-  excluded="$(yq -r '.jobs."github-release".with."release-exclude-paths"' "${WORKFLOW_FILE}")"
-  [ "${excluded}" = "$(printf '%s\n' .github/workflows/ai-agents.yml .github/workflows/ci.yml .github/workflows/maintenance.yml)" ]
-  yq -r '.jobs."github-release".steps[] | select(.id == "plan") | .run' "${RELEASE_WORKFLOW}" | grep -Fq ':(exclude,literal)'
+  [ "$(yq -r '.jobs."github-release".steps[] | select(.id == "plan") | .env | has("RELEASE_EXCLUDE_PATHS")' "${RELEASE_WORKFLOW}")" = false ]
+  local paths
+  paths="$(yq -r '.jobs."github-release".with."release-trigger-paths"' "${WORKFLOW_FILE}")"
+  [ "${paths}" = "$(printf '%s\n' '.github/workflows/*.yml' '.github/workflows/*.yaml' '!.github/workflows/ai-agents.yml' '!.github/workflows/ci.yml' '!.github/workflows/maintenance.yml')" ]
+  yq -r '.jobs."github-release".steps[] | select(.id == "plan") | .run' "${RELEASE_WORKFLOW}" | grep -Fq ':(exclude)'
 }
 
-@test 'auto release ignores excluded CI workflows but includes reusable workflow changes' {
+@test 'auto release respects ! exclusion patterns and reusable workflow changes' {
   local fixture="${BATS_TEST_TMPDIR}/release-repo"
   local bin="${BATS_TEST_TMPDIR}/bin"
   local plan_script="${BATS_TEST_TMPDIR}/release-plan.sh"
@@ -118,9 +119,8 @@ MOCK
   export GITHUB_REF=refs/heads/main
   export GITHUB_REPOSITORY=example/test
   export RELEASE_BUMP=auto
-  export RELEASE_PATHS=$'.github/workflows/*.yml\n.github/workflows/*.yaml'
-  export RELEASE_EXCLUDE_PATHS
-  RELEASE_EXCLUDE_PATHS="$(yq -r '.jobs."github-release".with."release-exclude-paths"' "${WORKFLOW_FILE}")"
+  export RELEASE_PATHS
+  RELEASE_PATHS="$(yq -r '.jobs."github-release".with."release-trigger-paths"' "${WORKFLOW_FILE}")"
   export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/release-output"
   export PATH="${bin}:${PATH}"
   export RELEASE_SHA
@@ -132,7 +132,7 @@ MOCK
   [[ "${output}" == *'No changes to the configured release paths.'* ]]
 
   : > "${GITHUB_OUTPUT}"
-  run env RELEASE_EXCLUDE_PATHS= bash -euo pipefail "${plan_script}"
+  run env RELEASE_PATHS='.github/workflows/*.yml' bash -euo pipefail "${plan_script}"
   [ "${status}" -eq 0 ]
   grep -qx 'ready=true' "${GITHUB_OUTPUT}"
   grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
@@ -146,4 +146,15 @@ MOCK
   [ "${status}" -eq 0 ]
   grep -qx 'ready=true' "${GITHUB_OUTPUT}"
   grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
+
+  : > "${GITHUB_OUTPUT}"
+  run env RELEASE_PATHS=$'.github/workflows/reusable.yml\n!.github/workflows/reus*.yml' bash -euo pipefail "${plan_script}"
+  [ "${status}" -eq 0 ]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+
+  : > "${GITHUB_OUTPUT}"
+  run env RELEASE_PATHS='!' bash -euo pipefail "${plan_script}"
+  [ "${status}" -eq 2 ]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+  [[ "${output}" == *'empty exclusion'* ]]
 }
