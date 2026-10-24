@@ -96,6 +96,7 @@ jobs:
       GRYPE_VERSION: 0.120.1
       SYFT_CHECK_FOR_APP_UPDATE: 'false'
       GRYPE_CHECK_FOR_APP_UPDATE: 'false'
+      GRYPE_DB_CACHE_DIR: ${{ runner.temp }}/grype-db
     steps:
       - name: Checkout repository
         if: inputs.scan-type == 'filesystem'
@@ -127,6 +128,11 @@ jobs:
           install: false
           cache: false
           working_directory: ${{ runner.temp }}
+      - name: Cache pinned Syft and Grype installations
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/mise/installs
+          key: syft-grype-tools-${{ runner.os }}-${{ runner.arch }}-${{ env.SYFT_VERSION }}-${{ env.GRYPE_VERSION }}
       - name: Install pinned Syft and Grype
         working-directory: ${{ runner.temp }}
         env:
@@ -157,6 +163,16 @@ jobs:
           "${SYFT_BIN}" "${source}" -o "syft-json=${SBOM}" -o "cyclonedx-json=${CYCLONEDX}"
           jq -e '.artifacts | type == "array"' "${SBOM}" > /dev/null
           echo "Syft packages: $(jq '.artifacts | length' "${SBOM}")" >> "${GITHUB_STEP_SUMMARY}"
+      - name: Set Grype database cache period
+        id: grype-db-date
+        run: echo "week=$(date -u +%G-%V)" >> "${GITHUB_OUTPUT}"
+      - name: Cache Grype vulnerability database
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ env.GRYPE_DB_CACHE_DIR }}
+          key: grype-db-${{ runner.os }}-${{ runner.arch }}-${{ env.GRYPE_VERSION }}-${{ steps.grype-db-date.outputs.week }}
+          restore-keys: |
+            grype-db-${{ runner.os }}-${{ runner.arch }}-${{ env.GRYPE_VERSION }}-
       - name: Scan SBOM with Grype
         id: grype
         env:
