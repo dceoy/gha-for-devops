@@ -103,7 +103,7 @@ jobs:
         if: inputs.update-readme
         env:
           OXFMT_VERSION: ${{ env.OXFMT_VERSION }}
-        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Oxfmt through npx
+        run: | # zizmor: ignore[adhoc-packages] wrapper runs pinned Oxfmt through pnpm dlx
           [[ "${OXFMT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid OXFMT_VERSION"; exit 1; }
           mkdir -p "${HOME}/.local/bin"
           cat > "${HOME}/.local/bin/oxfmt" <<EOF
@@ -121,14 +121,14 @@ jobs:
         working-directory: ${{ inputs.search-path }}
         env:
           OXFMT_GLOB: ${{ inputs.oxfmt-glob }}
-        run: >  # zizmor: ignore[adhoc-packages] runs pinned Oxfmt through npx
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Oxfmt through pnpm dlx
           pnpm dlx "oxfmt@${OXFMT_VERSION}" --write --no-error-on-unmatched-pattern "${OXFMT_GLOB}"
       - name: Format Markdown files using Biome
         if: inputs.use-biome
         working-directory: ${{ inputs.search-path }}
         env:
           BIOME_GLOB: ${{ inputs.biome-glob }}
-        run: >  # zizmor: ignore[adhoc-packages] runs pinned Biome through npx
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Biome through pnpm dlx
           pnpm dlx "@biomejs/biome@${BIOME_VERSION}" format --write --files-ignore-unknown=true "${BIOME_GLOB}"
       - name: Require a PR-triggering token for README updates
         if: inputs.update-readme
