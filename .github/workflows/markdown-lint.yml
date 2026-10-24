@@ -51,7 +51,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache npm downloads for Markdown lint tools
+        description: Cache pnpm downloads for Markdown lint tools
         default: true
       cache-salt:
         required: false
@@ -151,15 +151,15 @@ jobs:
       - name: Execute markdownlint-cli2
         if: inputs.use-markdownlint-cli2
         working-directory: ${{ inputs.search-path }}
-        run: >  # zizmor: ignore[adhoc-packages] runs pinned markdownlint-cli2 through npx
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned markdownlint-cli2 through pnpm dlx
           xargs -0 -r -t pnpm dlx "markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}" --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdownlint-files"
       - name: Check Markdown formatting with Oxfmt
         if: inputs.use-oxfmt
         working-directory: ${{ inputs.search-path }}
-        run: >  # zizmor: ignore[adhoc-packages] runs pinned Oxfmt through npx
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Oxfmt through pnpm dlx
           xargs -0 -r -t pnpm dlx "oxfmt@${OXFMT_VERSION}" --check -- < "${RUNNER_TEMP}/markdown-files"
       - name: Check Markdown formatting with Biome
         if: inputs.use-biome
         working-directory: ${{ inputs.search-path }}
-        run: >  # zizmor: ignore[adhoc-packages] runs pinned Biome through npx
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Biome through pnpm dlx
           xargs -0 -r -t pnpm dlx "@biomejs/biome@${BIOME_VERSION}" format --files-ignore-unknown=true -- < "${RUNNER_TEMP}/markdown-files"
