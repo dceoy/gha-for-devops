@@ -96,18 +96,26 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version: ${{ inputs.go-version }}
-          cache: true
+          cache: ${{ hashFiles(format('{0}/go.sum', inputs.package-path)) != '' }}
           cache-dependency-path: ${{ inputs.package-path }}/go.sum
-      - name: Cache Go tools
+      - name: Cache Go projects without checksum files
+        if: hashFiles(format('{0}/go.sum', inputs.package-path)) == ''
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
+          key: go-no-sum-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles(format('{0}/go.mod', inputs.package-path)) }}
+          restore-keys: |
+            go-no-sum-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-go.outputs.go-version }}-
+      - name: Cache Go tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
             ~/.cache/golangci-lint
             ~/go/bin
-          key: go-tools-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles(format('{0}/go.sum', inputs.package-path)) }}
-          restore-keys: go-tools-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-
+          key: go-tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles(format('{0}/go.sum', inputs.package-path)) }}
+          restore-keys: go-tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-go.outputs.go-version }}-
       - name: Verify Go installation
         working-directory: ${{ inputs.package-path }}
         run: |
