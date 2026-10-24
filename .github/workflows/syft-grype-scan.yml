@@ -173,8 +173,7 @@ jobs:
         id: grype-db-date
         run: |
           # Rotate with Grype's default two-hour DB update-check frequency.
-          printf 'slot=%s-%s
-' "$(date -u +%Y%m%d)" "$((10#$(date -u +%H) / 2))" >> "${GITHUB_OUTPUT}"
+          printf 'slot=%s-%s\\n' "$(date -u +%Y%m%d)" "$((10#$(date -u +%H) / 2))" >> "${GITHUB_OUTPUT}"
       - name: Restore Grype vulnerability database
         id: grype-db-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
