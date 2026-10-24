@@ -15,10 +15,10 @@ pnpm_setup_value() {
     "${workflow}"
 }
 
-pnpm_setup_workflows() {
+pnpm_config_workflows() {
   local workflow
   while IFS= read -r workflow; do
-    [[ "$(yq -r '.on.workflow_call != null' "${workflow}")" == true ]] && printf '%s\n' "${workflow}"
+    [[ "$(yq -r '.jobs.*.steps[] | select(.id == "pnpm-config") | .id' "${workflow}")" == pnpm-config ]] && printf '%s\n' "${workflow}"
   done < <(grep -rl --include='*.yml' 'pnpm/setup@' "${WORKFLOWS}")
 }
 
@@ -57,7 +57,7 @@ has_pnpm_version_source_in_fixture() {
     [ "${status}" -eq 0 ]
     [ "${output}" = "\${{ inputs.pnpm-version || env.PNPM_VERSION }}" ]
     count=$((count + 1))
-  done < <(pnpm_setup_workflows)
+  done < <(pnpm_config_workflows)
   [ "${count}" -gt 0 ]
 }
 
@@ -68,7 +68,7 @@ has_pnpm_version_source_in_fixture() {
     run grep -F "echo 'PNPM_VERSION=latest'" "${workflow}"
     [ "${status}" -eq 0 ]
     count=$((count + 1))
-  done < <(pnpm_setup_workflows)
+  done < <(pnpm_config_workflows)
   [ "${count}" -gt 0 ]
 }
 
@@ -80,6 +80,27 @@ has_pnpm_version_source_in_fixture() {
   run pnpm_setup_value "${workflow}" install
   [ "${status}" -eq 0 ]
   [ "${output}" = "false" ]
+}
+
+@test "standalone pnpm tool workflows use pnpm 12 and the requested Node.js version" {
+  local workflow
+  for workflow in \
+    "${WORKFLOWS}/json-schema-validation.yml" \
+    "${WORKFLOWS}/markdown-format-and-pr.yml" \
+    "${WORKFLOWS}/markdown-lint.yml"; do
+    run pnpm_setup_value "${workflow}" version
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "12" ]
+    run pnpm_setup_value "${workflow}" runtime
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "node@\${{ inputs.node-version }}" ]
+    run pnpm_setup_value "${workflow}" install
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "false" ]
+    run yq -r '.jobs.*.steps[] | select(.uses | test("^actions/setup-node@")) | .uses' "${workflow}"
+    [ "${status}" -eq 0 ]
+    [ -z "${output}" ]
+  done
 }
 
 @test "Bats workflow uses latest uv and pnpm with minimum release age" {
@@ -123,7 +144,7 @@ has_pnpm_version_source_in_fixture() {
     [ "${status}" -eq 0 ]
     [ "${output}" = "\${{ inputs.package-path }}" ]
     count=$((count + 1))
-  done < <(pnpm_setup_workflows)
+  done < <(pnpm_config_workflows)
   [ "${count}" -gt 0 ]
 }
 
@@ -202,7 +223,7 @@ CASES
       [[ "${output}" != *"steps.pnpm-config.outputs.legacy != 'true'"* ]]
     fi
     count=$((count + 1))
-  done < <(pnpm_setup_workflows)
+  done < <(pnpm_config_workflows)
   [ "${count}" -eq 5 ]
 }
 
