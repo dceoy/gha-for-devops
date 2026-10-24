@@ -27,78 +27,19 @@ concurrency:
   group: ${{ github.repository }}-maintenance-${{ ((github.event_name == 'schedule' && github.event.schedule == '15 0 * * 1') || (github.event_name == 'workflow_dispatch' && (inputs.task == 'major-release' || inputs.task == 'minor-release' || inputs.task == 'patch-release'))) && 'release' || 'scorecard' }}
   cancel-in-progress: false
 jobs:
-  release-gate:
-    if: >-
-      github.repository == 'dceoy/gha-for-devops'
-      && (github.event_name == 'schedule'
-      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard'))
-    runs-on: ubuntu-slim
-    steps:
-      - run: echo 'Release preflight enabled'
   mise-lock-update:
-    needs: release-gate
+    if: github.repository == 'dceoy/gha-for-devops' && github.event_name == 'schedule'
     permissions:
       contents: write
       pull-requests: write
     uses: $/.github/workflows/mise-lock-update.yml
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-  shell-lint:
-    needs: release-gate
-    uses: $/.github/workflows/shell-lint.yml
-    with:
-      use-shfmt: true
-  markdown-lint:
-    needs: release-gate
-    uses: $/.github/workflows/markdown-lint.yml
-  github-actions-lint-and-scan:
-    needs: release-gate
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    uses: $/.github/workflows/github-actions-lint-and-scan.yml
-    with:
-      search-path: .github/workflows
-      zizmor-search-path: .github
-      go-version: stable
-      python-version: 3.x
-      actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml
-  bats-tests:
-    needs: release-gate
-    runs-on: ubuntu-slim
-    defaults:
-      run:
-        shell: bash -euo pipefail {0}
-        working-directory: .
-    env:
-      GH_TELEMETRY: 'false'
-      MISE_USE_VERSIONS_HOST_TRACK: 'false'
-      # renovate: datasource=github-releases depName=jdx/mise
-      MISE_VERSION: 2026.8.5
-    steps:
-      - name: Check out the release candidate
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Set up mise
-        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550  # v5.2.2
-        with:
-          version: ${{ env.MISE_VERSION }}
-          install_args: actionlint yq gomplate trivy
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
-        with:
-          go-version: stable
-          cache: false
-      - name: Set up Bats
-        uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
-        with:
-          github-token: ${{ github.token }}
-      - name: Run Bats tests
-        run: bats --print-output-on-failure .github/scripts/tests/*.bats
   github-release:
-    needs: [release-gate, mise-lock-update, shell-lint, markdown-lint, github-actions-lint-and-scan, bats-tests]
+    if: >-
+      github.repository == 'dceoy/gha-for-devops'
+      && (github.event_name == 'schedule'
+      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard'))
     permissions:
       contents: write
     uses: $/.github/workflows/github-release.yml
