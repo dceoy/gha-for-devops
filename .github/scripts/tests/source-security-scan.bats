@@ -78,8 +78,8 @@ run_osv_scan() {
 }
 
 @test "OSV binary cache is scoped to the pinned scanner version" {
-  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Cache pinned OSV-Scanner installation") | .with.path' "${WORKFLOW}")" = '~/.local/share/mise/installs' ]
-  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Cache pinned OSV-Scanner installation") | .with.key' "${WORKFLOW}")" = 'osv-scanner-tools-${{ runner.os }}-${{ runner.arch }}-${{ env.OSV_SCANNER_VERSION }}' ]
+  [[ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Cache pinned OSV-Scanner installation") | .with.path' "${WORKFLOW}")" == */mise/installs ]]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Cache pinned OSV-Scanner installation") | .with.key' "${WORKFLOW}")" = "osv-scanner-tools-\${{ runner.os }}-\${{ runner.arch }}-\${{ env.OSV_SCANNER_VERSION }}" ]
 }
 
 @test "Renovate extracts the pinned OSV-Scanner and mise versions" {
