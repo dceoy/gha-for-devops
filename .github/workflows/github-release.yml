@@ -23,6 +23,11 @@ on:
         type: string
         description: Newline-delimited paths checked for auto release changes
         default: .
+      release-exclude-paths:
+        required: false
+        type: string
+        description: Newline-delimited exact file paths excluded from auto release detection
+        default: null
       runs-on:
         required: false
         type: string
@@ -63,6 +68,11 @@ on:
         type: string
         description: Newline-delimited paths checked for auto release changes
         default: .
+      release-exclude-paths:
+        required: false
+        type: string
+        description: Newline-delimited exact file paths excluded from auto release detection
+        default: null
 permissions:
   contents: write  # IMPORTANT: mandatory for making GitHub Releases
 defaults:
@@ -110,6 +120,7 @@ jobs:
           RELEASE_SHA: ${{ github.sha }}
           RELEASE_BUMP: ${{ inputs.version-bump }}
           RELEASE_PATHS: ${{ inputs.release-trigger-paths }}
+          RELEASE_EXCLUDE_PATHS: ${{ inputs.release-exclude-paths }}
         run: |
           if [[ "${GITHUB_REF}" != refs/heads/main || "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
             echo '::error::SemVer releases require an exact main-branch checkout.'
@@ -162,7 +173,11 @@ jobs:
                   echo '::error::release-trigger-paths must contain at least one path.'
                   exit 2
                 fi
-                if git diff --quiet "${previous_tag}" "${RELEASE_SHA}" -- "${paths[@]}"; then
+                exclude_paths=()
+                while IFS= read -r path; do
+                  [[ -n "${path}" ]] && exclude_paths+=(":(exclude,literal)${path}")
+                done <<< "${RELEASE_EXCLUDE_PATHS}"
+                if git diff --quiet "${previous_tag}" "${RELEASE_SHA}" -- "${paths[@]}" "${exclude_paths[@]}"; then
                   echo '::notice::No changes to the configured release paths.'
                   exit 0
                 else
