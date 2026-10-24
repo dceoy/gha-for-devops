@@ -51,7 +51,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache npm downloads for Markdown lint tools
+        description: Cache pnpm downloads for Markdown lint tools
         default: true
       cache-salt:
         required: false
@@ -96,16 +96,22 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+      - name: Setup pnpm-managed Node.js
+        uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4  # v3.1.1
         with:
-          node-version: ${{ inputs.node-version }}
-      - name: Cache npm downloads
+          version: 12
+          runtime: node@${{ inputs.node-version }}
+          install: false
+      - name: Locate pnpm store
+        if: inputs.enable-cache
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "${GITHUB_OUTPUT}"
+      - name: Cache pnpm downloads
         if: inputs.enable-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
-          path: ~/.npm
-          key: markdown-lint-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.OXFMT_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: markdown-lint-pnpm-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.OXFMT_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
       - name: Create Markdown lint configuration
         if: inputs.use-markdownlint-cli2
         env:
@@ -145,15 +151,15 @@ jobs:
       - name: Execute markdownlint-cli2
         if: inputs.use-markdownlint-cli2
         working-directory: ${{ inputs.search-path }}
-        run: >  # zizmor: ignore[adhoc-packages] runs pinned markdownlint-cli2 through npx
-          xargs -0 -r -t npx --yes "markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}" --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdownlint-files"
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned markdownlint-cli2 through pnpm dlx
+          xargs -0 -r -t pnpm dlx "markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}" --config "${MARKDOWNLINT_CONFIG_FILE}" -- < "${RUNNER_TEMP}/markdownlint-files"
       - name: Check Markdown formatting with Oxfmt
         if: inputs.use-oxfmt
         working-directory: ${{ inputs.search-path }}
-        run: >  # zizmor: ignore[adhoc-packages] runs pinned Oxfmt through npx
-          xargs -0 -r -t npx --yes "oxfmt@${OXFMT_VERSION}" --check -- < "${RUNNER_TEMP}/markdown-files"
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Oxfmt through pnpm dlx
+          xargs -0 -r -t pnpm dlx "oxfmt@${OXFMT_VERSION}" --check -- < "${RUNNER_TEMP}/markdown-files"
       - name: Check Markdown formatting with Biome
         if: inputs.use-biome
         working-directory: ${{ inputs.search-path }}
-        run: >  # zizmor: ignore[adhoc-packages] runs pinned Biome through npx
-          xargs -0 -r -t npx --yes "@biomejs/biome@${BIOME_VERSION}" format --files-ignore-unknown=true -- < "${RUNNER_TEMP}/markdown-files"
+        run: >  # zizmor: ignore[adhoc-packages] runs pinned Biome through pnpm dlx
+          xargs -0 -r -t pnpm dlx "@biomejs/biome@${BIOME_VERSION}" format --files-ignore-unknown=true -- < "${RUNNER_TEMP}/markdown-files"
