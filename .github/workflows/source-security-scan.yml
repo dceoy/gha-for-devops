@@ -161,8 +161,9 @@ jobs:
           install: false
           cache: false
           working_directory: ${{ runner.temp }}
-      - name: Cache pinned OSV-Scanner installation
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+      - name: Restore pinned OSV-Scanner installation
+        id: osv-tool-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.local/share/mise/installs
           key: osv-scanner-tools-${{ runner.os }}-${{ runner.arch }}-${{ env.OSV_SCANNER_VERSION }}
@@ -179,6 +180,12 @@ jobs:
           mise trust "${mise_dir}/mise.toml"
           mise install
           echo "OSV_SCANNER_BIN=$(mise which osv-scanner)" >> "${GITHUB_ENV}"
+      - name: Save pinned OSV-Scanner installation
+        if: steps.osv-tool-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/mise/installs
+          key: ${{ steps.osv-tool-cache.outputs.cache-primary-key }}
       - name: Set up Go for call analysis
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
