@@ -67,7 +67,6 @@ setup() {
   [ "$(yq -o=json '.jobs' "${ci_workflow}" | jq -r 'has("weekly-release")')" = false ]
 }
 
-
 @test 'release exposes exact file exclusions to reusable and manual calls' {
   for event in workflow_call workflow_dispatch; do
     [ "$(yq -r ".on.${event}.inputs.\"release-exclude-paths\".type" "${RELEASE_WORKFLOW}")" = string ]
@@ -85,7 +84,7 @@ setup() {
   local plan_script="${BATS_TEST_TMPDIR}/release-plan.sh"
   mkdir -p "${fixture}/.github/workflows" "${bin}"
   yq -r '.jobs."github-release".steps[] | select(.id == "plan") | .run' "${RELEASE_WORKFLOW}" > "${plan_script}"
-  cat > "${bin}/gh" <<'MOCK'
+  cat > "${bin}/gh" << 'MOCK'
 #!/usr/bin/env bash
 case "$1 $2" in
   'api repos/example/test/git/ref/heads/main')
