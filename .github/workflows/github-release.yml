@@ -17,12 +17,12 @@ on:
         required: false
         type: string
         description: Optional SemVer increment (auto, major-release, minor-release, or patch-release)
-        default: ''
+        default: null
       release-paths:
         required: false
         type: string
         description: Newline-delimited paths that trigger automatic SemVer releases
-        default: ''
+        default: null
       runs-on:
         required: false
         type: string
@@ -95,7 +95,7 @@ jobs:
             exit 2
           fi
       - name: Plan SemVer release
-        if: inputs.bump != ''
+        if: inputs.bump
         id: plan
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
@@ -183,7 +183,7 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
       - name: Publish GitHub release
         id: publish
-        if: inputs.bump == '' || steps.plan.outputs.ready == 'true'
+        if: !inputs.bump || steps.plan.outputs.ready == 'true'
         env:
           TAG_NAME: ${{ inputs.tag-name || steps.plan.outputs.tag }}
           PREVIOUS_TAG: ${{ steps.plan.outputs.previous-tag }}
