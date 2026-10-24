@@ -11,8 +11,17 @@ setup() {
   [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = major-release,minor-release,patch-release,scorecard ]
 }
 
-@test 'maintenance contains no duplicated CI or empty gating jobs' {
-  [ "$(yq -r '.jobs | keys | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,github-release,major-version-tag,mise-lock-update ]
+@test 'maintenance retains the Bats regression job alongside release and Scorecard' {
+  [ "$(yq -r '.jobs | keys | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,bats-tests,github-release,major-version-tag,mise-lock-update ]
+}
+
+@test 'scheduled maintenance runs the full scanner E2E without release gating' {
+  local condition
+  condition="$(yq -r '.jobs."bats-tests".if' "${WORKFLOW_FILE}")"
+  [[ "${condition}" == *"github.event_name == 'schedule'"* ]]
+  [[ "${condition}" == *"inputs.task != 'scorecard'"* ]]
+  [ "$(yq -r '.jobs."bats-tests" | has("needs")' "${WORKFLOW_FILE}")" = false ]
+  yq -r '.jobs."bats-tests".steps[] | select(.name == "Run Bats tests") | .run' "${WORKFLOW_FILE}" | grep -Fq '"${GITHUB_EVENT_NAME}" != schedule'
 }
 
 @test 'release uses direct event gating without preflight dependencies' {
