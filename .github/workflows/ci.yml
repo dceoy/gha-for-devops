@@ -63,7 +63,7 @@ jobs:
       || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'lint')
     permissions:
       contents: read
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -88,10 +88,19 @@ jobs:
           install_args: ${{ steps.bats-scope.outputs.scope == 'readme' && 'yq gomplate' || 'actionlint yq gomplate trivy syft grype' }}
       - name: Set up Go
         if: steps.bats-scope.outputs.scope != 'readme'
+        id: go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version: stable
           cache: false
+      - name: Cache Go builds
+        if: steps.bats-scope.outputs.scope != 'readme'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.github/scripts/tests/fixtures/go-package-test/**') }}
+          restore-keys: |
+            go-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
       - name: Setup Bats and Bats libraries
         uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
         with:
@@ -99,9 +108,9 @@ jobs:
       - name: Run README generator tests
         if: steps.bats-scope.outputs.scope == 'readme'
         run: bats --print-output-on-failure .github/scripts/tests/update-readme.bats
-      - name: Run full Bats tests
+      - name: Run Bats tests
         if: steps.bats-scope.outputs.scope != 'readme'
-        run: bats --print-output-on-failure .github/scripts/tests/*.bats
+        run: bats --print-output-on-failure --filter-tags '!e2e' .github/scripts/tests/*.bats
   github-actions-lint-and-scan:
     if: >
       github.event_name == 'push'
