@@ -72,7 +72,7 @@ setup() {
   for event in workflow_call workflow_dispatch; do
     [ "$(yq -r ".on.${event}.inputs.\"release-exclude-paths\".type" "${RELEASE_WORKFLOW}")" = string ]
   done
-  [ "$(yq -r '.jobs."github-release".steps[] | select(.id == "plan") | .env.RELEASE_EXCLUDE_PATHS' "${RELEASE_WORKFLOW}")" = '${{ inputs.release-exclude-paths }}' ]
+  [ "$(yq -r '.jobs."github-release".steps[] | select(.id == "plan") | .env.RELEASE_EXCLUDE_PATHS' "${RELEASE_WORKFLOW}")" = "\${{ inputs.release-exclude-paths }}" ]
   local excluded
   excluded="$(yq -r '.jobs."github-release".with."release-exclude-paths"' "${WORKFLOW_FILE}")"
   [ "${excluded}" = "$(printf '%s\n' .github/workflows/ai-agents.yml .github/workflows/ci.yml .github/workflows/maintenance.yml)" ]
