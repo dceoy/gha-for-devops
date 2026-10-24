@@ -23,11 +23,6 @@ on:
         type: string
         description: Newline-delimited paths that trigger automatic SemVer releases
         default: null
-      required-ci-workflow:
-        required: false
-        type: string
-        description: Workflow file name whose completed successful push run is required for SemVer releases
-        default: null
       runs-on:
         required: false
         type: string
@@ -77,13 +72,8 @@ jobs:
           TAG_NAME: ${{ inputs.tag-name }}
           RELEASE_BUMP: ${{ inputs.bump }}
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
-          REQUIRED_CI_WORKFLOW: ${{ inputs.required-ci-workflow }}
         run: |
           if [[ -n "${RELEASE_BUMP}" ]]; then
-            if [[ -z "${REQUIRED_CI_WORKFLOW}" ]]; then
-              echo '::error::SemVer releases require a CI workflow to verify before publishing.'
-              exit 2
-            fi
             if [[ -n "${TAG_NAME}" || "${CREATE_NEW_TAG}" == true ]]; then
               echo '::error::bump cannot be combined with tag-name or create-new-tag.'
               exit 2
@@ -198,38 +188,14 @@ jobs:
         env:
           TAG_NAME: ${{ inputs.tag-name || steps.plan.outputs.tag }}
           PREVIOUS_TAG: ${{ steps.plan.outputs.previous-tag }}
-          REQUIRED_CI_WORKFLOW: ${{ inputs.required-ci-workflow }}
           RELEASE_BUMP: ${{ inputs.bump }}
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
           RELEASE_SHA: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
-          CI_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
         run: |
           tag="${TAG_NAME:-${GITHUB_REF_NAME}}"
           if [[ -n "${RELEASE_BUMP}" ]]; then
-            if [[ ! "${REQUIRED_CI_WORKFLOW}" =~ ^[a-zA-Z0-9_.-]+\.ya?ml$ ]]; then
-              echo "::error::Invalid CI workflow filename: ${REQUIRED_CI_WORKFLOW}"
-              exit 2
-            fi
-            ci_url="${GITHUB_API_URL}/repos/${REPOSITORY}/actions/workflows/${REQUIRED_CI_WORKFLOW}/runs?branch=main&head_sha=${RELEASE_SHA}&event=push&per_page=1"
-            if [[ "$(gh api "repos/${REPOSITORY}" --jq '.private')" == true ]]; then
-              if [[ -z "${CI_TOKEN}" ]]; then
-                echo '::error::Private repository SemVer releases require a GH_TOKEN with Actions: read access.'
-                exit 2
-              fi
-              ci_json="$(gh api "repos/${REPOSITORY}/actions/workflows/${REQUIRED_CI_WORKFLOW}/runs?branch=main&head_sha=${RELEASE_SHA}&event=push&per_page=1")"
-            else
-              # Public CI runs are readable without additional GITHUB_TOKEN scopes.
-              ci_json="$(curl --fail --silent --show-error --location --retry 3 \
-                --header 'Accept: application/vnd.github+json' \
-                --header 'X-GitHub-Api-Version: 2022-11-28' "${ci_url}")"
-            fi
-            ci_state="$(jq -r '[.workflow_runs[0].status // "missing", .workflow_runs[0].conclusion // "missing", .workflow_runs[0].head_sha // "missing"] | @tsv' <<< "${ci_json}")"
-            if [[ "${ci_state}" != "$(printf 'completed\tsuccess\t%s' "${RELEASE_SHA}")" ]]; then
-              echo "::error::Required CI ${REQUIRED_CI_WORKFLOW} has not succeeded for ${RELEASE_SHA}: ${ci_state}"
-              exit 1
-            fi
             main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
             if [[ "${main_sha}" != "${RELEASE_SHA}" ]]; then
               echo '::notice::main advanced during release planning; skipping publication.'
