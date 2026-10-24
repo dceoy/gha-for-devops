@@ -89,7 +89,7 @@ jobs:
         uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550  # v5.2.2
         with:
           version: ${{ env.MISE_VERSION }}
-          install_args: ${{ steps.bats-scope.outputs.scope == 'readme' && 'yq gomplate' || ((github.event_name == 'schedule' || inputs.workflow == 'e2e') && 'actionlint yq gomplate trivy syft grype' || 'actionlint yq gomplate trivy') }}
+          install_args: ${{ steps.bats-scope.outputs.scope == 'readme' && 'yq gomplate' || 'actionlint yq gomplate trivy syft grype' }}
       - name: Set up Go
         if: steps.bats-scope.outputs.scope != 'readme'
         id: go
