@@ -85,6 +85,12 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 1 day
+      # renovate: datasource=github-releases depName=golangci/golangci-lint
+      GOLANGCI_LINT_VERSION: v2.15.0
+      # renovate: datasource=github-releases depName=securego/gosec
+      GOSEC_VERSION: v2.30.0
+      # renovate: datasource=go depName=golang.org/x/vuln
+      GOVULNCHECK_VERSION: v1.9.0
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -114,8 +120,8 @@ jobs:
           path: |
             ~/.cache/golangci-lint
             ~/go/bin
-          key: go-tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles(format('{0}/go.sum', inputs.package-path)) }}
-          restore-keys: go-tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-go.outputs.go-version }}-
+          key: go-tools-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-go.outputs.go-version }}-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GOSEC_VERSION }}-${{ env.GOVULNCHECK_VERSION }}-${{ hashFiles(format('{0}/go.sum', inputs.package-path)) }}
+          restore-keys: go-tools-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-go.outputs.go-version }}-${{ env.GOLANGCI_LINT_VERSION }}-${{ env.GOSEC_VERSION }}-${{ env.GOVULNCHECK_VERSION }}-
       - name: Verify Go installation
         working-directory: ${{ inputs.package-path }}
         run: |
@@ -129,19 +135,25 @@ jobs:
           fi
       - name: Install golangci-lint
         run: |
-          golangci-lint --version || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+          if [[ ! -x "$(go env GOPATH)/bin/golangci-lint" ]]; then
+            go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}"
+          fi
       - name: Install gosec
         if: inputs.use-gosec
         run: |
-          gosec --version || go install github.com/securego/gosec/v2/cmd/gosec@latest
+          if [[ ! -x "$(go env GOPATH)/bin/gosec" ]]; then
+            go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
+          fi
       - name: Install govulncheck
         if: inputs.use-govulncheck
         run: |
-          govulncheck --version || go install golang.org/x/vuln/cmd/govulncheck@latest
+          if [[ ! -x "$(go env GOPATH)/bin/govulncheck" ]]; then
+            go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
+          fi
       - name: Run golangci-lint
         working-directory: ${{ inputs.package-path }}
         run: |
-          golangci-lint run ./...
+          "$(go env GOPATH)/bin/golangci-lint" run ./...
       - name: Run go mod tidy check
         working-directory: ${{ inputs.package-path }}
         run: |
@@ -157,12 +169,12 @@ jobs:
         if: inputs.use-govulncheck
         working-directory: ${{ inputs.package-path }}
         run: |
-          govulncheck ./...
+          "$(go env GOPATH)/bin/govulncheck" ./...
       - name: Run additional security scan with gosec
         if: inputs.use-gosec
         working-directory: ${{ inputs.package-path }}
         run: |
-          gosec -fmt sarif -out gosec-results.sarif ./...
+          "$(go env GOPATH)/bin/gosec" -fmt sarif -out gosec-results.sarif ./...
       - name: Upload gosec results to GitHub Security tab
         if: inputs.use-gosec
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370  # v4.39.1
