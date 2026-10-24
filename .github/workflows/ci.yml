@@ -202,10 +202,11 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+      - name: Setup pnpm and latest Node.js
+        uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4  # v3.1.1
         with:
-          node-version: 24.18.0
+          runtime: node@latest
+          install: false
       - name: Set up mise
         uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550  # v5.2.2
         with:
@@ -220,7 +221,7 @@ jobs:
           cat > "${HOME}/.local/bin/oxfmt" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec npx --yes "oxfmt@${OXFMT_VERSION}" "\$@"
+          exec pnpm dlx "oxfmt@${OXFMT_VERSION}" "\$@"
           EOF
           chmod 0755 "${HOME}/.local/bin/oxfmt"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
