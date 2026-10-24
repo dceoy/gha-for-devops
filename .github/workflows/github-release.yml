@@ -21,13 +21,8 @@ on:
       release-trigger-paths:
         required: false
         type: string
-        description: Newline-delimited paths checked for auto release changes
+        description: Newline-delimited release path patterns; prefix ! to exclude
         default: .
-      release-exclude-paths:
-        required: false
-        type: string
-        description: Newline-delimited exact file paths excluded from auto release detection
-        default: null
       runs-on:
         required: false
         type: string
@@ -66,13 +61,8 @@ on:
       release-trigger-paths:
         required: false
         type: string
-        description: Newline-delimited paths checked for auto release changes
+        description: Newline-delimited release path patterns; prefix ! to exclude
         default: .
-      release-exclude-paths:
-        required: false
-        type: string
-        description: Newline-delimited exact file paths excluded from auto release detection
-        default: null
 permissions:
   contents: write  # IMPORTANT: mandatory for making GitHub Releases
 defaults:
@@ -120,7 +110,6 @@ jobs:
           RELEASE_SHA: ${{ github.sha }}
           RELEASE_BUMP: ${{ inputs.version-bump }}
           RELEASE_PATHS: ${{ inputs.release-trigger-paths }}
-          RELEASE_EXCLUDE_PATHS: ${{ inputs.release-exclude-paths }}
         run: |
           if [[ "${GITHUB_REF}" != refs/heads/main || "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
             echo '::error::SemVer releases require an exact main-branch checkout.'
@@ -167,17 +156,21 @@ jobs:
               auto)
                 paths=()
                 while IFS= read -r path; do
-                  [[ -n "${path}" ]] && paths+=("${path}")
+                  [[ -z "${path}" ]] && continue
+                  if [[ "${path}" == '!' ]]; then
+                    echo '::error::release-trigger-paths cannot contain an empty exclusion (!).'
+                    exit 2
+                  elif [[ "${path}" == '!'* ]]; then
+                    paths+=(":(exclude)${path:1}")
+                  else
+                    paths+=("${path}")
+                  fi
                 done <<< "${RELEASE_PATHS}"
                 if (("${#paths[@]}" == 0)); then
                   echo '::error::release-trigger-paths must contain at least one path.'
                   exit 2
                 fi
-                exclude_paths=()
-                while IFS= read -r path; do
-                  [[ -n "${path}" ]] && exclude_paths+=(":(exclude,literal)${path}")
-                done <<< "${RELEASE_EXCLUDE_PATHS}"
-                if git diff --quiet "${previous_tag}" "${RELEASE_SHA}" -- "${paths[@]}" "${exclude_paths[@]}"; then
+                if git diff --quiet "${previous_tag}" "${RELEASE_SHA}" -- "${paths[@]}"; then
                   echo '::notice::No changes to the configured release paths.'
                   exit 0
                 else
