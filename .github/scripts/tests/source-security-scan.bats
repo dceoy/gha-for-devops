@@ -77,9 +77,19 @@ run_osv_scan() {
   run ! grep -Fq 'checksum=' "${WORKFLOW}"
 }
 
-@test "OSV binary cache is scoped to the pinned scanner version" {
-  [[ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Cache pinned OSV-Scanner installation") | .with.path' "${WORKFLOW}")" == */mise/installs ]]
-  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Cache pinned OSV-Scanner installation") | .with.key' "${WORKFLOW}")" = "osv-scanner-tools-\${{ runner.os }}-\${{ runner.arch }}-\${{ env.OSV_SCANNER_VERSION }}" ]
+@test "OSV binary cache is saved before security scanning" {
+  [[ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Restore pinned OSV-Scanner installation") | .with.path' "${WORKFLOW}")" == */mise/installs ]]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Restore pinned OSV-Scanner installation") | .with.key' "${WORKFLOW}")" = "osv-scanner-tools-\${{ runner.os }}-\${{ runner.arch }}-\${{ env.OSV_SCANNER_VERSION }}" ]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Save pinned OSV-Scanner installation") | .with.key' "${WORKFLOW}")" = "${{ steps.osv-tool-cache.outputs.cache-primary-key }}" ]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Save pinned OSV-Scanner installation") | .if' "${WORKFLOW}")" = "steps.osv-tool-cache.outputs.cache-hit != 'true'" ]
+  local steps
+  steps="$(yq -o=json '.jobs."source-osv-scan".steps' "${WORKFLOW}")"
+  [ "$(jq -r '[.[] | select(.name == "Restore pinned OSV-Scanner installation") | .uses][0]' <<< "${steps}")" = 'actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9' ]
+  [ "$(jq -r '[.[] | select(.name == "Save pinned OSV-Scanner installation") | .uses][0]' <<< "${steps}")" = 'actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9' ]
+  local save_index scan_index
+  save_index="$(jq -r 'to_entries[] | select(.value.name == "Save pinned OSV-Scanner installation") | .key' <<< "${steps}")"
+  scan_index="$(jq -r 'to_entries[] | select(.value.name == "Run OSV-Scanner") | .key' <<< "${steps}")"
+  (( save_index < scan_index ))
 }
 
 @test "Renovate extracts the pinned OSV-Scanner and mise versions" {
