@@ -33,9 +33,9 @@ workflows:
     '.github/workflows/ci.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
-        - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
         - 'bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43'
         - 'jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550'
+        - 'pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'anthropics/claude-code-action@ae68417a745a5df4b2124873632bd73a2255e6f6'
@@ -129,7 +129,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
     '.github/workflows/json-schema-validation.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
+        - 'pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
     '.github/workflows/maintenance.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
@@ -140,13 +140,13 @@ workflows:
         - 'ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e'
     '.github/workflows/markdown-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
         - 'jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550'
         - 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1'
+        - 'pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
     '.github/workflows/markdown-lint.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
+        - 'pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4'
     '.github/workflows/mise-lock-update.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550'
