@@ -197,6 +197,14 @@ EOF
   [[ " ${matches[*]} " == *" ${module_b}/go.sum "* ]]
 }
 
+@test "Go module and build caches also cover projects without go.sum" {
+  fallback="$(yq -o json '.jobs."go-package-test".steps[] | select(.name == "Cache Go projects without checksum files")' "${WORKFLOW}")"
+  [ "$(jq -r '.uses' <<< "${fallback}")" = 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9' ]
+  [[ "$(jq -r '.if' <<< "${fallback}")" == *'go.work.sum'* ]]
+  [[ "$(jq -r '.with.path' <<< "${fallback}")" == *'~/.cache/go-build'* ]]
+  [[ "$(jq -r '.with.key' <<< "${fallback}")" == *'steps.setup-go.outputs.go-version'* ]]
+}
+
 @test "coverage artifacts can be named uniquely per workflow invocation" {
   run yq -r '.on.workflow_call.inputs."coverage-artifact-name".default' "${WORKFLOW}"
   [ "${status}" -eq 0 ]
