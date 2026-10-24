@@ -51,23 +51,25 @@ jobs:
       - json-schema-lint
     runs-on: ${{ inputs.runs-on }}
     env:
-      npm_config_min_release_age: '1'
+      PNPM_CONFIG_MINIMUM_RELEASE_AGE: '1440'
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+      - name: Setup pnpm-managed Node.js
+        uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4  # v3.1.1
         with:
-          node-version: ${{ inputs.node-version }}
+          version: 12
+          runtime: node@${{ inputs.node-version }}
+          install: false
       - name: Validate JSON files using ajv-cli
         env:
           SCHEMA_FILE_NAME: ${{ inputs.schema-file-name }}
           RELATIVE_PATH_FROM_SCHEMA_DIRECTORY_TO_DATA_FILES: ${{ inputs.relative-path-from-schema-directory-to-data-files }}
         working-directory: ${{ inputs.search-path }}
-        run: | # zizmor: ignore[adhoc-packages] runs ajv-cli through npm exec
+        run: | # zizmor: ignore[adhoc-packages] runs ajv-cli through pnpm dlx
           reject_shell_metacharacters() {
             local label="${1}" value="${2}"
             case "${value}" in
@@ -86,8 +88,7 @@ jobs:
             | while IFS= read -r -d '' schema; do
                 (
                   cd "$(dirname "${schema}")"
-                  npm exec --yes --package=ajv-cli -- \
-                    ajv validate -s "$(basename "${schema}")" \
+                  pnpm dlx ajv-cli validate -s "$(basename "${schema}")" \
                     -d "${RELATIVE_PATH_FROM_SCHEMA_DIRECTORY_TO_DATA_FILES}"
                 )
               done
