@@ -15,6 +15,13 @@ pnpm_setup_value() {
     "${workflow}"
 }
 
+pnpm_setup_workflows() {
+  local workflow
+  while IFS= read -r workflow; do
+    [[ "$(yq -r '.on.workflow_call != null' "${workflow}")" == true ]] && printf '%s\\n' "${workflow}"
+  done < <(grep -rl --include='*.yml' 'pnpm/setup@' "${WORKFLOWS}")
+}
+
 has_pnpm_version_source_in_fixture() {
   local workflow="$1" fixture_dir="$2"
   local fn
@@ -50,7 +57,7 @@ has_pnpm_version_source_in_fixture() {
     [ "${status}" -eq 0 ]
     [ "${output}" = "\${{ inputs.pnpm-version || env.PNPM_VERSION }}" ]
     count=$((count + 1))
-  done < <(grep -rl --include='*.yml' 'pnpm/setup@' "${WORKFLOWS}")
+  done < <(pnpm_setup_workflows)
   [ "${count}" -gt 0 ]
 }
 
@@ -61,8 +68,18 @@ has_pnpm_version_source_in_fixture() {
     run grep -F "echo 'PNPM_VERSION=latest'" "${workflow}"
     [ "${status}" -eq 0 ]
     count=$((count + 1))
-  done < <(grep -rl --include='*.yml' 'pnpm/setup@' "${WORKFLOWS}")
+  done < <(pnpm_setup_workflows)
   [ "${count}" -gt 0 ]
+}
+
+@test "CI-only pnpm setup declares its pnpm version without installing packages" {
+  local workflow="${WORKFLOWS}/ci.yml"
+  run pnpm_setup_value "${workflow}" version
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "12" ]
+  run pnpm_setup_value "${workflow}" install
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "false" ]
 }
 
 @test "Bats workflow uses latest uv and pnpm with minimum release age" {
@@ -106,7 +123,7 @@ has_pnpm_version_source_in_fixture() {
     [ "${status}" -eq 0 ]
     [ "${output}" = "\${{ inputs.package-path }}" ]
     count=$((count + 1))
-  done < <(grep -rl --include='*.yml' 'pnpm/setup@' "${WORKFLOWS}")
+  done < <(pnpm_setup_workflows)
   [ "${count}" -gt 0 ]
 }
 
@@ -185,7 +202,7 @@ CASES
       [[ "${output}" != *"steps.pnpm-config.outputs.legacy != 'true'"* ]]
     fi
     count=$((count + 1))
-  done < <(grep -rl --include='*.yml' 'pnpm/setup@' "${WORKFLOWS}")
+  done < <(pnpm_setup_workflows)
   [ "${count}" -eq 5 ]
 }
 

@@ -51,7 +51,7 @@ jobs:
       - json-schema-lint
     runs-on: ${{ inputs.runs-on }}
     env:
-      npm_config_min_release_age: '1'
+      PNPM_CONFIG_MINIMUM_RELEASE_AGE: '1440'
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
