@@ -131,6 +131,7 @@ jobs:
             exit 1
           fi
       - name: Set up Go
+        id: setup-go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version: ${{ inputs.go-version }}
@@ -138,6 +139,16 @@ jobs:
           cache-dependency-path: |
             ${{ inputs.working-directory }}/**/go.sum
             ${{ inputs.working-directory }}/go.work.sum
+      - name: Cache Go projects without checksum files
+        if: hashFiles(format('{0}/**/go.sum', inputs.working-directory), format('{0}/go.work.sum', inputs.working-directory)) == ''
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-no-sum-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles(format('{0}/**/go.mod', inputs.working-directory), format('{0}/go.work', inputs.working-directory)) }}
+          restore-keys: |
+            go-no-sum-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-go.outputs.go-version }}-
       - name: Verify formatting
         working-directory: ${{ inputs.working-directory }}
         run: |
