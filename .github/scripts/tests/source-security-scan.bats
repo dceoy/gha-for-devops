@@ -89,7 +89,7 @@ run_osv_scan() {
   local save_index scan_index
   save_index="$(jq -r 'to_entries[] | select(.value.name == "Save pinned OSV-Scanner installation") | .key' <<< "${steps}")"
   scan_index="$(jq -r 'to_entries[] | select(.value.name == "Run OSV-Scanner") | .key' <<< "${steps}")"
-  (( save_index < scan_index ))
+  ((save_index < scan_index))
 }
 
 @test "Renovate extracts the pinned OSV-Scanner and mise versions" {
