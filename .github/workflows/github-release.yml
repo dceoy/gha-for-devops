@@ -183,7 +183,8 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
       - name: Publish GitHub release
         id: publish
-        if: !inputs.bump || steps.plan.outputs.ready == 'true'
+        if: >-
+          !inputs.bump || steps.plan.outputs.ready == 'true'
         env:
           TAG_NAME: ${{ inputs.tag-name || steps.plan.outputs.tag }}
           PREVIOUS_TAG: ${{ steps.plan.outputs.previous-tag }}
