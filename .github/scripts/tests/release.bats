@@ -66,3 +66,85 @@ setup() {
   [ "$(yq -o=json '.on' "${ci_workflow}" | jq -r 'has("schedule")')" = false ]
   [ "$(yq -o=json '.jobs' "${ci_workflow}" | jq -r 'has("weekly-release")')" = false ]
 }
+
+
+@test 'release exposes exact file exclusions to reusable and manual calls' {
+  for event in workflow_call workflow_dispatch; do
+    [ "$(yq -r ".on.${event}.inputs.\"release-exclude-paths\".type" "${RELEASE_WORKFLOW}")" = string ]
+  done
+  [ "$(yq -r '.jobs."github-release".steps[] | select(.id == "plan") | .env.RELEASE_EXCLUDE_PATHS' "${RELEASE_WORKFLOW}")" = '${{ inputs.release-exclude-paths }}' ]
+  local excluded
+  excluded="$(yq -r '.jobs."github-release".with."release-exclude-paths"' "${WORKFLOW_FILE}")"
+  [ "${excluded}" = "$(printf '%s\n' .github/workflows/ai-agents.yml .github/workflows/ci.yml .github/workflows/maintenance.yml)" ]
+  yq -r '.jobs."github-release".steps[] | select(.id == "plan") | .run' "${RELEASE_WORKFLOW}" | grep -Fq ':(exclude,literal)'
+}
+
+@test 'auto release ignores excluded CI workflows but includes reusable workflow changes' {
+  local fixture="${BATS_TEST_TMPDIR}/release-repo"
+  local bin="${BATS_TEST_TMPDIR}/bin"
+  local plan_script="${BATS_TEST_TMPDIR}/release-plan.sh"
+  mkdir -p "${fixture}/.github/workflows" "${bin}"
+  yq -r '.jobs."github-release".steps[] | select(.id == "plan") | .run' "${RELEASE_WORKFLOW}" > "${plan_script}"
+  cat > "${bin}/gh" <<'MOCK'
+#!/usr/bin/env bash
+case "$1 $2" in
+  'api repos/example/test/git/ref/heads/main')
+    echo "${RELEASE_SHA}"
+    ;;
+  'release list')
+    echo v1.2.3
+    ;;
+  *)
+    echo "Unexpected gh invocation: $*" >&2
+    exit 99
+    ;;
+esac
+MOCK
+  chmod +x "${bin}/gh"
+  cd "${fixture}" || exit 1
+  git init -q -b main
+  git config user.email ci@example.invalid
+  git config user.name 'Release test'
+  for name in ai-agents.yml ci.yml maintenance.yml reusable.yml; do
+    printf 'on:\n  workflow_call:\n' > ".github/workflows/${name}"
+  done
+  git add .
+  git commit -qm 'ci: baseline'
+  git tag v1.2.3
+  for name in ai-agents.yml ci.yml maintenance.yml; do
+    echo '# changed' >> ".github/workflows/${name}"
+  done
+  git add .
+  git commit -qm 'fix: adjust CI triggers'
+  export GITHUB_REF=refs/heads/main
+  export GITHUB_REPOSITORY=example/test
+  export RELEASE_BUMP=auto
+  export RELEASE_PATHS=$'.github/workflows/*.yml\n.github/workflows/*.yaml'
+  export RELEASE_EXCLUDE_PATHS
+  RELEASE_EXCLUDE_PATHS="$(yq -r '.jobs."github-release".with."release-exclude-paths"' "${WORKFLOW_FILE}")"
+  export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/release-output"
+  export PATH="${bin}:${PATH}"
+  export RELEASE_SHA
+  RELEASE_SHA="$(git rev-parse HEAD)"
+  : > "${GITHUB_OUTPUT}"
+  run bash -euo pipefail "${plan_script}"
+  [ "${status}" -eq 0 ]
+  [ ! -s "${GITHUB_OUTPUT}" ]
+  [[ "${output}" == *'No changes to the configured release paths.'* ]]
+
+  : > "${GITHUB_OUTPUT}"
+  run env RELEASE_EXCLUDE_PATHS= bash -euo pipefail "${plan_script}"
+  [ "${status}" -eq 0 ]
+  grep -qx 'ready=true' "${GITHUB_OUTPUT}"
+  grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
+
+  echo '# changed' >> .github/workflows/reusable.yml
+  git add .
+  git commit -qm 'fix: update reusable workflow'
+  RELEASE_SHA="$(git rev-parse HEAD)"
+  : > "${GITHUB_OUTPUT}"
+  run bash -euo pipefail "${plan_script}"
+  [ "${status}" -eq 0 ]
+  grep -qx 'ready=true' "${GITHUB_OUTPUT}"
+  grep -qx 'tag=v1.2.4' "${GITHUB_OUTPUT}"
+}
