@@ -87,10 +87,12 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+      - name: Setup pnpm-managed Node.js
+        uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4  # v3.1.1
         with:
-          node-version: ${{ inputs.node-version }}
+          version: 12
+          runtime: node@${{ inputs.node-version }}
+          install: false
       - name: Set up mise
         if: inputs.update-readme
         uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550  # v5.2.2
@@ -107,7 +109,7 @@ jobs:
           cat > "${HOME}/.local/bin/oxfmt" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec npx --yes "oxfmt@${OXFMT_VERSION}" "\$@"
+          exec pnpm dlx "oxfmt@${OXFMT_VERSION}" "\$@"
           EOF
           chmod 0755 "${HOME}/.local/bin/oxfmt"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
@@ -120,14 +122,14 @@ jobs:
         env:
           OXFMT_GLOB: ${{ inputs.oxfmt-glob }}
         run: >  # zizmor: ignore[adhoc-packages] runs pinned Oxfmt through npx
-          npx --yes "oxfmt@${OXFMT_VERSION}" --write --no-error-on-unmatched-pattern "${OXFMT_GLOB}"
+          pnpm dlx "oxfmt@${OXFMT_VERSION}" --write --no-error-on-unmatched-pattern "${OXFMT_GLOB}"
       - name: Format Markdown files using Biome
         if: inputs.use-biome
         working-directory: ${{ inputs.search-path }}
         env:
           BIOME_GLOB: ${{ inputs.biome-glob }}
         run: >  # zizmor: ignore[adhoc-packages] runs pinned Biome through npx
-          npx --yes "@biomejs/biome@${BIOME_VERSION}" format --write --files-ignore-unknown=true "${BIOME_GLOB}"
+          pnpm dlx "@biomejs/biome@${BIOME_VERSION}" format --write --files-ignore-unknown=true "${BIOME_GLOB}"
       - name: Require a PR-triggering token for README updates
         if: inputs.update-readme
         env:
