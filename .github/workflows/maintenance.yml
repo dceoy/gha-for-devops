@@ -48,6 +48,10 @@ jobs:
       release-trigger-paths: |
         .github/workflows/*.yml
         .github/workflows/*.yaml
+      release-exclude-paths: |
+        .github/workflows/ai-agents.yml
+        .github/workflows/ci.yml
+        .github/workflows/maintenance.yml
       runs-on: ubuntu-slim
   major-version-tag:
     needs: github-release
