@@ -16,8 +16,8 @@ on:
       bump:
         required: false
         type: string
-        description: Optional SemVer increment (auto, major-release, minor-release, or patch-release)
-        default: null
+        description: SemVer increment when tag-name is absent (auto, major-release, minor-release, or patch-release)
+        default: auto
       release-paths:
         required: false
         type: string
@@ -48,6 +48,21 @@ on:
         type: boolean
         description: Create a new tag if the input tag does not exist
         default: false
+      bump:
+        required: false
+        type: choice
+        description: SemVer increment when tag-name is absent
+        default: auto
+        options:
+          - auto
+          - major-release
+          - minor-release
+          - patch-release
+      release-paths:
+        required: false
+        type: string
+        description: Newline-delimited paths for auto releases (empty for all repository changes)
+        default: null
 permissions:
   contents: write  # IMPORTANT: mandatory for making GitHub Releases
 defaults:
@@ -65,7 +80,7 @@ jobs:
       - name: Check out repository and tags
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          fetch-depth: ${{ inputs.bump && '0' || '1' }}
+          fetch-depth: ${{ (inputs.tag-name || startsWith(github.ref, 'refs/tags/')) && 1 || 0 }}
           persist-credentials: false
       - name: Validate release inputs
         env:
@@ -73,11 +88,11 @@ jobs:
           RELEASE_BUMP: ${{ inputs.bump }}
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
         run: |
-          if [[ -n "${RELEASE_BUMP}" ]]; then
-            if [[ -n "${TAG_NAME}" || "${CREATE_NEW_TAG}" == true ]]; then
-              echo '::error::bump cannot be combined with tag-name or create-new-tag.'
-              exit 2
-            fi
+          if [[ "${GITHUB_REF}" == refs/tags/* && -n "${TAG_NAME}" && "${TAG_NAME}" != "${GITHUB_REF_NAME}" ]]; then
+            echo "::error::Invalid tag: ${TAG_NAME} != ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+          if [[ -z "${TAG_NAME}" && "${GITHUB_REF}" != refs/tags/* ]]; then
             case "${RELEASE_BUMP}" in
               auto|major-release|minor-release|patch-release) ;;
               *)
@@ -85,17 +100,10 @@ jobs:
                 exit 2
                 ;;
             esac
-          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            if [[ -n "${TAG_NAME}" && "${TAG_NAME}" != "${GITHUB_REF_NAME}" ]]; then
-              echo "::error::Invalid tag: ${TAG_NAME} != ${GITHUB_REF_NAME}"
-              exit 1
-            fi
-          elif [[ -z "${TAG_NAME}" ]]; then
-            echo '::error::A tag-name is required for non-tag events without bump.'
-            exit 2
           fi
       - name: Plan SemVer release
-        if: inputs.bump
+        if: >-
+          !inputs.tag-name && !startsWith(github.ref, 'refs/tags/')
         id: plan
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
@@ -151,8 +159,7 @@ jobs:
                   [[ -n "${path}" ]] && paths+=("${path}")
                 done <<< "${RELEASE_PATHS}"
                 if (("${#paths[@]}" == 0)); then
-                  echo '::error::Automatic releases require at least one release path.'
-                  exit 2
+                  paths=(.)
                 fi
                 if git diff --quiet "${previous_tag}" "${RELEASE_SHA}" -- "${paths[@]}"; then
                   echo '::notice::No changes to the configured release paths.'
@@ -184,9 +191,11 @@ jobs:
       - name: Publish GitHub release
         id: publish
         if: >-
-          !inputs.bump || steps.plan.outputs.ready == 'true'
+          inputs.tag-name || startsWith(github.ref, 'refs/tags/')
+          || steps.plan.outputs.ready == 'true'
         env:
-          TAG_NAME: ${{ inputs.tag-name || steps.plan.outputs.tag }}
+          TAG_NAME: ${{ inputs.tag-name }}
+          PLANNED_TAG: ${{ steps.plan.outputs.tag }}
           PREVIOUS_TAG: ${{ steps.plan.outputs.previous-tag }}
           RELEASE_BUMP: ${{ inputs.bump }}
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
@@ -194,8 +203,8 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
         run: |
-          tag="${TAG_NAME:-${GITHUB_REF_NAME}}"
-          if [[ -n "${RELEASE_BUMP}" ]]; then
+          tag="${TAG_NAME:-${PLANNED_TAG:-${GITHUB_REF_NAME}}}"
+          if [[ -n "${PLANNED_TAG}" ]]; then
             main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
             if [[ "${main_sha}" != "${RELEASE_SHA}" ]]; then
               echo '::notice::main advanced during release planning; skipping publication.'
@@ -216,7 +225,7 @@ jobs:
             fi
           fi
           if ! gh release view "${tag}" --repo "${REPOSITORY}" > /dev/null 2>&1; then
-            if [[ -z "${RELEASE_BUMP}" && "${CREATE_NEW_TAG}" == true && "${GITHUB_REF}" != refs/tags/* ]]; then
+            if [[ -z "${PLANNED_TAG}" && "${CREATE_NEW_TAG}" == true && "${GITHUB_REF}" != refs/tags/* ]]; then
               gh release create "${tag}" --repo "${REPOSITORY}" --generate-notes
             else
               gh release create "${tag}" --repo "${REPOSITORY}" --generate-notes --verify-tag
