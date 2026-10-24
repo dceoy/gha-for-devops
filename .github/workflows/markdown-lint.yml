@@ -102,12 +102,16 @@ jobs:
           version: 12
           runtime: node@${{ inputs.node-version }}
           install: false
-      - name: Cache npm downloads
+      - name: Locate pnpm store
+        if: inputs.enable-cache
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "${GITHUB_OUTPUT}"
+      - name: Cache pnpm downloads
         if: inputs.enable-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
-          path: ~/.npm
-          key: markdown-lint-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.OXFMT_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: markdown-lint-pnpm-${{ runner.os }}-${{ runner.arch }}-${{ inputs.node-version }}-${{ env.MARKDOWNLINT_CLI2_VERSION }}-${{ env.OXFMT_VERSION }}-${{ env.BIOME_VERSION }}-${{ inputs.cache-salt }}
       - name: Create Markdown lint configuration
         if: inputs.use-markdownlint-cli2
         env:
