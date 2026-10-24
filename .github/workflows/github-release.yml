@@ -13,11 +13,25 @@ on:
         type: boolean
         description: Create a new tag if the input tag does not exist
         default: false
+      bump:
+        required: false
+        type: string
+        description: Optional SemVer increment (auto, major-release, minor-release, or patch-release)
+        default: null
+      release-paths:
+        required: false
+        type: string
+        description: Newline-delimited paths that trigger automatic SemVer releases
+        default: null
       runs-on:
         required: false
         type: string
         description: Runner to use
         default: ubuntu-latest
+    outputs:
+      release-tag:
+        description: Release tag, empty if no release was needed
+        value: ${{ jobs.github-release.outputs.release-tag }}
     secrets:
       GH_TOKEN:
         required: false
@@ -45,44 +59,167 @@ env:
 jobs:
   github-release:
     runs-on: ${{ inputs.runs-on }}
+    outputs:
+      release-tag: ${{ steps.publish.outputs.tag }}
     steps:
-      - name: Validate the tag consistency
-        if: >
-          startsWith(github.ref, 'refs/tags/') && inputs.tag-name != null
-          && github.ref_name != inputs.tag-name
-        env:
-          TAG_NAME: ${{ inputs.tag-name }}
-        run: >
-          echo "Invalid input tag: ${TAG_NAME} != ${GITHUB_REF_NAME}" && exit 1
-      - name: Validate the input tag
-        if: >
-          (! startsWith(github.ref, 'refs/tags/')) && inputs.tag-name == null
-        run: >
-          echo 'An input tag is required for non-tag events' && exit 2
-      - name: Checkout repository
+      - name: Check out repository and tags
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          fetch-depth: 1
+          fetch-depth: ${{ inputs.bump && '0' || '1' }}
           persist-credentials: false
-      - name: Create the GitHub release for the tag
-        if: >
-          startsWith(github.ref, 'refs/tags/')
-          || ((! startsWith(github.ref, 'refs/tags/')) && ! inputs.create-new-tag)
+      - name: Validate release inputs
         env:
           TAG_NAME: ${{ inputs.tag-name }}
+          RELEASE_BUMP: ${{ inputs.bump }}
+          CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
+        run: |
+          if [[ -n "${RELEASE_BUMP}" ]]; then
+            if [[ -n "${TAG_NAME}" || "${CREATE_NEW_TAG}" == true ]]; then
+              echo '::error::bump cannot be combined with tag-name or create-new-tag.'
+              exit 2
+            fi
+            case "${RELEASE_BUMP}" in
+              auto|major-release|minor-release|patch-release) ;;
+              *)
+                echo "::error::Invalid release bump: ${RELEASE_BUMP}"
+                exit 2
+                ;;
+            esac
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            if [[ -n "${TAG_NAME}" && "${TAG_NAME}" != "${GITHUB_REF_NAME}" ]]; then
+              echo "::error::Invalid tag: ${TAG_NAME} != ${GITHUB_REF_NAME}"
+              exit 1
+            fi
+          elif [[ -z "${TAG_NAME}" ]]; then
+            echo '::error::A tag-name is required for non-tag events without bump.'
+            exit 2
+          fi
+      - name: Plan SemVer release
+        if: inputs.bump
+        id: plan
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_BUMP: ${{ inputs.bump }}
+          RELEASE_PATHS: ${{ inputs.release-paths }}
+        run: |
+          if [[ "${GITHUB_REF}" != refs/heads/main || "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
+            echo '::error::SemVer releases require an exact main-branch checkout.'
+            exit 1
+          fi
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "${main_sha}" != "${RELEASE_SHA}" ]]; then
+            echo '::notice::main advanced; skipping the stale release.'
+            exit 0
+          fi
+          previous_tag="$(gh release list --repo "${GITHUB_REPOSITORY}" --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
+          if [[ ! "${previous_tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Expected a latest stable SemVer release: ${previous_tag}"
+            exit 1
+          fi
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          if ! git merge-base --is-ancestor "${previous_tag}" "${RELEASE_SHA}"; then
+            echo "::error::Latest release ${previous_tag} is not an ancestor of main."
+            exit 1
+          fi
+          if [[ "$(git rev-parse "${previous_tag}^{commit}")" == "${RELEASE_SHA}" ]]; then
+            if [[ "${RELEASE_BUMP}" == auto ]]; then
+              echo '::notice::Current main has already been released.'
+              exit 0
+            fi
+            # Manual reruns can restore missing release assets without bumping.
+            tag="${previous_tag}"
+          else
+            case "${RELEASE_BUMP}" in
+              major-release)
+                major=$((major + 1))
+                minor=0
+                patch=0
+                ;;
+              minor-release)
+                minor=$((minor + 1))
+                patch=0
+                ;;
+              patch-release)
+                patch=$((patch + 1))
+                ;;
+              auto)
+                paths=()
+                while IFS= read -r path; do
+                  [[ -n "${path}" ]] && paths+=("${path}")
+                done <<< "${RELEASE_PATHS}"
+                if (("${#paths[@]}" == 0)); then
+                  echo '::error::Automatic releases require at least one release path.'
+                  exit 2
+                fi
+                if git diff --quiet "${previous_tag}" "${RELEASE_SHA}" -- "${paths[@]}"; then
+                  echo '::notice::No changes to the configured release paths.'
+                  exit 0
+                else
+                  status=$?
+                  if ((status != 1)); then
+                    echo "::error::git diff failed with status ${status}"
+                    exit "${status}"
+                  fi
+                fi
+                messages="$(git log --first-parent --format=%B "${previous_tag}..${RELEASE_SHA}")"
+                if grep -Eq '^[[:space:]]*(\*[[:space:]]*)?[[:alnum:]_-]+(\([^)]*\))?!:|^[[:space:]]*(\*[[:space:]]*)?BREAKING[ -]CHANGE:' <<< "${messages}" ||
+                  grep -Eq '^[[:space:]]*(\*[[:space:]]*)?feat(\([^)]*\))?:' <<< "${messages}"; then
+                  minor=$((minor + 1))
+                  patch=0
+                else
+                  patch=$((patch + 1))
+                fi
+                ;;
+            esac
+            tag="v${major}.${minor}.${patch}"
+          fi
+          {
+            echo 'ready=true'
+            echo "tag=${tag}"
+            echo "previous-tag=${previous_tag}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Publish GitHub release
+        id: publish
+        if: >-
+          !inputs.bump || steps.plan.outputs.ready == 'true'
+        env:
+          TAG_NAME: ${{ inputs.tag-name || steps.plan.outputs.tag }}
+          PREVIOUS_TAG: ${{ steps.plan.outputs.previous-tag }}
+          RELEASE_BUMP: ${{ inputs.bump }}
+          CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
+          RELEASE_SHA: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
         run: |
           tag="${TAG_NAME:-${GITHUB_REF_NAME}}"
-          gh release view "${tag}" --repo "${REPOSITORY}" >/dev/null 2>&1 \
-            || gh release create "${tag}" --repo "${REPOSITORY}" --generate-notes --verify-tag
-      - name: Create the GitHub release with the new tag
-        if: >
-          (! startsWith(github.ref, 'refs/tags/')) && inputs.create-new-tag
-        env:
-          TAG_NAME: ${{ inputs.tag-name }}
-          REPOSITORY: ${{ github.repository }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
-        run: |
-          gh release view "${TAG_NAME}" --repo "${REPOSITORY}" >/dev/null 2>&1 \
-            || gh release create "${TAG_NAME}" --repo "${REPOSITORY}" --generate-notes
+          if [[ -n "${RELEASE_BUMP}" ]]; then
+            main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+            if [[ "${main_sha}" != "${RELEASE_SHA}" ]]; then
+              echo '::notice::main advanced during release planning; skipping publication.'
+              exit 0
+            fi
+            latest_tag="$(gh release list --repo "${REPOSITORY}" --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
+            if [[ "${latest_tag}" != "${PREVIOUS_TAG}" ]]; then
+              echo '::error::Latest release changed during planning.'
+              exit 1
+            fi
+            existing="$(gh api "repos/${REPOSITORY}/git/matching-refs/tags/${tag}" --jq ".[] | select(.ref == \"refs/tags/${tag}\") | [.object.type, .object.sha] | @tsv")"
+            if [[ -n "${existing}" && "${existing}" != "$(printf 'commit\t%s' "${RELEASE_SHA}")" ]]; then
+              echo "::error::Tag ${tag} already points to another object."
+              exit 1
+            fi
+            if [[ -z "${existing}" ]]; then
+              gh api "repos/${REPOSITORY}/git/refs" --method POST -f "ref=refs/tags/${tag}" -f "sha=${RELEASE_SHA}" > /dev/null
+            fi
+          fi
+          if ! gh release view "${tag}" --repo "${REPOSITORY}" > /dev/null 2>&1; then
+            if [[ -z "${RELEASE_BUMP}" && "${CREATE_NEW_TAG}" == true && "${GITHUB_REF}" != refs/tags/* ]]; then
+              gh release create "${tag}" --repo "${REPOSITORY}" --generate-notes
+            else
+              gh release create "${tag}" --repo "${REPOSITORY}" --generate-notes --verify-tag
+            fi
+          fi
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
