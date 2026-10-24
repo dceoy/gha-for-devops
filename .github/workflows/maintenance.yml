@@ -24,7 +24,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.repository }}-maintenance-${{ ((github.event_name == 'schedule' && github.event.schedule == '15 0 * * 1') || (github.event_name == 'workflow_dispatch' && (inputs.task == 'major-release' || inputs.task == 'minor-release' || inputs.task == 'patch-release'))) && 'release' || 'scorecard' }}
+  group: ${{ github.repository }}-maintenance-${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard')) && 'release' || 'scorecard' }}
   cancel-in-progress: false
 jobs:
   mise-lock-update:
