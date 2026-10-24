@@ -54,7 +54,6 @@ on:
         description: Create a new tag if the input tag does not exist
         default: false
 permissions:
-  actions: read  # Check pre-existing CI results; do not rerun lint or scans
   contents: write  # IMPORTANT: mandatory for making GitHub Releases
 defaults:
   run:
@@ -204,12 +203,26 @@ jobs:
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
           RELEASE_SHA: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
+          CI_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
         run: |
           tag="${TAG_NAME:-${GITHUB_REF_NAME}}"
           if [[ -n "${RELEASE_BUMP}" ]]; then
-            ci_state="$(gh api "repos/${REPOSITORY}/actions/workflows/${REQUIRED_CI_WORKFLOW}/runs?branch=main&head_sha=${RELEASE_SHA}&event=push&per_page=1" \
-              --jq '[.workflow_runs[0].status // "missing", .workflow_runs[0].conclusion // "missing", .workflow_runs[0].head_sha // "missing"] | @tsv')"
+            if [[ ! "${REQUIRED_CI_WORKFLOW}" =~ ^[a-zA-Z0-9_.-]+\.ya?ml$ ]]; then
+              echo "::error::Invalid CI workflow filename: ${REQUIRED_CI_WORKFLOW}"
+              exit 2
+            fi
+            ci_url="${GITHUB_API_URL}/repos/${REPOSITORY}/actions/workflows/${REQUIRED_CI_WORKFLOW}/runs?branch=main&head_sha=${RELEASE_SHA}&event=push&per_page=1"
+            if [[ -n "${CI_TOKEN}" ]]; then
+              ci_json="$(gh api "${ci_url}")"
+            else
+              # Public repositories can read CI runs without raising GITHUB_TOKEN permissions.
+              # Private callers must supply GH_TOKEN with Actions: read access.
+              ci_json="$(curl --fail --silent --show-error --location --retry 3 \
+                --header 'Accept: application/vnd.github+json' \
+                --header 'X-GitHub-Api-Version: 2022-11-28' "${ci_url}")"
+            fi
+            ci_state="$(jq -r '[.workflow_runs[0].status // "missing", .workflow_runs[0].conclusion // "missing", .workflow_runs[0].head_sha // "missing"] | @tsv' <<< "${ci_json}")"
             if [[ "${ci_state}" != "$(printf 'completed\tsuccess\t%s' "${RELEASE_SHA}")" ]]; then
               echo "::error::Required CI ${REQUIRED_CI_WORKFLOW} has not succeeded for ${RELEASE_SHA}: ${ci_state}"
               exit 1
