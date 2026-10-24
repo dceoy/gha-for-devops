@@ -18,7 +18,7 @@ pnpm_setup_value() {
 pnpm_setup_workflows() {
   local workflow
   while IFS= read -r workflow; do
-    [[ "$(yq -r '.on.workflow_call != null' "${workflow}")" == true ]] && printf '%s\\n' "${workflow}"
+    [[ "$(yq -r '.on.workflow_call != null' "${workflow}")" == true ]] && printf '%s\n' "${workflow}"
   done < <(grep -rl --include='*.yml' 'pnpm/setup@' "${WORKFLOWS}")
 }
 
