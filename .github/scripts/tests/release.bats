@@ -39,7 +39,8 @@ setup() {
   [[ "${paths}" == *'.github/workflows/*.yml'* ]]
   [[ "${paths}" == *'.github/workflows/*.yaml'* ]]
   [ "$(yq -r '.on.workflow_call.inputs."release-trigger-paths".default' "${RELEASE_WORKFLOW}")" = . ]
-  ! grep -Fq 'release.sh' "${WORKFLOW_FILE}"
+  run ! grep -Fq 'release.sh' "${WORKFLOW_FILE}"
+  [ "$status" -eq 0 ]
 }
 
 @test 'major tag sync runs after successful release job even when no new tag is needed' {
