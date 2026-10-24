@@ -205,6 +205,7 @@ jobs:
       - name: Setup pnpm and latest Node.js
         uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4  # v3.1.1
         with:
+          version: 12
           runtime: node@latest
           install: false
       - name: Set up mise
