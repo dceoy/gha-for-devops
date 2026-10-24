@@ -7,9 +7,6 @@ on:
     types:
       - opened
       - ready_for_review
-  pull_request_review_comment:
-    types:
-      - created
 permissions:
   contents: read
 defaults:
@@ -54,26 +51,6 @@ jobs:
       id-token: write
       actions: read
     uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@163f9a9cd3d3f497e2847635585419f951371d2f  # v0.8.1
-    with:
-      model: openrouter/nvidia/nemotron-3.5-super-vl:free
-    secrets:
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  opencode-bot:
-    if: >
-      github.event_name == 'pull_request_review_comment'
-      && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
-      && (contains(github.event.comment.body, ' /oc') || contains(github.event.comment.body, ' /opencode'))
-    concurrency:
-      group: ${{ github.workflow }}-opencode-bot-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
-      cancel-in-progress: true
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-      id-token: write
-      actions: read
-    uses: dceoy/opencode-action/.github/workflows/opencode-bot.yml@163f9a9cd3d3f497e2847635585419f951371d2f  # v0.8.1
     with:
       model: openrouter/nvidia/nemotron-3.5-super-vl:free
     secrets:
