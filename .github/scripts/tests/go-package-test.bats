@@ -214,7 +214,7 @@ EOF
   done
   [ "$(yq -r '.jobs."go-package-lint-and-scan".steps[] | select(.name == "Cache Go tools") | .with.key' "${workflow}" | grep -o 'go-tools-v3-' | wc -l)" -eq 1 ]
   for tool in golangci-lint gosec govulncheck; do
-    grep -Fq '$(go env GOPATH)/bin/'"${tool}" "${workflow}"
+    grep -Fq "\$(go env GOPATH)/bin/${tool}" "${workflow}"
   done
   run ! grep -Eq 'go install .*@latest' "${workflow}"
 }
