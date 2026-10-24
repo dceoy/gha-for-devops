@@ -21,7 +21,7 @@ setup() {
   [[ "${condition}" == *"github.event_name == 'schedule'"* ]]
   [[ "${condition}" == *"inputs.task != 'scorecard'"* ]]
   [ "$(yq -r '.jobs."bats-tests" | has("needs")' "${WORKFLOW_FILE}")" = false ]
-  yq -r '.jobs."bats-tests".steps[] | select(.name == "Run Bats tests") | .run' "${WORKFLOW_FILE}" | grep -Fq '"${GITHUB_EVENT_NAME}" != schedule'
+  yq -r '.jobs."bats-tests".steps[] | select(.name == "Run Bats tests") | .run' "${WORKFLOW_FILE}" | grep -Fq "\"\${GITHUB_EVENT_NAME}\" != schedule"
 }
 
 @test 'release uses direct event gating without preflight dependencies' {
