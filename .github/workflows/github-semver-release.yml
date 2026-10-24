@@ -1,0 +1,204 @@
+---
+name: SemVer release
+on:
+  workflow_call:
+    inputs:
+      bump:
+        description: Version increment (auto, major-release, minor-release, or patch-release)
+        type: string
+        required: false
+        default: auto
+      release-paths:
+        description: Newline-delimited paths that trigger automatic releases
+        type: string
+        required: true
+      package-agent-skills:
+        description: Attach individual Agent Skill ZIP files to the release
+        type: boolean
+        required: false
+        default: false
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+jobs:
+  plan:
+    runs-on: ubuntu-slim
+    outputs:
+      ready: ${{ steps.plan.outputs.ready }}
+      tag: ${{ steps.plan.outputs.tag }}
+      previous-tag: ${{ steps.plan.outputs.previous-tag }}
+    steps:
+      - name: Check out release candidate and tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Plan the release
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_BUMP: ${{ inputs.bump }}
+          RELEASE_PATHS: ${{ inputs.release-paths }}
+        run: |
+          if [[ "${GITHUB_REF}" != refs/heads/main || "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
+            echo '::error::Releases require an exact main-branch checkout.'
+            exit 1
+          fi
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "${main_sha}" != "${RELEASE_SHA}" ]]; then
+            echo '::notice::main advanced; skipping the stale release.'
+            exit 0
+          fi
+          previous_tag="$(gh release list --repo "${GITHUB_REPOSITORY}" --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
+          if [[ ! "${previous_tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Expected a latest stable SemVer release: ${previous_tag}"
+            exit 1
+          fi
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          if ! git merge-base --is-ancestor "${previous_tag}" "${RELEASE_SHA}"; then
+            echo "::error::Latest release ${previous_tag} is not an ancestor of main."
+            exit 1
+          fi
+          case "${RELEASE_BUMP}" in
+            auto|major-release|minor-release|patch-release) ;;
+            *)
+              echo "::error::Invalid bump: ${RELEASE_BUMP}"
+              exit 2
+              ;;
+          esac
+          if [[ "$(git rev-parse "${previous_tag}^{commit}")" == "${RELEASE_SHA}" ]]; then
+            if [[ "${RELEASE_BUMP}" == auto ]]; then
+              echo '::notice::Current main has already been released.'
+              exit 0
+            fi
+            # Manual reruns can recover or update release assets without a new tag.
+            tag="${previous_tag}"
+          else
+            case "${RELEASE_BUMP}" in
+              major-release)
+                major=$((major + 1))
+                minor=0
+                patch=0
+                ;;
+              minor-release)
+                minor=$((minor + 1))
+                patch=0
+                ;;
+              patch-release)
+                patch=$((patch + 1))
+                ;;
+              auto)
+                paths=()
+                while IFS= read -r path; do
+                  [[ -n "${path}" ]] && paths+=("${path}")
+                done <<< "${RELEASE_PATHS}"
+                if (("${#paths[@]}" == 0)); then
+                  echo '::error::Automatic releases require at least one release path.'
+                  exit 2
+                fi
+                if git diff --quiet "${previous_tag}" "${RELEASE_SHA}" -- "${paths[@]}"; then
+                  echo '::notice::No changes to the configured release paths.'
+                  exit 0
+                else
+                  status=$?
+                  if ((status != 1)); then
+                    echo "::error::git diff failed with status ${status}"
+                    exit "${status}"
+                  fi
+                fi
+                messages="$(git log --first-parent --format=%B "${previous_tag}..${RELEASE_SHA}")"
+                if grep -Eq '^[[:space:]]*(\*[[:space:]]*)?[[:alnum:]_-]+(\([^)]*\))?!:|^[[:space:]]*(\*[[:space:]]*)?BREAKING[ -]CHANGE:' <<< "${messages}" ||
+                  grep -Eq '^[[:space:]]*(\*[[:space:]]*)?feat(\([^)]*\))?:' <<< "${messages}"; then
+                  minor=$((minor + 1))
+                  patch=0
+                else
+                  patch=$((patch + 1))
+                fi
+                ;;
+            esac
+            tag="v${major}.${minor}.${patch}"
+          fi
+          {
+            echo 'ready=true'
+            echo "tag=${tag}"
+            echo "previous-tag=${previous_tag}"
+          } >> "${GITHUB_OUTPUT}"
+  github-actions-lint-and-scan:
+    needs: plan
+    if: needs.plan.outputs.ready == 'true'
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    uses: dceoy/gha-for-devops/.github/workflows/github-actions-lint-and-scan.yml@main  # zizmor: ignore[unpinned-uses]
+  markdown-lint:
+    needs: plan
+    if: needs.plan.outputs.ready == 'true'
+    permissions:
+      contents: read
+    uses: dceoy/gha-for-devops/.github/workflows/markdown-lint.yml@main  # zizmor: ignore[unpinned-uses]
+  publish-tag:
+    needs:
+      - plan
+      - github-actions-lint-and-scan
+      - markdown-lint
+    if: >-
+      needs.plan.outputs.ready == 'true'
+      && needs.github-actions-lint-and-scan.result == 'success'
+      && needs.markdown-lint.result == 'success'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+    outputs:
+      ready: ${{ steps.tag.outputs.ready }}
+    steps:
+      - name: Create the validated Git tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+          PREVIOUS_TAG: ${{ needs.plan.outputs.previous-tag }}
+        run: |
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "${main_sha}" != "${RELEASE_SHA}" ]]; then
+            echo '::notice::main advanced during validation; skipping publication.'
+            exit 0
+          fi
+          latest_tag="$(gh release list --repo "${GITHUB_REPOSITORY}" --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
+          if [[ "${latest_tag}" != "${PREVIOUS_TAG}" ]]; then
+            echo "::error::Latest release changed during validation."
+            exit 1
+          fi
+          existing="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${RELEASE_TAG}" --jq ".[] | select(.ref == \"refs/tags/${RELEASE_TAG}\") | [.object.type, .object.sha] | @tsv")"
+          if [[ -n "${existing}" && "${existing}" != "$(printf 'commit\t%s' "${RELEASE_SHA}")" ]]; then
+            echo "::error::Tag ${RELEASE_TAG} already points to another object."
+            exit 1
+          fi
+          if [[ -z "${existing}" ]]; then
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" --method POST -f "ref=refs/tags/${RELEASE_TAG}" -f "sha=${RELEASE_SHA}" > /dev/null
+          fi
+          echo 'ready=true' >> "${GITHUB_OUTPUT}"
+  github-release:
+    needs: [plan, publish-tag]
+    if: needs.publish-tag.outputs.ready == 'true'
+    permissions:
+      contents: write
+    uses: dceoy/gha-for-devops/.github/workflows/github-release.yml@main  # zizmor: ignore[unpinned-uses]
+    with:
+      tag-name: ${{ needs.plan.outputs.tag }}
+      create-new-tag: false
+  package-agent-skills:
+    needs: [plan, github-release]
+    if: inputs.package-agent-skills && needs.github-release.result == 'success'
+    permissions:
+      contents: write
+    uses: dceoy/gha-for-devops/.github/workflows/agent-skills-package.yml@main  # zizmor: ignore[unpinned-uses]
+    with:
+      release-tag: ${{ needs.plan.outputs.tag }}
