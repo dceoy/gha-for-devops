@@ -197,6 +197,28 @@ EOF
   [[ " ${matches[*]} " == *" ${module_b}/go.sum "* ]]
 }
 
+@test "Go module and build caches also cover projects without go.sum" {
+  fallback="$(yq -o json '.jobs."go-package-test".steps[] | select(.name == "Cache Go projects without checksum files")' "${WORKFLOW}")"
+  [ "$(jq -r '.uses' <<< "${fallback}")" = 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9' ]
+  [[ "$(jq -r '.if' <<< "${fallback}")" == *'go.work.sum'* ]]
+  [[ "$(jq -r '.with.path' <<< "${fallback}")" == *'~/.cache/go-build'* ]]
+  [[ "$(jq -r '.with.key' <<< "${fallback}")" == *'steps.setup-go.outputs.go-version'* ]]
+}
+
+@test "Go lint caches pinned scanner versions and invokes Go-installed binaries" {
+  local workflow
+  workflow="${REPO_ROOT}/.github/workflows/go-package-lint-and-scan.yml"
+  for tool in GOLANGCI_LINT_VERSION GOSEC_VERSION GOVULNCHECK_VERSION; do
+    [[ "$(yq -r ".jobs.\"go-package-lint-and-scan\".env.${tool}" "${workflow}")" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+    grep -Fq "env.${tool}" "${workflow}"
+  done
+  [ "$(yq -r '.jobs."go-package-lint-and-scan".steps[] | select(.name == "Cache Go tools") | .with.key' "${workflow}" | grep -o 'go-tools-v3-' | wc -l)" -eq 1 ]
+  for tool in golangci-lint gosec govulncheck; do
+    grep -Fq "\$(go env GOPATH)/bin/${tool}" "${workflow}"
+  done
+  run ! grep -Eq 'go install .*@latest' "${workflow}"
+}
+
 @test "coverage artifacts can be named uniquely per workflow invocation" {
   run yq -r '.on.workflow_call.inputs."coverage-artifact-name".default' "${WORKFLOW}"
   [ "${status}" -eq 0 ]

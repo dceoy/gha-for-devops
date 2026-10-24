@@ -127,6 +127,12 @@ jobs:
           install: false
           cache: false
           working_directory: ${{ runner.temp }}
+      - name: Restore pinned Syft and Grype installations
+        id: scanner-tool-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/mise/installs
+          key: syft-grype-tools-${{ runner.os }}-${{ runner.arch }}-${{ env.SYFT_VERSION }}-${{ env.GRYPE_VERSION }}
       - name: Install pinned Syft and Grype
         working-directory: ${{ runner.temp }}
         env:
@@ -141,6 +147,12 @@ jobs:
           mise install
           echo "SYFT_BIN=$(mise which syft)" >> "${GITHUB_ENV}"
           echo "GRYPE_BIN=$(mise which grype)" >> "${GITHUB_ENV}"
+      - name: Save pinned Syft and Grype installations
+        if: steps.scanner-tool-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/mise/installs
+          key: ${{ steps.scanner-tool-cache.outputs.cache-primary-key }}
       - name: Generate Syft SBOM
         env:
           SCAN_TYPE: ${{ inputs.scan-type }}
@@ -157,9 +169,23 @@ jobs:
           "${SYFT_BIN}" "${source}" -o "syft-json=${SBOM}" -o "cyclonedx-json=${CYCLONEDX}"
           jq -e '.artifacts | type == "array"' "${SBOM}" > /dev/null
           echo "Syft packages: $(jq '.artifacts | length' "${SBOM}")" >> "${GITHUB_STEP_SUMMARY}"
+      - name: Set Grype database cache period
+        id: grype-db-date
+        run: |
+          # Rotate with Grype's default two-hour DB update-check frequency.
+          printf 'slot=%s-%s\n' "$(date -u +%Y%m%d)" "$((10#$(date -u +%H) / 2))" >> "${GITHUB_OUTPUT}"
+      - name: Restore Grype vulnerability database
+        id: grype-db-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ runner.temp }}/grype-db
+          key: grype-db-${{ runner.os }}-${{ runner.arch }}-${{ env.GRYPE_VERSION }}-${{ steps.grype-db-date.outputs.slot }}
+          restore-keys: |
+            grype-db-${{ runner.os }}-${{ runner.arch }}-${{ env.GRYPE_VERSION }}-
       - name: Scan SBOM with Grype
         id: grype
         env:
+          GRYPE_DB_CACHE_DIR: ${{ runner.temp }}/grype-db
           FAIL_ON: ${{ inputs.grype-fail-on }}
           ONLY_FIXED: ${{ inputs.grype-only-fixed }}
           SBOM: ${{ runner.temp }}/sbom.syft.json
@@ -176,6 +202,12 @@ jobs:
           [[ -s "${REPORT}" ]] || { echo '::error::Grype report missing'; exit 1; }
           echo "exit-code=${status}" >> "${GITHUB_OUTPUT}"
           jq -r '"Grype vulnerabilities: \(.matches | length)"' "${REPORT}" >> "${GITHUB_STEP_SUMMARY}"
+      - name: Save Grype vulnerability database
+        if: steps.grype.outcome == 'success' && steps.grype-db-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ${{ runner.temp }}/grype-db
+          key: ${{ steps.grype-db-cache.outputs.cache-primary-key }}
       - name: Upload SBOM and vulnerability report
         if: inputs.sbom-artifact-name != '' && steps.grype.outputs.exit-code != ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2

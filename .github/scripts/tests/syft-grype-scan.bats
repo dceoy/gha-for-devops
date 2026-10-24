@@ -38,11 +38,30 @@ setup() {
 }
 
 @test "All scan output paths stay within the runner temporary directory" {
-  paths="$(yq -o json '.jobs."syft-grype-scan".steps' "$SCAN" | jq -r ' .[] | (.with.path // ""), (.env.IMAGE_TAR // ""), (.env.SBOM // ""), (.env.CYCLONEDX // ""), (.env.REPORT // "") | select(. != "")')"
+  paths="$(yq -o json '.jobs."syft-grype-scan".steps' "$SCAN" | jq -r ' .[] | (if (.uses // "" | test("^actions/(upload|download)-artifact@")) then (.with.path // "") else "" end), (.env.IMAGE_TAR // ""), (.env.SBOM // ""), (.env.CYCLONEDX // ""), (.env.REPORT // "") | select(. != "")')"
   [ "$(wc -l <<< "$paths")" -eq 9 ]
   while IFS= read -r path; do
     [[ "$path" == '${{ runner.temp }}/'* ]]
   done <<< "$paths"
+}
+
+@test "Scanner caches refresh DB versions and save before the severity gate" {
+  local steps
+  steps="$(yq -o=json '.jobs."syft-grype-scan".steps' "$SCAN")"
+  [ "$(jq -r '.[] | select(.name == "Restore pinned Syft and Grype installations") | .with.key' <<< "$steps")" = 'syft-grype-tools-${{ runner.os }}-${{ runner.arch }}-${{ env.SYFT_VERSION }}-${{ env.GRYPE_VERSION }}' ]
+  [ "$(jq -r '.[] | select(.name == "Save pinned Syft and Grype installations") | .with.key' <<< "$steps")" = '${{ steps.scanner-tool-cache.outputs.cache-primary-key }}' ]
+  [ "$(jq -r '.[] | select(.name == "Restore Grype vulnerability database") | .with.path' <<< "$steps")" = '${{ runner.temp }}/grype-db' ]
+  [ "$(jq -r '.[] | select(.name == "Save Grype vulnerability database") | .with.key' <<< "$steps")" = '${{ steps.grype-db-cache.outputs.cache-primary-key }}' ]
+  [ "$(jq -r '.[] | select(.name == "Restore Grype vulnerability database") | .with.key' <<< "$steps")" = 'grype-db-${{ runner.os }}-${{ runner.arch }}-${{ env.GRYPE_VERSION }}-${{ steps.grype-db-date.outputs.slot }}' ]
+  [ "$(jq -r '.[] | select(.name == "Save Grype vulnerability database") | .if' <<< "$steps")" = "steps.grype.outcome == 'success' && steps.grype-db-cache.outputs.cache-hit != 'true'" ]
+  [[ "$(jq -r '.[] | select(.name == "Set Grype database cache period") | .run' <<< "$steps")" == *'10#$(date -u +%H) / 2'* ]]
+  [ "$(jq -r '.[] | select(.name == "Scan SBOM with Grype") | .env.GRYPE_DB_CACHE_DIR' <<< "$steps")" = '${{ runner.temp }}/grype-db' ]
+  [ "$(yq -r '.jobs."syft-grype-scan".env.GRYPE_DB_AUTO_UPDATE' "$SCAN")" = null ]
+  local scan_index save_index enforce_index
+  scan_index="$(jq -r 'to_entries[] | select(.value.name == "Scan SBOM with Grype") | .key' <<< "$steps")"
+  save_index="$(jq -r 'to_entries[] | select(.value.name == "Save Grype vulnerability database") | .key' <<< "$steps")"
+  enforce_index="$(jq -r 'to_entries[] | select(.value.name == "Enforce Grype policy") | .key' <<< "$steps")"
+  ((scan_index < save_index && save_index < enforce_index))
 }
 
 @test "Filesystem workflow executes real Syft and Grype and produces valid reports" {
