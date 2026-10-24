@@ -61,7 +61,7 @@ setup() {
   scan_index="$(jq -r 'to_entries[] | select(.value.name == "Scan SBOM with Grype") | .key' <<< "$steps")"
   save_index="$(jq -r 'to_entries[] | select(.value.name == "Save Grype vulnerability database") | .key' <<< "$steps")"
   enforce_index="$(jq -r 'to_entries[] | select(.value.name == "Enforce Grype policy") | .key' <<< "$steps")"
-  (( scan_index < save_index && save_index < enforce_index ))
+  ((scan_index < save_index && save_index < enforce_index))
 }
 
 @test "Filesystem workflow executes real Syft and Grype and produces valid reports" {
