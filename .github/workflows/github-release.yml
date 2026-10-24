@@ -23,6 +23,11 @@ on:
         type: string
         description: Newline-delimited paths that trigger automatic SemVer releases
         default: null
+      required-ci-workflow:
+        required: false
+        type: string
+        description: Workflow file name whose completed successful push run is required for SemVer releases
+        default: null
       runs-on:
         required: false
         type: string
@@ -49,6 +54,7 @@ on:
         description: Create a new tag if the input tag does not exist
         default: false
 permissions:
+  actions: read  # Check pre-existing CI results; do not rerun lint or scans
   contents: write  # IMPORTANT: mandatory for making GitHub Releases
 defaults:
   run:
@@ -72,8 +78,13 @@ jobs:
           TAG_NAME: ${{ inputs.tag-name }}
           RELEASE_BUMP: ${{ inputs.bump }}
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
+          REQUIRED_CI_WORKFLOW: ${{ inputs.required-ci-workflow }}
         run: |
           if [[ -n "${RELEASE_BUMP}" ]]; then
+            if [[ -z "${REQUIRED_CI_WORKFLOW}" ]]; then
+              echo '::error::SemVer releases require a CI workflow to verify before publishing.'
+              exit 2
+            fi
             if [[ -n "${TAG_NAME}" || "${CREATE_NEW_TAG}" == true ]]; then
               echo '::error::bump cannot be combined with tag-name or create-new-tag.'
               exit 2
@@ -188,6 +199,7 @@ jobs:
         env:
           TAG_NAME: ${{ inputs.tag-name || steps.plan.outputs.tag }}
           PREVIOUS_TAG: ${{ steps.plan.outputs.previous-tag }}
+          REQUIRED_CI_WORKFLOW: ${{ inputs.required-ci-workflow }}
           RELEASE_BUMP: ${{ inputs.bump }}
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
           RELEASE_SHA: ${{ github.sha }}
@@ -204,6 +216,12 @@ jobs:
             latest_tag="$(gh release list --repo "${REPOSITORY}" --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
             if [[ "${latest_tag}" != "${PREVIOUS_TAG}" ]]; then
               echo '::error::Latest release changed during planning.'
+              exit 1
+            fi
+            ci_state="$(gh api "repos/${REPOSITORY}/actions/workflows/${REQUIRED_CI_WORKFLOW}/runs?head_sha=${RELEASE_SHA}&event=push&per_page=1" \
+              --jq '[.workflow_runs[0].status // "missing", .workflow_runs[0].conclusion // "missing", .workflow_runs[0].head_sha // "missing"] | @tsv')"
+            if [[ "${ci_state}" != "$(printf 'completed\tsuccess\t%s' "${RELEASE_SHA}")" ]]; then
+              echo "::error::Required CI ${REQUIRED_CI_WORKFLOW} has not succeeded for ${RELEASE_SHA}: ${ci_state}"
               exit 1
             fi
             existing="$(gh api "repos/${REPOSITORY}/git/matching-refs/tags/${tag}" --jq ".[] | select(.ref == \"refs/tags/${tag}\") | [.object.type, .object.sha] | @tsv")"
