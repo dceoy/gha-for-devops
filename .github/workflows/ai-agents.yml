@@ -10,13 +10,6 @@ on:
   pull_request_review_comment:
     types:
       - created
-  pull_request_review:
-    types:
-      - submitted
-  issues:
-    types:
-      - opened
-      - assigned
 permissions:
   contents: read
 defaults:
@@ -41,34 +34,6 @@ jobs:
       id-token: write
       actions: read
     uses: $/.github/workflows/claude-code-review.yml
-    secrets:
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  claude-code-bot:
-    if: >
-      (
-        github.event_name == 'pull_request_review_comment'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
-        && contains(github.event.comment.body, '@claude')
-      ) || (
-        github.event_name == 'pull_request_review'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
-        && contains(github.event.review.body, '@claude')
-      ) || (
-        github.event_name == 'issues'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
-        && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))
-      )
-    concurrency:
-      group: ${{ github.workflow }}-claude-code-bot-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
-      cancel-in-progress: true
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      id-token: write
-      actions: read
-    uses: $/.github/workflows/claude-code-bot.yml
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
