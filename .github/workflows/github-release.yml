@@ -71,7 +71,7 @@ jobs:
       - name: Check out repository and tags
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: ${{ inputs.bump && '0' || '1' }}
           persist-credentials: false
       - name: Validate release inputs
         env:
@@ -218,7 +218,7 @@ jobs:
               echo '::error::Latest release changed during planning.'
               exit 1
             fi
-            ci_state="$(gh api "repos/${REPOSITORY}/actions/workflows/${REQUIRED_CI_WORKFLOW}/runs?head_sha=${RELEASE_SHA}&event=push&per_page=1" \
+            ci_state="$(gh api "repos/${REPOSITORY}/actions/workflows/${REQUIRED_CI_WORKFLOW}/runs?branch=main&head_sha=${RELEASE_SHA}&event=push&per_page=1" \
               --jq '[.workflow_runs[0].status // "missing", .workflow_runs[0].conclusion // "missing", .workflow_runs[0].head_sha // "missing"] | @tsv')"
             if [[ "${ci_state}" != "$(printf 'completed\tsuccess\t%s' "${RELEASE_SHA}")" ]]; then
               echo "::error::Required CI ${REQUIRED_CI_WORKFLOW} has not succeeded for ${RELEASE_SHA}: ${ci_state}"
