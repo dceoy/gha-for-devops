@@ -24,161 +24,37 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.repository }}-maintenance-${{ ((github.event_name == 'schedule' && github.event.schedule == '15 0 * * 1') || (github.event_name == 'workflow_dispatch' && (inputs.task == 'major-release' || inputs.task == 'minor-release' || inputs.task == 'patch-release'))) && 'release' || 'scorecard' }}
+  group: ${{ github.repository }}-maintenance-${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard')) && 'release' || 'scorecard' }}
   cancel-in-progress: false
 jobs:
-  plan:
-    if: >-
-      github.repository == 'dceoy/gha-for-devops'
-      && ((github.event_name == 'schedule' && github.event.schedule == '15 0 * * 1')
-      || (github.event_name == 'workflow_dispatch' && (inputs.task == 'major-release' || inputs.task == 'minor-release' || inputs.task == 'patch-release')))
-    runs-on: ubuntu-slim
-    defaults:
-      run:
-        shell: bash -euo pipefail {0}
-        working-directory: .
-    env:
-      GH_TELEMETRY: 'false'
-      MISE_USE_VERSIONS_HOST_TRACK: 'false'
-      # renovate: datasource=github-releases depName=jdx/mise
-      MISE_VERSION: 2026.8.5
-    outputs:
-      ready: ${{ steps.plan.outputs.ready }}
-      sync-major: ${{ steps.plan.outputs.sync-major }}
-      tag: ${{ steps.plan.outputs.tag }}
-    steps:
-      - name: Check out the release candidate and tags
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Set up YAML parser
-        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550  # v5.2.2
-        with:
-          version: ${{ env.MISE_VERSION }}
-          install_args: yq
-      - name: Decide whether to release
-        id: plan
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_SHA: ${{ github.sha }}
-          RELEASE_BUMP: ${{ github.event_name == 'workflow_dispatch' && inputs.task || 'auto' }}
-        run: bash .github/scripts/release.sh plan
   mise-lock-update:
-    needs: plan
-    if: needs.plan.outputs.ready == 'true'
+    if: github.repository == 'dceoy/gha-for-devops' && github.event_name == 'schedule'
     permissions:
       contents: write
       pull-requests: write
     uses: $/.github/workflows/mise-lock-update.yml
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-  shell-lint:
-    needs: plan
-    if: needs.plan.outputs.ready == 'true'
-    uses: $/.github/workflows/shell-lint.yml
-    with:
-      use-shfmt: true
-  markdown-lint:
-    needs: plan
-    if: needs.plan.outputs.ready == 'true'
-    uses: $/.github/workflows/markdown-lint.yml
-  github-actions-lint-and-scan:
-    needs: plan
-    if: needs.plan.outputs.ready == 'true'
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    uses: $/.github/workflows/github-actions-lint-and-scan.yml
-    with:
-      search-path: .github/workflows
-      zizmor-search-path: .github
-      go-version: stable
-      python-version: 3.x
-      actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml
-  bats-tests:
-    needs: plan
-    if: needs.plan.outputs.ready == 'true'
-    runs-on: ubuntu-slim
-    defaults:
-      run:
-        shell: bash -euo pipefail {0}
-        working-directory: .
-    env:
-      GH_TELEMETRY: 'false'
-      MISE_USE_VERSIONS_HOST_TRACK: 'false'
-      # renovate: datasource=github-releases depName=jdx/mise
-      MISE_VERSION: 2026.8.5
-    steps:
-      - name: Check out the release candidate
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Set up mise
-        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550  # v5.2.2
-        with:
-          version: ${{ env.MISE_VERSION }}
-          install_args: actionlint yq gomplate trivy
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
-        with:
-          go-version: stable
-          cache: false
-      - name: Set up Bats
-        uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
-        with:
-          github-token: ${{ github.token }}
-      - name: Run Bats tests
-        run: bats --print-output-on-failure .github/scripts/tests/*.bats
-  publish:
-    needs:
-      - plan
-      - shell-lint
-      - markdown-lint
-      - github-actions-lint-and-scan
-      - bats-tests
-      - mise-lock-update
+  github-release:
     if: >-
-      needs.plan.outputs.ready == 'true'
-      && needs.shell-lint.result == 'success'
-      && needs.markdown-lint.result == 'success'
-      && needs.github-actions-lint-and-scan.result == 'success'
-      && needs.bats-tests.result == 'success'
-      && needs.mise-lock-update.result == 'success'
-    runs-on: ubuntu-slim
-    defaults:
-      run:
-        shell: bash -euo pipefail {0}
-        working-directory: .
-    env:
-      GH_TELEMETRY: 'false'
-      MISE_USE_VERSIONS_HOST_TRACK: 'false'
-      # renovate: datasource=github-releases depName=jdx/mise
-      MISE_VERSION: 2026.8.5
+      github.repository == 'dceoy/gha-for-devops'
+      && (github.event_name == 'schedule'
+      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard'))
     permissions:
       contents: write
-    outputs:
-      published: ${{ steps.publish.outputs.published }}
-    steps:
-      - name: Check out validated release candidate
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Publish validated release
-        id: publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_SHA: ${{ github.sha }}
-          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
-        run: bash .github/scripts/release.sh publish
+    uses: $/.github/workflows/github-release.yml
+    with:
+      version-bump: ${{ inputs.task || 'auto' }}
+      release-trigger-paths: |
+        .github/workflows/*.yml
+        .github/workflows/*.yaml
+        !.github/workflows/ai-agents.yml
+        !.github/workflows/ci.yml
+        !.github/workflows/maintenance.yml
+      runs-on: ubuntu-slim
   major-version-tag:
-    needs: [plan, publish]
-    if: >-
-      !cancelled() && needs.plan.result == 'success'
-      && (needs.publish.outputs.published == 'true' || needs.plan.outputs.sync-major == 'true')
+    needs: github-release
+    if: needs.github-release.result == 'success'
     permissions:
       contents: write
     uses: $/.github/workflows/github-major-version-tag.yml
