@@ -96,7 +96,6 @@ jobs:
       GRYPE_VERSION: 0.120.1
       SYFT_CHECK_FOR_APP_UPDATE: 'false'
       GRYPE_CHECK_FOR_APP_UPDATE: 'false'
-      GRYPE_DB_CACHE_DIR: ${{ runner.temp }}/grype-db
     steps:
       - name: Checkout repository
         if: inputs.scan-type == 'filesystem'
@@ -169,13 +168,14 @@ jobs:
       - name: Cache Grype vulnerability database
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
-          path: ${{ env.GRYPE_DB_CACHE_DIR }}
+          path: ${{ runner.temp }}/grype-db
           key: grype-db-${{ runner.os }}-${{ runner.arch }}-${{ env.GRYPE_VERSION }}-${{ steps.grype-db-date.outputs.week }}
           restore-keys: |
             grype-db-${{ runner.os }}-${{ runner.arch }}-${{ env.GRYPE_VERSION }}-
       - name: Scan SBOM with Grype
         id: grype
         env:
+          GRYPE_DB_CACHE_DIR: ${{ runner.temp }}/grype-db
           FAIL_ON: ${{ inputs.grype-fail-on }}
           ONLY_FIXED: ${{ inputs.grype-only-fixed }}
           SBOM: ${{ runner.temp }}/sbom.syft.json
