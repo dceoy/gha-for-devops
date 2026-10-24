@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# shellcheck disable=SC2016
+# shellcheck disable=SC2016,SC2030,SC2031  # Bats @test runs in isolated subshells
 
 bats_require_minimum_version 1.5.0
 
