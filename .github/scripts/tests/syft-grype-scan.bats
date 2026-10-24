@@ -38,11 +38,18 @@ setup() {
 }
 
 @test "All scan output paths stay within the runner temporary directory" {
-  paths="$(yq -o json '.jobs."syft-grype-scan".steps' "$SCAN" | jq -r ' .[] | (.with.path // ""), (.env.IMAGE_TAR // ""), (.env.SBOM // ""), (.env.CYCLONEDX // ""), (.env.REPORT // "") | select(. != "")')"
+  paths="$(yq -o json '.jobs."syft-grype-scan".steps' "$SCAN" | jq -r ' .[] | (if (.uses // "" | test("^actions/(upload|download)-artifact@")) then (.with.path // "") else "" end), (.env.IMAGE_TAR // ""), (.env.SBOM // ""), (.env.CYCLONEDX // ""), (.env.REPORT // "") | select(. != "")')"
   [ "$(wc -l <<< "$paths")" -eq 9 ]
   while IFS= read -r path; do
     [[ "$path" == '${{ runner.temp }}/'* ]]
   done <<< "$paths"
+}
+
+@test "Scanner caches retain pinned binaries and refresh the vulnerability database" {
+  [ "$(yq -r '.jobs."syft-grype-scan".steps[] | select(.name == "Cache pinned Syft and Grype installations") | .with.key' "$SCAN")" = 'syft-grype-tools-${{ runner.os }}-${{ runner.arch }}-${{ env.SYFT_VERSION }}-${{ env.GRYPE_VERSION }}' ]
+  [ "$(yq -r '.jobs."syft-grype-scan".steps[] | select(.name == "Cache Grype vulnerability database") | .with.path' "$SCAN")" = '${{ env.GRYPE_DB_CACHE_DIR }}' ]
+  [ "$(yq -r '.jobs."syft-grype-scan".env.GRYPE_DB_CACHE_DIR' "$SCAN")" = '${{ runner.temp }}/grype-db' ]
+  [ "$(yq -r '.jobs."syft-grype-scan".env.GRYPE_DB_AUTO_UPDATE' "$SCAN")" = null ]
 }
 
 @test "Filesystem workflow executes real Syft and Grype and produces valid reports" {
