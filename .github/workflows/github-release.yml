@@ -13,16 +13,16 @@ on:
         type: boolean
         description: Create a new tag if the input tag does not exist
         default: false
-      bump:
+      version-bump:
         required: false
         type: string
         description: SemVer increment when tag-name is absent (auto, major-release, minor-release, or patch-release)
         default: auto
-      release-paths:
+      release-trigger-paths:
         required: false
         type: string
-        description: Newline-delimited paths that trigger automatic SemVer releases
-        default: null
+        description: Newline-delimited paths checked for auto release changes
+        default: .
       runs-on:
         required: false
         type: string
@@ -48,7 +48,7 @@ on:
         type: boolean
         description: Create a new tag if the input tag does not exist
         default: false
-      bump:
+      version-bump:
         required: false
         type: choice
         description: SemVer increment when tag-name is absent
@@ -58,11 +58,11 @@ on:
           - major-release
           - minor-release
           - patch-release
-      release-paths:
+      release-trigger-paths:
         required: false
         type: string
-        description: Newline-delimited paths for auto releases (empty for all repository changes)
-        default: null
+        description: Newline-delimited paths checked for auto release changes
+        default: .
 permissions:
   contents: write  # IMPORTANT: mandatory for making GitHub Releases
 defaults:
@@ -85,7 +85,7 @@ jobs:
       - name: Validate release inputs
         env:
           TAG_NAME: ${{ inputs.tag-name }}
-          RELEASE_BUMP: ${{ inputs.bump }}
+          RELEASE_BUMP: ${{ inputs.version-bump }}
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* && -n "${TAG_NAME}" && "${TAG_NAME}" != "${GITHUB_REF_NAME}" ]]; then
@@ -108,8 +108,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
           RELEASE_SHA: ${{ github.sha }}
-          RELEASE_BUMP: ${{ inputs.bump }}
-          RELEASE_PATHS: ${{ inputs.release-paths }}
+          RELEASE_BUMP: ${{ inputs.version-bump }}
+          RELEASE_PATHS: ${{ inputs.release-trigger-paths }}
         run: |
           if [[ "${GITHUB_REF}" != refs/heads/main || "$(git rev-parse HEAD)" != "${RELEASE_SHA}" ]]; then
             echo '::error::SemVer releases require an exact main-branch checkout.'
@@ -159,7 +159,8 @@ jobs:
                   [[ -n "${path}" ]] && paths+=("${path}")
                 done <<< "${RELEASE_PATHS}"
                 if (("${#paths[@]}" == 0)); then
-                  paths=(.)
+                  echo '::error::release-trigger-paths must contain at least one path.'
+                  exit 2
                 fi
                 if git diff --quiet "${previous_tag}" "${RELEASE_SHA}" -- "${paths[@]}"; then
                   echo '::notice::No changes to the configured release paths.'
@@ -197,7 +198,7 @@ jobs:
           TAG_NAME: ${{ inputs.tag-name }}
           PLANNED_TAG: ${{ steps.plan.outputs.tag }}
           PREVIOUS_TAG: ${{ steps.plan.outputs.previous-tag }}
-          RELEASE_BUMP: ${{ inputs.bump }}
+          RELEASE_BUMP: ${{ inputs.version-bump }}
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
           RELEASE_SHA: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
