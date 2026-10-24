@@ -132,11 +132,8 @@ workflows:
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
     '.github/workflows/maintenance.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
-        - 'bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43'
         - 'github/codeql-action@9b3254085494b55a0f7c4c2b3d2d52cc712ce370'
-        - 'jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550'
         - 'ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e'
     '.github/workflows/markdown-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
