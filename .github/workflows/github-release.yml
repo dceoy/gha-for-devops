@@ -208,6 +208,12 @@ jobs:
         run: |
           tag="${TAG_NAME:-${GITHUB_REF_NAME}}"
           if [[ -n "${RELEASE_BUMP}" ]]; then
+            ci_state="$(gh api "repos/${REPOSITORY}/actions/workflows/${REQUIRED_CI_WORKFLOW}/runs?branch=main&head_sha=${RELEASE_SHA}&event=push&per_page=1" \
+              --jq '[.workflow_runs[0].status // "missing", .workflow_runs[0].conclusion // "missing", .workflow_runs[0].head_sha // "missing"] | @tsv')"
+            if [[ "${ci_state}" != "$(printf 'completed\tsuccess\t%s' "${RELEASE_SHA}")" ]]; then
+              echo "::error::Required CI ${REQUIRED_CI_WORKFLOW} has not succeeded for ${RELEASE_SHA}: ${ci_state}"
+              exit 1
+            fi
             main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
             if [[ "${main_sha}" != "${RELEASE_SHA}" ]]; then
               echo '::notice::main advanced during release planning; skipping publication.'
@@ -216,12 +222,6 @@ jobs:
             latest_tag="$(gh release list --repo "${REPOSITORY}" --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
             if [[ "${latest_tag}" != "${PREVIOUS_TAG}" ]]; then
               echo '::error::Latest release changed during planning.'
-              exit 1
-            fi
-            ci_state="$(gh api "repos/${REPOSITORY}/actions/workflows/${REQUIRED_CI_WORKFLOW}/runs?branch=main&head_sha=${RELEASE_SHA}&event=push&per_page=1" \
-              --jq '[.workflow_runs[0].status // "missing", .workflow_runs[0].conclusion // "missing", .workflow_runs[0].head_sha // "missing"] | @tsv')"
-            if [[ "${ci_state}" != "$(printf 'completed\tsuccess\t%s' "${RELEASE_SHA}")" ]]; then
-              echo "::error::Required CI ${REQUIRED_CI_WORKFLOW} has not succeeded for ${RELEASE_SHA}: ${ci_state}"
               exit 1
             fi
             existing="$(gh api "repos/${REPOSITORY}/git/matching-refs/tags/${tag}" --jq ".[] | select(.ref == \"refs/tags/${tag}\") | [.object.type, .object.sha] | @tsv")"
