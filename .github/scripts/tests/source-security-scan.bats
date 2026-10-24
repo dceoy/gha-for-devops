@@ -80,7 +80,7 @@ run_osv_scan() {
 @test "OSV binary cache is saved before security scanning" {
   [[ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Restore pinned OSV-Scanner installation") | .with.path' "${WORKFLOW}")" == */mise/installs ]]
   [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Restore pinned OSV-Scanner installation") | .with.key' "${WORKFLOW}")" = "osv-scanner-tools-\${{ runner.os }}-\${{ runner.arch }}-\${{ env.OSV_SCANNER_VERSION }}" ]
-  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Save pinned OSV-Scanner installation") | .with.key' "${WORKFLOW}")" = "${{ steps.osv-tool-cache.outputs.cache-primary-key }}" ]
+  [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Save pinned OSV-Scanner installation") | .with.key' "${WORKFLOW}")" = "\${{ steps.osv-tool-cache.outputs.cache-primary-key }}" ]
   [ "$(yq -r '.jobs."source-osv-scan".steps[] | select(.name == "Save pinned OSV-Scanner installation") | .if' "${WORKFLOW}")" = "steps.osv-tool-cache.outputs.cache-hit != 'true'" ]
   local steps
   steps="$(yq -o=json '.jobs."source-osv-scan".steps' "${WORKFLOW}")"
