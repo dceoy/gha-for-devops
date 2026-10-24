@@ -50,6 +50,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [github-pages-deploy.yml](.github/workflows/github-pages-deploy.yml)                                             | Deploy an artifact to GitHub Pages                                |
 | [github-pr-branch-aggregation.yml](.github/workflows/github-pr-branch-aggregation.yml)                           | Aggregation of open pull request branches                         |
 | [github-release.yml](.github/workflows/github-release.yml)                                                       | Release on GitHub                                                 |
+| [github-semver-release.yml](.github/workflows/github-release.yml)                                                       | SemVer release                                                 |
 | [go-package-lint-and-scan.yml](.github/workflows/go-package-lint-and-scan.yml)                                   | Lint and security scan for Go                                     |
 | [go-package-test.yml](.github/workflows/go-package-test.yml)                                                     | Test a Go package                                                 |
 | [html-lint-and-scan.yml](.github/workflows/html-lint-and-scan.yml)                                               | Lint and scan for HTML/CSS                                        |
