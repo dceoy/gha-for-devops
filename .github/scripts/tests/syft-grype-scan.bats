@@ -45,6 +45,35 @@ setup() {
   done <<< "$paths"
 }
 
+@test "Grype workflow writes reports without downloading a vulnerability database" {
+  export GRYPE_BIN="${BATS_TEST_TMPDIR}/grype"
+  export SBOM="${BATS_TEST_TMPDIR}/sbom.json"
+  export REPORT="${BATS_TEST_TMPDIR}/grype.json"
+  export FAIL_ON='' ONLY_FIXED=true
+  export GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary"
+  export GITHUB_OUTPUT="${BATS_TEST_TMPDIR}/output"
+  printf '{"artifacts":[]}\n' > "${SBOM}"
+  cat > "${GRYPE_BIN}" << 'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$1" == "sbom:${SBOM}" ]]
+shift
+[[ " $* " == *' --only-fixed '* ]]
+while (( $# )); do
+  if [[ "$1" == --file ]]; then
+    printf '{"matches":[]}\n' > "$2"
+    exit 0
+  fi
+  shift
+done
+exit 1
+SH
+  chmod +x "${GRYPE_BIN}"
+  bash -euo pipefail -c "$(yq -r '.jobs."syft-grype-scan".steps[] | select(.name == "Scan SBOM with Grype") | .run' "$SCAN")"
+  jq -e '.matches | type == "array"' "${REPORT}"
+  grep -Fxq 'exit-code=0' "${GITHUB_OUTPUT}"
+}
+
 @test "Scanner caches refresh DB versions and save before the severity gate" {
   local steps
   steps="$(yq -o=json '.jobs."syft-grype-scan".steps' "$SCAN")"
@@ -64,6 +93,7 @@ setup() {
   ((scan_index < save_index && save_index < enforce_index))
 }
 
+# bats test_tags=e2e
 @test "Filesystem workflow executes real Syft and Grype and produces valid reports" {
   export RUNNER_TEMP="$BATS_TEST_TMPDIR/runner temp"
   mkdir -p "$RUNNER_TEMP" "$BATS_TEST_TMPDIR/source"
