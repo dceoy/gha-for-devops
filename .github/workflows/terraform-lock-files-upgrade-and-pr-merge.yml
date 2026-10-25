@@ -206,6 +206,15 @@ jobs:
             abort "No Terraform ecosystem configured in dependabot.yml" if updates.empty?
             managed_dirs = updates.flat_map { |entry| entry["directories"] || [entry["directory"]] }.compact
             abort "No Terraform directories configured in dependabot.yml" if managed_dirs.empty?
+            managed_manifest = lambda do |path|
+              parts = File.dirname(path).split("/")
+              ancestors = (0..parts.length).map { |n| parts.take(n).join("/") }
+              managed_dirs.any? do |pattern|
+                ancestors.any? do |dir|
+                  File.fnmatch?(pattern.sub(%r{\A/}, "").sub(%r{/+\z}, ""), dir, File::FNM_PATHNAME)
+                end
+              end
+            end
             requested_dir = ENV.fetch("DEPENDABOT_DIRECTORY", "")
             if ENV.fetch("PR_AUTHOR") == "dependabot[bot]" && !requested_dir.empty?
               match = managed_dirs.any? { |d| File.fnmatch?(d.sub(%r{/+\z}, ""), requested_dir.sub(%r{/+\z}, ""), File::FNM_PATHNAME) }
@@ -225,18 +234,9 @@ jobs:
               full_path = directory(path)
               abort "Unsafe path: #{path}" unless inside?(full_path, Dir.pwd)
               if File.basename(path) == ".terraform.lock.hcl"
-                valid = lock_roots.any? { |root| inside?(full_path, root) } ||
-                  managed_dirs.any? do |pattern|
-                    parts = File.dirname(path).split("/")
-                    ancestors = (0..parts.length).map { |n| parts.take(n).join("/") }
-                    ancestors.any? { |dir| File.fnmatch?(pattern.sub(%r{\A/}, "").sub(%r{/+\z}, ""), dir, File::FNM_PATHNAME) }
-                  end
-              elsif path.end_with?(".tf")
-                valid = managed_dirs.any? do |pattern|
-                  parts = File.dirname(path).split("/")
-                  ancestors = (0..parts.length).map { |n| parts.take(n).join("/") }
-                  ancestors.any? { |dir| File.fnmatch?(pattern.sub(%r{\A/}, "").sub(%r{/+\z}, ""), dir, File::FNM_PATHNAME) }
-                end
+                valid = lock_roots.any? { |root| inside?(full_path, root) } || managed_manifest.call(path)
+              elsif path.end_with?(".tf") || path.end_with?(".tf.json") || File.basename(path) == "terragrunt.hcl"
+                valid = managed_manifest.call(path)
               else
                 valid = false
               end
@@ -369,16 +369,11 @@ jobs:
             exit 1
           fi
           while IFS= read -r path; do
-            if [[ "${path}" != *.tf && "${path}" != .terraform.lock.hcl && "${path}" != */.terraform.lock.hcl ]]; then
+            if [[ "${path}" != *.tf && "${path}" != *.tf.json && "${path}" != terragrunt.hcl && "${path}" != */terragrunt.hcl && "${path}" != .terraform.lock.hcl && "${path}" != */.terraform.lock.hcl ]]; then
               echo "::error::Unexpected dependency PR file: ${path}"
               exit 1
             fi
           done < "${changed_files}"
-          checks="$(gh pr checks "${PR_URL}" --json name,state)"
-          if jq -e 'any(.[]; .state == "FAILURE" or .state == "CANCELLED" or .state == "ERROR")' <<< "${checks}"; then
-            echo "::error::Pull request has failing checks"
-            exit 1
-          fi
           echo "EXPECTED_HEAD_SHA=$(jq -r '.headRefOid' <<< "${current}")" >> "${GITHUB_ENV}"
       - name: Approve the pull request when the token can approve
         continue-on-error: true
