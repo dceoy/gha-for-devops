@@ -182,6 +182,7 @@ jobs:
       search-path: ${{ inputs.search-path-for-lint-and-scan }}
       terraform-version: ${{ inputs.terraform-version }}
       terragrunt-version: ${{ inputs.terragrunt-version }}
+      terraform-validate: ${{ github.event_name == 'pull_request' }}
       terraform-lockfile-readonly: ${{ github.event_name == 'pull_request' }}
       use-tflint: ${{ inputs.use-tflint }}
       use-trivy: ${{ inputs.use-trivy }}
