@@ -15,21 +15,20 @@ setup() {
   [ "$(yq -r '.on.workflow_call.inputs | has("merge-pr-author-allowlist")' "${WORKFLOW}")" = false ]
 }
 
-@test "Terraform dependency PRs verify trusted Dependabot configuration and diff" {
-  local check
-  check="$(yq -r '.jobs."terraform-lock-pr-check".steps[] | select(.id == "validate-changes") | .run' "${WORKFLOW}")"
-  [[ "${check}" == *'.github/dependabot.yml'* ]]
-  [[ "${check}" == *'"package-ecosystem"] == "terraform"'* ]]
-  [[ "${check}" == *'Unexpected Terraform dependency PR file'* ]]
-  [[ "${check}" == *'lockfile-only=true'* ]]
-  local identity
+@test "Terraform dependency PRs check provenance, metadata and lockfile-only status" {
+  local identity metadata check
   identity="$(yq -r '.jobs."terraform-lock-pr-check".steps[] | select(.name == "Verify the Dependabot Terraform pull request") | .run' "${WORKFLOW}")"
-  [[ "${identity}" == *"dependabot[bot]"* ]]
-  [[ "${identity}" == *"dependabot/terraform/"* ]]
-  local config_step
-  config_step="$(yq -r '.jobs."terraform-lock-pr-check".steps[] | select(.name == "Read the trusted base branch Dependabot configuration") | .run' "${WORKFLOW}")"
-  [[ "${config_step}" == *'gh api "repos/'* ]]
-  [[ "${config_step}" == *'contents/.github/dependabot.yml?ref='* ]]
+  metadata="$(yq -r '.jobs."terraform-lock-pr-check".steps[] | select(.id == "dependabot-metadata") | .uses' "${WORKFLOW}")"
+  check="$(yq -r '.jobs."terraform-lock-pr-check".steps[] | select(.id == "validate-changes") | .run' "${WORKFLOW}")"
+  [ "$(yq -r '.jobs."terraform-lock-pr-check".steps | length' "${WORKFLOW}")" = 3 ]
+  [[ "${identity}" == *'dependabot[bot]'* ]]
+  [[ "${identity}" == *'dependabot/terraform/'* ]]
+  [[ "${identity}" == *'PR_HEAD_REPOSITORY'* ]]
+  [[ "${metadata}" == dependabot/fetch-metadata@* ]]
+  [[ "${check}" == *'PACKAGE_ECOSYSTEM'* ]]
+  [[ "${check}" == *'terraform'* ]]
+  [[ "${check}" == *'gh pr diff'* ]]
+  [[ "${check}" == *'lockfile-only=true'* ]]
 }
 
 @test "Already updated lockfile PRs do not upgrade all Terraform providers" {
