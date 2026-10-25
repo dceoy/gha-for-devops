@@ -162,11 +162,13 @@ jobs:
             echo "::error::Untrusted dependency PR author: ${PR_AUTHOR}"
             exit 1
           fi
-      - name: Checkout the trusted base branch configuration
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          persist-credentials: false
+      - name: Read the trusted base branch Dependabot configuration
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mkdir -p .github
+          gh api "repos/${GITHUB_REPOSITORY}/contents/.github/dependabot.yml?ref=${PR_BASE_SHA}" \
+            --jq '.content' | base64 --decode > .github/dependabot.yml
       - name: Fetch Dependabot metadata
         if: env.PR_AUTHOR == 'dependabot[bot]'
         id: dependabot-metadata
