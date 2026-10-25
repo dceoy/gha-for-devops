@@ -128,6 +128,7 @@ jobs:
       pull-requests: read
     outputs:
       update-type: ${{ steps.dependabot-metadata.outputs.update-type }}
+      lockfile-only: ${{ steps.validate-changes.outputs.lockfile-only }}
     env:
       PR_URL: ${{ github.event.pull_request.html_url }}
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
@@ -174,6 +175,7 @@ jobs:
           github-token: ${{ env.GH_TOKEN }}
           skip-verification: true
       - name: Validate the configured Terraform dependency update
+        id: validate-changes
         env:
           PACKAGE_ECOSYSTEM: ${{ steps.dependabot-metadata.outputs.package-ecosystem }}
           DEPENDABOT_DIRECTORY: ${{ steps.dependabot-metadata.outputs.directory }}
@@ -223,7 +225,12 @@ jobs:
               full_path = directory(path)
               abort "Unsafe path: #{path}" unless inside?(full_path, Dir.pwd)
               if File.basename(path) == ".terraform.lock.hcl"
-                valid = lock_roots.any? { |root| inside?(full_path, root) }
+                valid = lock_roots.any? { |root| inside?(full_path, root) } ||
+                  managed_dirs.any? do |pattern|
+                    parts = File.dirname(path).split("/")
+                    ancestors = (0..parts.length).map { |n| parts.take(n).join("/") }
+                    ancestors.any? { |dir| File.fnmatch?(pattern.sub(%r{\A/}, "").sub(%r{/+\z}, ""), dir, File::FNM_PATHNAME) }
+                  end
               elsif path.end_with?(".tf")
                 valid = managed_dirs.any? do |pattern|
                   parts = File.dirname(path).split("/")
@@ -237,6 +244,149 @@ jobs:
             end
             puts "Validated #{paths.length} dependency PR files against dependabot.yml"
           ' "${changed_files}"
+          if grep -qvE '(^|/)\.terraform\.lock\.hcl
+    if: >
+      always() && (github.event_name != 'pull_request'
+      || needs.terraform-lock-pr-check.result == 'success')
+    needs:
+      - terraform-lock-pr-check
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: $/.github/workflows/terraform-lock-files-upgrade.yml
+    with:
+      terraform-working-directories: ${{ inputs.terraform-working-directories }}
+      terraform-working-directory-to-version-tf-json: ${{ inputs.terraform-working-directory-to-version-tf-json }}
+      terragrunt-working-directories: ${{ inputs.terragrunt-working-directories }}
+      terraform-version: ${{ inputs.terraform-version }}
+      terragrunt-version: ${{ inputs.terragrunt-version }}
+      create-pr: false
+      upgrade-providers: ${{ github.event_name != 'pull_request' || needs.terraform-lock-pr-check.outputs.lockfile-only != 'true' }}
+      runs-on: ${{ inputs.runs-on }}
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  terraform-lock-pr-lint:
+    needs:
+      - terraform-lock-pr-upgrade
+    permissions:
+      contents: write
+      actions: read
+      security-events: write
+    uses: $/.github/workflows/terraform-lint-and-scan.yml
+    with:
+      search-path: ${{ inputs.search-path-for-lint-and-scan }}
+      terraform-version: ${{ inputs.terraform-version }}
+      terragrunt-version: ${{ inputs.terragrunt-version }}
+      terraform-validate: false
+      use-tflint: ${{ inputs.use-tflint }}
+      use-trivy: ${{ inputs.use-trivy }}
+      trivy-scanners: ${{ inputs.trivy-scanners }}
+      trivy-severity: ${{ inputs.trivy-severity }}
+      trivy-ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+      trivy-exit-code: ${{ inputs.trivy-exit-code }}
+      trivy-config: ${{ inputs.trivy-config }}
+      trivy-timeout: ${{ inputs.trivy-timeout }}
+      trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
+      runs-on: ${{ inputs.runs-on }}
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  terraform-lock-pr-merge:
+    if: >
+      github.event_name == 'pull_request'
+      && inputs.merge-pr
+      && inputs.merge-pr-author-allowlist != null
+      && inputs.merge-pr-author-allowlist != ''
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && (github.event.pull_request.user.login != 'dependabot[bot]'
+      || needs.terraform-lock-pr-check.outputs.update-type == 'version-update:semver-patch'
+      || needs.terraform-lock-pr-check.outputs.update-type == 'version-update:semver-minor')
+    needs:
+      - terraform-lock-pr-check
+      - terraform-lock-pr-lint
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-slim
+    env:
+      EXPECTED_HEAD_BRANCH_PREFIX: ${{ inputs.merge-pr-head-branch-prefix }}
+      MERGE_PR_AUTHOR_ALLOWLIST: ${{ inputs.merge-pr-author-allowlist }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+    steps:
+      - name: Validate automation pull request
+        run: |
+          if [[ -z "${EXPECTED_HEAD_BRANCH_PREFIX}" ]]; then
+            echo "::error::merge-pr-head-branch-prefix must not be empty"
+            exit 1
+          elif [[ "${PR_HEAD_REF}" != "${EXPECTED_HEAD_BRANCH_PREFIX}"* ]]; then
+            echo "::error::Pull request branch '${PR_HEAD_REF}' does not match '${EXPECTED_HEAD_BRANCH_PREFIX}'"
+            exit 1
+          elif [[ "${PR_HEAD_REPOSITORY}" != "${GITHUB_REPOSITORY}" ]]; then
+            echo "::error::Pull request head repository '${PR_HEAD_REPOSITORY}' is not '${GITHUB_REPOSITORY}'"
+            exit 1
+          elif [[ -z "${MERGE_PR_AUTHOR_ALLOWLIST}" ]]; then
+            echo "::error::merge-pr-author-allowlist must not be empty when merge-pr is true"
+            exit 1
+          fi
+
+          allowed=false
+          IFS=',' read -r -a allowed_authors <<< "${MERGE_PR_AUTHOR_ALLOWLIST}"
+          for author in "${allowed_authors[@]}"; do
+            author="${author#"${author%%[![:space:]]*}"}"
+            author="${author%"${author##*[![:space:]]}"}"
+            if [[ "${PR_AUTHOR}" == "${author}" ]]; then
+              allowed=true
+              break
+            fi
+          done
+          if [[ "${allowed}" != true ]]; then
+            echo "::error::Pull request author '${PR_AUTHOR}' is not in merge-pr-author-allowlist"
+            exit 1
+          fi
+      - name: Verify the current pull request and checks
+        run: |
+          current="$(gh pr view "${PR_URL}" --json author,headRefName,headRefOid,isDraft,mergeStateStatus,state)"
+          jq -e --arg author "${PR_AUTHOR}" --arg ref "${PR_HEAD_REF}" \
+            '.state == "OPEN" and .isDraft == false and .author.login == $author and .headRefName == $ref' \
+            <<< "${current}" > /dev/null
+          if [[ "$(jq -r '.mergeStateStatus' <<< "${current}")" == DIRTY ]]; then
+            echo "::error::Pull request has merge conflicts"
+            exit 1
+          fi
+          changed_files="$(mktemp)"
+          gh pr diff "${PR_URL}" --name-only > "${changed_files}"
+          if [[ ! -s "${changed_files}" ]]; then
+            echo "::error::Pull request diff is empty"
+            exit 1
+          fi
+          while IFS= read -r path; do
+            if [[ "${path}" != *.tf && "${path}" != .terraform.lock.hcl && "${path}" != */.terraform.lock.hcl ]]; then
+              echo "::error::Unexpected dependency PR file: ${path}"
+              exit 1
+            fi
+          done < "${changed_files}"
+          checks="$(gh pr checks "${PR_URL}" --json name,state)"
+          if jq -e 'any(.[]; .state == "FAILURE" or .state == "CANCELLED" or .state == "ERROR")' <<< "${checks}"; then
+            echo "::error::Pull request has failing checks"
+            exit 1
+          fi
+          echo "EXPECTED_HEAD_SHA=$(jq -r '.headRefOid' <<< "${current}")" >> "${GITHUB_ENV}"
+      - name: Approve the pull request when the token can approve
+        continue-on-error: true
+        run: >
+          gh pr review --approve "${PR_URL}"
+      - name: Enable auto-merge after required checks and reviews
+        run: >
+          gh pr merge --auto --merge --delete-branch
+          --match-head-commit "${EXPECTED_HEAD_SHA}" "${PR_URL}"
+ "${changed_files}"; then
+            echo "lockfile-only=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "lockfile-only=true" >> "${GITHUB_OUTPUT}"
+          fi
           rm -f "${changed_files}"
   terraform-lock-pr-upgrade:
     if: >
