@@ -225,8 +225,8 @@ jobs:
             '.state == "OPEN" and .isDraft == false and .author.login == $author and .headRefName == $ref' \
             <<< "${current}" > /dev/null
           if [[ "$(jq -r '.headRefOid' <<< "${current}")" != "${PR_HEAD_SHA}" ]]; then
-            echo "::notice::PR head changed; wait for CI on the new commit"
-            exit 0
+            echo "::error::PR head changed; wait for CI on the new commit"
+            exit 1
           fi
           if [[ "$(jq -r '.mergeStateStatus' <<< "${current}")" == DIRTY ]]; then
             echo "::error::Pull request has merge conflicts"
