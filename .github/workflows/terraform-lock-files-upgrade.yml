@@ -113,7 +113,9 @@ jobs:
               | tee -a "${GITHUB_ENV}"
           else
             updated_files_txt="$(mktemp)"
-            if [[ -n "${TERRAGRUNT_WORKING_DIRECTORIES}" && "${TERRAGRUNT_LOCKFILE_ROOT}" != "." ]]; then
+            if [[ -n "${TERRAGRUNT_WORKING_DIRECTORIES}" && "${TERRAGRUNT_LOCKFILE_ROOT}" != "." ]] \
+              && [[ -f "$(dirname "${TERRAGRUNT_WORKING_DIRECTORIES%/}")/root.hcl" ]] \
+              && grep -Fq 'generate "provider_lock"' "$(dirname "${TERRAGRUNT_WORKING_DIRECTORIES%/}")/root.hcl"; then
               if [[ -z "${TERRAGRUNT_WORKING_DIRECTORIES}" ]] || [[ "${TERRAGRUNT_WORKING_DIRECTORIES}" =~ [[:space:]] ]]; then
                 echo "::error::Module lockfile upgrades require a single terragrunt-working-directories path"
                 exit 1
