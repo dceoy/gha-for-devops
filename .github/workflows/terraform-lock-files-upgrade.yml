@@ -18,11 +18,6 @@ on:
         type: string
         description: Terragrunt working directories (separated by spaces or returns)
         default: null
-      terragrunt-lockfile-root:
-        required: false
-        type: string
-        description: Store Terragrunt provider lockfiles under this directory instead of the Terragrunt unit directories
-        default: null
       terraform-version:
         required: false
         type: string
@@ -95,7 +90,7 @@ jobs:
         env:
           TERRAFORM_WORKING_DIRECTORY_TO_VERSION_TF_JSON: ${{ inputs.terraform-working-directory-to-version-tf-json }}
           TERRAGRUNT_WORKING_DIRECTORIES: ${{ inputs.terragrunt-working-directories }}
-          TERRAGRUNT_LOCKFILE_ROOT: ${{ inputs.terragrunt-lockfile-root }}
+          TERRAGRUNT_LOCKFILE_ROOT: ${{ inputs.terraform-working-directories }}
           TERRAFORM_WORKING_DIRECTORIES: ${{ inputs.terraform-working-directories }}
           TERRAFORM_INIT: terraform init -backend=false -upgrade -reconfigure && terraform validate && rm -rf .terraform
           TERRAGRUNT_INIT: terragrunt init --non-interactive -backend=false -upgrade -reconfigure && terragrunt validate && rm -rf .terragrunt-cache
@@ -118,9 +113,9 @@ jobs:
               | tee -a "${GITHUB_ENV}"
           else
             updated_files_txt="$(mktemp)"
-            if [[ -n "${TERRAGRUNT_LOCKFILE_ROOT}" ]]; then
+            if [[ -n "${TERRAGRUNT_WORKING_DIRECTORIES}" && "${TERRAGRUNT_LOCKFILE_ROOT}" != "." ]]; then
               if [[ -z "${TERRAGRUNT_WORKING_DIRECTORIES}" ]] || [[ "${TERRAGRUNT_WORKING_DIRECTORIES}" =~ [[:space:]] ]]; then
-                echo "::error::terragrunt-lockfile-root requires a single terragrunt-working-directories path"
+                echo "::error::Module lockfile upgrades require a single terragrunt-working-directories path"
                 exit 1
               fi
               while IFS= read -r -d '' lockfile; do
