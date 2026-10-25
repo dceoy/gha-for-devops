@@ -229,7 +229,9 @@ workflows:
         - 'dceoy/setup-terragrunt@1cbef4029fa29d03260e3572cd1df1d45fd3f290'
         - 'hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e'
         - 'terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337'
-    '.github/workflows/terraform-lock-files-upgrade-and-pr-merge.yml': []
+    '.github/workflows/terraform-lock-files-upgrade-and-pr-merge.yml':
+        - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+        - 'dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98'
     '.github/workflows/terraform-lock-files-upgrade.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
