@@ -136,12 +136,14 @@ jobs:
                   mv terragrunt.hcl terragrunt.hcl.orig
                   trap 'mv -f terragrunt.hcl.orig terragrunt.hcl; rm -f .terraform.lock.hcl' EXIT
                   awk '
-                    /^terraform[[:space:]]*\\{/ { in_block = 1 }
+                    /^terraform[[:space:]]*\{/ { in_block = 1 }
                     in_block { print }
                     in_block {
-                      opens += gsub(/\\{/, "{")
-                      closes += gsub(/\\}/, "}")
-                      if (opens > 0 && opens == closes) exit
+                      opens += gsub(/\{/, "{")
+                      closes += gsub(/\}/, "}")
+                      if (opens > 0 && opens == closes) {
+                        exit
+                      }
                     }
                   ' terragrunt.hcl.orig > terragrunt.hcl
                   sed -i 's/copy_terraform_lock_file[[:space:]]*=[[:space:]]*false/copy_terraform_lock_file = true/' terragrunt.hcl
@@ -150,7 +152,7 @@ jobs:
                   cp .terraform.lock.hcl "${GITHUB_WORKSPACE}/${lockfile}"
                   rm -rf .terragrunt-cache
                 )
-                printf '%s\\n' "${lockfile}" >> "${updated_files_txt}"
+                printf '%s\n' "${lockfile}" >> "${updated_files_txt}"
               done < <(git ls-files -z -- "${TERRAGRUNT_LOCKFILE_ROOT%/}/*/${TERRAFORM_LOCK_FILE}")
             else
             if [[ -n "${TERRAGRUNT_WORKING_DIRECTORIES}" ]]; then
