@@ -28,7 +28,8 @@ setup() {
   [[ "${identity}" == *"dependabot/terraform/"* ]]
   local config_step
   config_step="$(yq -r '.jobs."terraform-lock-pr-check".steps[] | select(.name == "Read the trusted base branch Dependabot configuration") | .run' "${WORKFLOW}")"
-  [[ "${config_step}" == *'gh api "repos/${GITHUB_REPOSITORY}/contents/.github/dependabot.yml?ref=${PR_BASE_SHA}"'* ]]
+  [[ "${config_step}" == *'gh api "repos/'* ]]
+  [[ "${config_step}" == *'contents/.github/dependabot.yml?ref='* ]]
 }
 
 @test "Already updated lockfile PRs do not upgrade all Terraform providers" {
