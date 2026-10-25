@@ -10,9 +10,9 @@ setup() {
 
 @test "Terraform dependency PRs do not aggregate other PR branches" {
   [ "$(yq -r '.jobs."terraform-lock-pr-branch-merge" // "absent"' "${WORKFLOW}")" = absent ]
-  [ "$(yq -r '.on.workflow_call.inputs."merged-pr-branch-prefix".default' "${WORKFLOW}")" = null ]
-  [ "$(yq -r '.on.workflow_call.inputs."merge-pr-head-branch-prefix".default' "${WORKFLOW}")" = dependabot/terraform/ ]
-  [ "$(yq -r '.on.workflow_call.inputs."merge-pr-author-allowlist".default' "${WORKFLOW}")" = 'dependabot[bot]' ]
+  [ "$(yq -r '.on.workflow_call.inputs | has("merged-pr-branch-prefix")' "${WORKFLOW}")" = false ]
+  [ "$(yq -r '.on.workflow_call.inputs | has("merge-pr-head-branch-prefix")' "${WORKFLOW}")" = false ]
+  [ "$(yq -r '.on.workflow_call.inputs | has("merge-pr-author-allowlist")' "${WORKFLOW}")" = false ]
 }
 
 @test "Terraform dependency PRs verify trusted Dependabot configuration and diff" {
@@ -22,6 +22,10 @@ setup() {
   [[ "${check}" == *'"package-ecosystem"] == "terraform"'* ]]
   [[ "${check}" == *'Unexpected Terraform dependency PR file'* ]]
   [[ "${check}" == *'lockfile-only=true'* ]]
+  local identity
+  identity="$(yq -r '.jobs."terraform-lock-pr-check".steps[] | select(.name == "Verify the Dependabot Terraform pull request") | .run' "${WORKFLOW}")"
+  [[ "${identity}" == *"dependabot[bot]"* ]]
+  [[ "${identity}" == *"dependabot/terraform/"* ]]
   local config_step
   config_step="$(yq -r '.jobs."terraform-lock-pr-check".steps[] | select(.name == "Read the trusted base branch Dependabot configuration") | .run' "${WORKFLOW}")"
   [[ "${config_step}" == *'gh api "repos/${GITHUB_REPOSITORY}/contents/.github/dependabot.yml?ref=${PR_BASE_SHA}"'* ]]
@@ -40,6 +44,8 @@ setup() {
   local guard merge
   guard="$(yq -r '.jobs."terraform-lock-pr-merge".if' "${WORKFLOW}")"
   merge="$(yq -r '.jobs."terraform-lock-pr-merge".steps[] | select(.name == "Enable auto-merge after required checks and reviews") | .run' "${WORKFLOW}")"
+  [[ "${guard}" == *"dependabot[bot]"* ]]
+  [[ "${guard}" == *"dependabot/terraform/"* ]]
   [[ "${guard}" == *'version-update:semver-patch'* ]]
   [[ "${guard}" == *'version-update:semver-minor'* ]]
   [[ "${merge}" == *'--auto'* ]]
