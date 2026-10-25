@@ -23,6 +23,11 @@ on:
         type: boolean
         description: Validate Terraform code
         default: true
+      terraform-lockfile-readonly:
+        required: false
+        type: boolean
+        description: Require Terraform init to leave provider lockfiles unchanged
+        default: false
       use-tflint:
         required: false
         type: boolean
@@ -247,9 +252,14 @@ jobs:
       - name: Validate the code using terraform validate
         if: inputs.terraform-validate
         working-directory: ${{ inputs.search-path }}
+        env:
+          LOCKFILE_READONLY: ${{ inputs.terraform-lockfile-readonly }}
         run: |
+          init_flags=(-backend=false)
+          [[ "${LOCKFILE_READONLY}" == true ]] && init_flags+=(-lockfile=readonly)
+          export LOCKFILE_INIT_FLAGS="${init_flags[*]}"
           git ls-files -z -- '*.tf' \
             | xargs -0 dirname \
             | sort -u \
             | xargs -I{} -t bash -c \
-              'cd {} && terraform init -backend=false && terraform validate'
+              'cd "$1" && terraform init ${LOCKFILE_INIT_FLAGS} && terraform validate' _ '{}'
