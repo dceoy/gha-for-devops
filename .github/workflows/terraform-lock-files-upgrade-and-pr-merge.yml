@@ -28,21 +28,6 @@ on:
         type: string
         description: Terragrunt version to use
         default: latest
-      merged-pr-branch-prefix:
-        required: false
-        type: string
-        description: Deprecated compatibility input; PR aggregation is no longer performed
-        default: null
-      merge-pr-head-branch-prefix:
-        required: false
-        type: string
-        description: Prefix required for dependency PR branches before lock-file upgrade or merge
-        default: dependabot/terraform/
-      merge-pr-author-allowlist:
-        required: false
-        type: string
-        description: Comma-separated trusted PR authors allowed for lock-file upgrade or merge
-        default: dependabot[bot]
       search-path-for-lint-and-scan:
         required: false
         type: string
@@ -134,32 +119,16 @@ jobs:
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
       PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
       PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-      EXPECTED_HEAD_BRANCH_PREFIX: ${{ inputs.merge-pr-head-branch-prefix }}
-      MERGE_PR_AUTHOR_ALLOWLIST: ${{ inputs.merge-pr-author-allowlist }}
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
     steps:
-      - name: Verify the dependency pull request identity
+      - name: Verify the Dependabot Terraform pull request
         run: |
-          if [[ -z "${EXPECTED_HEAD_BRANCH_PREFIX}" || "${PR_HEAD_REF}" != "${EXPECTED_HEAD_BRANCH_PREFIX}"* ]]; then
-            echo "::error::Unexpected dependency PR branch: ${PR_HEAD_REF}"
+          if [[ "${PR_AUTHOR}" != 'dependabot[bot]' || "${PR_HEAD_REF}" != dependabot/terraform/* ]]; then
+            echo "::error::Expected a Terraform pull request authored by Dependabot"
             exit 1
           fi
           if [[ "${PR_HEAD_REPOSITORY}" != "${GITHUB_REPOSITORY}" ]]; then
-            echo "::error::Cross-repository dependency PRs are not supported"
-            exit 1
-          fi
-          allowed=false
-          IFS=',' read -r -a authors <<< "${MERGE_PR_AUTHOR_ALLOWLIST}"
-          for author in "${authors[@]}"; do
-            author="${author#"${author%%[![:space:]]*}"}"
-            author="${author%"${author##*[![:space:]]}"}"
-            if [[ -n "${author}" && "${PR_AUTHOR}" == "${author}" ]]; then
-              allowed=true
-              break
-            fi
-          done
-          if [[ "${allowed}" != true ]]; then
-            echo "::error::Untrusted dependency PR author: ${PR_AUTHOR}"
+            echo "::error::Cross-repository Dependabot PRs are not supported"
             exit 1
           fi
       - name: Read the trusted base branch Dependabot configuration
@@ -170,12 +139,10 @@ jobs:
           gh api "repos/${GITHUB_REPOSITORY}/contents/.github/dependabot.yml?ref=${PR_BASE_SHA}" \
             --jq '.content' | base64 --decode > .github/dependabot.yml
       - name: Fetch Dependabot metadata
-        if: env.PR_AUTHOR == 'dependabot[bot]'
         id: dependabot-metadata
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98  # v3.1.0
         with:
           github-token: ${{ env.GH_TOKEN }}
-          skip-verification: true
       - name: Validate the configured Terraform dependency update
         id: validate-changes
         env:
@@ -185,7 +152,7 @@ jobs:
           TERRAGRUNT_WORKING_DIRECTORIES: ${{ inputs.terragrunt-working-directories }}
           TERRAFORM_VERSION_MAP: ${{ inputs.terraform-working-directory-to-version-tf-json }}
         run: |
-          if [[ "${PR_AUTHOR}" == 'dependabot[bot]' && "${PACKAGE_ECOSYSTEM}" != terraform ]]; then
+          if [[ "${PACKAGE_ECOSYSTEM}" != terraform ]]; then
             echo "::error::This Dependabot PR is not a Terraform dependency update"
             exit 1
           fi
@@ -218,7 +185,7 @@ jobs:
               end
             end
             requested_dir = ENV.fetch("DEPENDABOT_DIRECTORY", "")
-            if ENV.fetch("PR_AUTHOR") == "dependabot[bot]" && !requested_dir.empty?
+            if !requested_dir.empty?
               match = managed_dirs.any? { |d| File.fnmatch?(d.sub(%r{/+\z}, ""), requested_dir.sub(%r{/+\z}, ""), File::FNM_PATHNAME) }
               abort "Dependabot directory is not configured for Terraform: #{requested_dir}" unless match
             end
@@ -302,11 +269,10 @@ jobs:
     if: >
       github.event_name == 'pull_request'
       && inputs.merge-pr
-      && inputs.merge-pr-author-allowlist != null
-      && inputs.merge-pr-author-allowlist != ''
+      && github.event.pull_request.user.login == 'dependabot[bot]'
+      && startsWith(github.event.pull_request.head.ref, 'dependabot/terraform/')
       && github.event.pull_request.head.repo.full_name == github.repository
-      && (github.event.pull_request.user.login != 'dependabot[bot]'
-      || needs.terraform-lock-pr-check.outputs.update-type == 'version-update:semver-patch'
+      && (needs.terraform-lock-pr-check.outputs.update-type == 'version-update:semver-patch'
       || needs.terraform-lock-pr-check.outputs.update-type == 'version-update:semver-minor')
     needs:
       - terraform-lock-pr-check
@@ -316,42 +282,20 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-slim
     env:
-      EXPECTED_HEAD_BRANCH_PREFIX: ${{ inputs.merge-pr-head-branch-prefix }}
-      MERGE_PR_AUTHOR_ALLOWLIST: ${{ inputs.merge-pr-author-allowlist }}
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
       PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
       PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
       PR_URL: ${{ github.event.pull_request.html_url }}
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
     steps:
-      - name: Validate automation pull request
+      - name: Verify the Dependabot Terraform pull request
         run: |
-          if [[ -z "${EXPECTED_HEAD_BRANCH_PREFIX}" ]]; then
-            echo "::error::merge-pr-head-branch-prefix must not be empty"
-            exit 1
-          elif [[ "${PR_HEAD_REF}" != "${EXPECTED_HEAD_BRANCH_PREFIX}"* ]]; then
-            echo "::error::Pull request branch '${PR_HEAD_REF}' does not match '${EXPECTED_HEAD_BRANCH_PREFIX}'"
-            exit 1
-          elif [[ "${PR_HEAD_REPOSITORY}" != "${GITHUB_REPOSITORY}" ]]; then
-            echo "::error::Pull request head repository '${PR_HEAD_REPOSITORY}' is not '${GITHUB_REPOSITORY}'"
-            exit 1
-          elif [[ -z "${MERGE_PR_AUTHOR_ALLOWLIST}" ]]; then
-            echo "::error::merge-pr-author-allowlist must not be empty when merge-pr is true"
+          if [[ "${PR_AUTHOR}" != 'dependabot[bot]' || "${PR_HEAD_REF}" != dependabot/terraform/* ]]; then
+            echo "::error::Expected a Terraform pull request authored by Dependabot"
             exit 1
           fi
-
-          allowed=false
-          IFS=',' read -r -a allowed_authors <<< "${MERGE_PR_AUTHOR_ALLOWLIST}"
-          for author in "${allowed_authors[@]}"; do
-            author="${author#"${author%%[![:space:]]*}"}"
-            author="${author%"${author##*[![:space:]]}"}"
-            if [[ "${PR_AUTHOR}" == "${author}" ]]; then
-              allowed=true
-              break
-            fi
-          done
-          if [[ "${allowed}" != true ]]; then
-            echo "::error::Pull request author '${PR_AUTHOR}' is not in merge-pr-author-allowlist"
+          if [[ "${PR_HEAD_REPOSITORY}" != "${GITHUB_REPOSITORY}" ]]; then
+            echo "::error::Cross-repository Dependabot PRs are not supported"
             exit 1
           fi
       - name: Verify the current pull request and checks
