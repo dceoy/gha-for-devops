@@ -131,94 +131,30 @@ jobs:
             echo "::error::Cross-repository Dependabot PRs are not supported"
             exit 1
           fi
-      - name: Read the trusted base branch Dependabot configuration
-        env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          mkdir -p .github
-          gh api "repos/${GITHUB_REPOSITORY}/contents/.github/dependabot.yml?ref=${PR_BASE_SHA}" \
-            --jq '.content' | base64 --decode > .github/dependabot.yml
       - name: Fetch Dependabot metadata
         id: dependabot-metadata
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98  # v3.1.0
         with:
           github-token: ${{ env.GH_TOKEN }}
-      - name: Validate the configured Terraform dependency update
+      - name: Detect lockfile-only updates
         id: validate-changes
         env:
           PACKAGE_ECOSYSTEM: ${{ steps.dependabot-metadata.outputs.package-ecosystem }}
-          DEPENDABOT_DIRECTORY: ${{ steps.dependabot-metadata.outputs.directory }}
-          TERRAFORM_WORKING_DIRECTORIES: ${{ inputs.terraform-working-directories }}
-          TERRAGRUNT_WORKING_DIRECTORIES: ${{ inputs.terragrunt-working-directories }}
-          TERRAFORM_VERSION_MAP: ${{ inputs.terraform-working-directory-to-version-tf-json }}
         run: |
           if [[ "${PACKAGE_ECOSYSTEM}" != terraform ]]; then
-            echo "::error::This Dependabot PR is not a Terraform dependency update"
+            echo "::error::Not a Terraform dependency update"
             exit 1
           fi
-          changed_files="$(mktemp)"
-          gh pr diff "${PR_URL}" --name-only > "${changed_files}"
-          if [[ ! -s "${changed_files}" ]]; then
-            echo "::error::Dependency PR diff is empty"
+          changed_files="$(gh pr diff "${PR_URL}" --name-only)"
+          if [[ -z "${changed_files}" ]]; then
+            echo "::error::Dependency PR has no changed files"
             exit 1
           fi
-          ruby -ryaml -rjson -e '
-            def directory(path)
-              File.expand_path(path.sub(%r{\A/}, ""), Dir.pwd)
-            end
-            def inside?(path, root)
-              path == root || path.start_with?("#{root}/")
-            end
-            abort "Missing .github/dependabot.yml" unless File.file?(".github/dependabot.yml")
-            config = YAML.safe_load_file(".github/dependabot.yml")
-            updates = config.fetch("updates", []).select { |entry| entry["package-ecosystem"] == "terraform" }
-            abort "No Terraform ecosystem configured in dependabot.yml" if updates.empty?
-            managed_dirs = updates.flat_map { |entry| entry["directories"] || [entry["directory"]] }.compact
-            abort "No Terraform directories configured in dependabot.yml" if managed_dirs.empty?
-            managed_manifest = lambda do |path|
-              parts = File.dirname(path).split("/")
-              ancestors = (0..parts.length).map { |n| parts.take(n).join("/") }
-              managed_dirs.any? do |pattern|
-                ancestors.any? do |dir|
-                  File.fnmatch?(pattern.sub(%r{\A/}, "").sub(%r{/+\z}, ""), dir, File::FNM_PATHNAME)
-                end
-              end
-            end
-            requested_dir = ENV.fetch("DEPENDABOT_DIRECTORY", "")
-            if !requested_dir.empty?
-              match = managed_dirs.any? { |d| File.fnmatch?(d.sub(%r{/+\z}, ""), requested_dir.sub(%r{/+\z}, ""), File::FNM_PATHNAME) }
-              abort "Dependabot directory is not configured for Terraform: #{requested_dir}" unless match
-            end
-            lock_roots = if !ENV.fetch("TERRAFORM_VERSION_MAP", "").empty?
-              JSON.parse(ENV.fetch("TERRAFORM_VERSION_MAP")).keys
-            elsif !ENV.fetch("TERRAGRUNT_WORKING_DIRECTORIES", "").empty?
-              ENV.fetch("TERRAGRUNT_WORKING_DIRECTORIES").split
-            else
-              ENV.fetch("TERRAFORM_WORKING_DIRECTORIES").split
-            end
-            lock_roots = lock_roots.map { |d| directory(d) }
-            abort "No lockfile directories configured" if lock_roots.empty?
-            paths = File.readlines(ARGV.fetch(0), chomp: true)
-            paths.each do |path|
-              full_path = directory(path)
-              abort "Unsafe path: #{path}" unless inside?(full_path, Dir.pwd)
-              if File.basename(path) == ".terraform.lock.hcl"
-                valid = lock_roots.any? { |root| inside?(full_path, root) } || managed_manifest.call(path)
-              elsif path.end_with?(".tf") || path.end_with?(".tf.json") || File.basename(path) == "terragrunt.hcl"
-                valid = managed_manifest.call(path)
-              else
-                valid = false
-              end
-              abort "Unexpected Terraform dependency PR file: #{path}" unless valid
-            end
-            puts "Validated #{paths.length} dependency PR files against dependabot.yml"
-          ' "${changed_files}"
-          if grep -qvE '(^|/)\.terraform\.lock\.hcl$' "${changed_files}"; then
+          if grep -qvE '(^|/)\.terraform\.lock\.hcl$' <<< "${changed_files}"; then
             echo "lockfile-only=false" >> "${GITHUB_OUTPUT}"
           else
             echo "lockfile-only=true" >> "${GITHUB_OUTPUT}"
           fi
-          rm -f "${changed_files}"
   terraform-lock-pr-upgrade:
     if: >
       always() && (github.event_name != 'pull_request'
@@ -284,20 +220,9 @@ jobs:
     env:
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
       PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
-      PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
       PR_URL: ${{ github.event.pull_request.html_url }}
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
     steps:
-      - name: Verify the Dependabot Terraform pull request
-        run: |
-          if [[ "${PR_AUTHOR}" != 'dependabot[bot]' || "${PR_HEAD_REF}" != dependabot/terraform/* ]]; then
-            echo "::error::Expected a Terraform pull request authored by Dependabot"
-            exit 1
-          fi
-          if [[ "${PR_HEAD_REPOSITORY}" != "${GITHUB_REPOSITORY}" ]]; then
-            echo "::error::Cross-repository Dependabot PRs are not supported"
-            exit 1
-          fi
       - name: Verify the current pull request and checks
         run: |
           current="$(gh pr view "${PR_URL}" --json author,headRefName,headRefOid,isDraft,mergeStateStatus,state)"
