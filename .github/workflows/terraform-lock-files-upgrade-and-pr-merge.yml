@@ -150,8 +150,8 @@ jobs:
           allowed=false
           IFS=',' read -r -a authors <<< "${MERGE_PR_AUTHOR_ALLOWLIST}"
           for author in "${authors[@]}"; do
-            author="${author#"\${author%%[![:space:]]*}"}"
-            author="${author%"\${author##*[![:space:]]}"}"
+            author="${author#"${author%%[![:space:]]*}"}"
+            author="${author%"${author##*[![:space:]]}"}"
             if [[ -n "${author}" && "${PR_AUTHOR}" == "${author}" ]]; then
               allowed=true
               break
