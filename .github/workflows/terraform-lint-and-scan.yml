@@ -255,6 +255,7 @@ jobs:
         env:
           LOCKFILE_READONLY: ${{ inputs.terraform-lockfile-readonly }}
         run: |
+          # shellcheck disable=SC2016  # Variables expand in the nested bash -c shell.
           git ls-files -z -- '*.tf' \
             | xargs -0 dirname \
             | sort -u \
