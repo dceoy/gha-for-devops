@@ -51,9 +51,6 @@ paths:
   .github/workflows/docker-save-and-terraform-deploy-to-aws.yml:
     ignore:
       - 'reusable workflow call "\$/.+" at "uses" is not following the format'
-  .github/workflows/terraform-dependabot-lock-upgrade-and-merge.yml:
-    ignore:
-      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
   .github/workflows/docker-lint-and-scan.yml:
     ignore:
       - 'reusable workflow call "\$/.+" at "uses" is not following the format'
