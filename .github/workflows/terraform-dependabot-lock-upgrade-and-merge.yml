@@ -233,7 +233,6 @@ jobs:
             echo "::error::Pull request has merge conflicts"
             exit 1
           fi
-          echo "EXPECTED_HEAD_SHA=${PR_HEAD_SHA}" >> "${GITHUB_ENV}"
       - name: Approve the pull request when the token can approve
         continue-on-error: true
         run: >
@@ -241,4 +240,4 @@ jobs:
       - name: Enable auto-merge after required checks and reviews
         run: >
           gh pr merge --auto --merge --delete-branch
-          --match-head-commit "${EXPECTED_HEAD_SHA}" "${PR_URL}"
+          --match-head-commit "${PR_HEAD_SHA}" "${PR_URL}"
