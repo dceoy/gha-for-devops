@@ -113,7 +113,6 @@ jobs:
       pull-requests: read
     outputs:
       update-type: ${{ steps.dependabot-metadata.outputs.update-type }}
-      lockfile-only: ${{ steps.validate-changes.outputs.lockfile-only }}
     env:
       PR_URL: ${{ github.event.pull_request.html_url }}
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
@@ -136,8 +135,7 @@ jobs:
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98  # v3.1.0
         with:
           github-token: ${{ env.GH_TOKEN }}
-      - name: Detect lockfile-only updates
-        id: validate-changes
+      - name: Verify Terraform dependency PR files
         env:
           PACKAGE_ECOSYSTEM: ${{ steps.dependabot-metadata.outputs.package-ecosystem }}
         run: |
@@ -146,21 +144,12 @@ jobs:
             exit 1
           fi
           changed_files="$(gh pr diff "${PR_URL}" --name-only)"
-          if [[ -z "${changed_files}" ]]; then
-            echo "::error::Dependency PR has no changed files"
+          if [[ -z "${changed_files}" ]] || grep -vE '(^|/)([^/]+\.tf(\.json)?|terragrunt\.hcl|\.terraform\.lock\.hcl)$' <<< "${changed_files}"; then
+            echo "::error::Unexpected or empty Terraform dependency diff"
             exit 1
           fi
-          if grep -qvE '(^|/)\.terraform\.lock\.hcl$' <<< "${changed_files}"; then
-            echo "lockfile-only=false" >> "${GITHUB_OUTPUT}"
-          else
-            echo "lockfile-only=true" >> "${GITHUB_OUTPUT}"
-          fi
   terraform-lock-pr-upgrade:
-    if: >
-      always() && (github.event_name != 'pull_request'
-      || needs.terraform-lock-pr-check.result == 'success')
-    needs:
-      - terraform-lock-pr-check
+    if: github.event_name != 'pull_request'
     permissions:
       contents: write
       pull-requests: write
@@ -172,15 +161,20 @@ jobs:
       terraform-version: ${{ inputs.terraform-version }}
       terragrunt-version: ${{ inputs.terragrunt-version }}
       create-pr: false
-      upgrade-providers: ${{ github.event_name != 'pull_request' || needs.terraform-lock-pr-check.outputs.lockfile-only != 'true' }}
       runs-on: ${{ inputs.runs-on }}
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
   terraform-lock-pr-lint:
+    if: >-
+      always() && ((github.event_name == 'pull_request'
+      && needs.terraform-lock-pr-check.result == 'success')
+      || (github.event_name != 'pull_request'
+      && needs.terraform-lock-pr-upgrade.result == 'success'))
     needs:
+      - terraform-lock-pr-check
       - terraform-lock-pr-upgrade
     permissions:
-      contents: write
+      contents: read
       actions: read
       security-events: write
     uses: $/.github/workflows/terraform-lint-and-scan.yml
@@ -188,7 +182,7 @@ jobs:
       search-path: ${{ inputs.search-path-for-lint-and-scan }}
       terraform-version: ${{ inputs.terraform-version }}
       terragrunt-version: ${{ inputs.terragrunt-version }}
-      terraform-validate: false
+      terraform-lockfile-readonly: ${{ github.event_name == 'pull_request' }}
       use-tflint: ${{ inputs.use-tflint }}
       use-trivy: ${{ inputs.use-trivy }}
       trivy-scanners: ${{ inputs.trivy-scanners }}
@@ -220,6 +214,7 @@ jobs:
     env:
       PR_AUTHOR: ${{ github.event.pull_request.user.login }}
       PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       PR_URL: ${{ github.event.pull_request.html_url }}
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
     steps:
@@ -229,23 +224,15 @@ jobs:
           jq -e --arg author "${PR_AUTHOR}" --arg ref "${PR_HEAD_REF}" \
             '.state == "OPEN" and .isDraft == false and .author.login == $author and .headRefName == $ref' \
             <<< "${current}" > /dev/null
+          if [[ "$(jq -r '.headRefOid' <<< "${current}")" != "${PR_HEAD_SHA}" ]]; then
+            echo "::notice::PR head changed; wait for CI on the new commit"
+            exit 0
+          fi
           if [[ "$(jq -r '.mergeStateStatus' <<< "${current}")" == DIRTY ]]; then
             echo "::error::Pull request has merge conflicts"
             exit 1
           fi
-          changed_files="$(mktemp)"
-          gh pr diff "${PR_URL}" --name-only > "${changed_files}"
-          if [[ ! -s "${changed_files}" ]]; then
-            echo "::error::Pull request diff is empty"
-            exit 1
-          fi
-          while IFS= read -r path; do
-            if [[ "${path}" != *.tf && "${path}" != *.tf.json && "${path}" != terragrunt.hcl && "${path}" != */terragrunt.hcl && "${path}" != .terraform.lock.hcl && "${path}" != */.terraform.lock.hcl ]]; then
-              echo "::error::Unexpected dependency PR file: ${path}"
-              exit 1
-            fi
-          done < "${changed_files}"
-          echo "EXPECTED_HEAD_SHA=$(jq -r '.headRefOid' <<< "${current}")" >> "${GITHUB_ENV}"
+          echo "EXPECTED_HEAD_SHA=${PR_HEAD_SHA}" >> "${GITHUB_ENV}"
       - name: Approve the pull request when the token can approve
         continue-on-error: true
         run: >
