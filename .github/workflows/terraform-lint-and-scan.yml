@@ -255,11 +255,11 @@ jobs:
         env:
           LOCKFILE_READONLY: ${{ inputs.terraform-lockfile-readonly }}
         run: |
-          init_flags=(-backend=false)
-          [[ "${LOCKFILE_READONLY}" == true ]] && init_flags+=(-lockfile=readonly)
-          export LOCKFILE_INIT_FLAGS="${init_flags[*]}"
+          if [[ "${LOCKFILE_READONLY}" == true ]]; then
+            export TF_CLI_ARGS_init=-lockfile=readonly
+          fi
           git ls-files -z -- '*.tf' \
             | xargs -0 dirname \
             | sort -u \
             | xargs -I{} -t bash -c \
-              'cd "$1" && terraform init ${LOCKFILE_INIT_FLAGS} && terraform validate' _ '{}'
+              'cd "$1" && terraform init -backend=false && terraform validate' _ '{}'
