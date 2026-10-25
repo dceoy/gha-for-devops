@@ -18,6 +18,11 @@ on:
         type: string
         description: Terragrunt working directories (separated by spaces or returns)
         default: null
+      terragrunt-lockfile-root:
+        required: false
+        type: string
+        description: Store Terragrunt provider lockfiles under this directory instead of the Terragrunt unit directories
+        default: null
       terraform-version:
         required: false
         type: string
@@ -90,6 +95,7 @@ jobs:
         env:
           TERRAFORM_WORKING_DIRECTORY_TO_VERSION_TF_JSON: ${{ inputs.terraform-working-directory-to-version-tf-json }}
           TERRAGRUNT_WORKING_DIRECTORIES: ${{ inputs.terragrunt-working-directories }}
+          TERRAGRUNT_LOCKFILE_ROOT: ${{ inputs.terragrunt-lockfile-root }}
           TERRAFORM_WORKING_DIRECTORIES: ${{ inputs.terraform-working-directories }}
           TERRAFORM_INIT: terraform init -backend=false -upgrade -reconfigure && terraform validate && rm -rf .terraform
           TERRAGRUNT_INIT: terragrunt init --non-interactive -backend=false -upgrade -reconfigure && terragrunt validate && rm -rf .terragrunt-cache
@@ -112,6 +118,41 @@ jobs:
               | tee -a "${GITHUB_ENV}"
           else
             updated_files_txt="$(mktemp)"
+            if [[ -n "${TERRAGRUNT_LOCKFILE_ROOT}" ]]; then
+              if [[ -z "${TERRAGRUNT_WORKING_DIRECTORIES}" ]] || [[ "${TERRAGRUNT_WORKING_DIRECTORIES}" =~ [[:space:]] ]]; then
+                echo "::error::terragrunt-lockfile-root requires a single terragrunt-working-directories path"
+                exit 1
+              fi
+              while IFS= read -r -d '' lockfile; do
+                unit="$(basename "$(dirname "${lockfile}")")"
+                work_dir="${TERRAGRUNT_WORKING_DIRECTORIES%/}/${unit}"
+                if [[ ! -f "${work_dir}/terragrunt.hcl" ]]; then
+                  echo "::error::No terragrunt.hcl for module lockfile ${lockfile}"
+                  exit 1
+                fi
+                cp "${lockfile}" "${work_dir}/${TERRAFORM_LOCK_FILE}"
+                (
+                  cd "${work_dir}"
+                  mv terragrunt.hcl terragrunt.hcl.orig
+                  trap 'mv -f terragrunt.hcl.orig terragrunt.hcl; rm -f .terraform.lock.hcl' EXIT
+                  awk '
+                    /^terraform[[:space:]]*\\{/ { in_block = 1 }
+                    in_block { print }
+                    in_block {
+                      opens += gsub(/\\{/, "{")
+                      closes += gsub(/\\}/, "}")
+                      if (opens > 0 && opens == closes) exit
+                    }
+                  ' terragrunt.hcl.orig > terragrunt.hcl
+                  sed -i 's/copy_terraform_lock_file[[:space:]]*=[[:space:]]*false/copy_terraform_lock_file = true/' terragrunt.hcl
+                  terragrunt init --non-interactive -backend=false -upgrade -reconfigure
+                  terragrunt validate
+                  cp .terraform.lock.hcl "${GITHUB_WORKSPACE}/${lockfile}"
+                  rm -rf .terragrunt-cache
+                )
+                printf '%s\\n' "${lockfile}" >> "${updated_files_txt}"
+              done < <(git ls-files -z -- "${TERRAGRUNT_LOCKFILE_ROOT%/}/*/${TERRAFORM_LOCK_FILE}")
+            else
             if [[ -n "${TERRAGRUNT_WORKING_DIRECTORIES}" ]]; then
               target_dirs="${TERRAGRUNT_WORKING_DIRECTORIES}"
             else
@@ -153,6 +194,7 @@ jobs:
                 )
               fi
             done
+            fi
             jq -rRs 'split("\n")[:-1] | "UPDATED_FILES_JSON=\(.)"' "${updated_files_txt}" | tee -a "${GITHUB_ENV}"
             rm -f "${updated_files_txt}"
           fi
