@@ -22,7 +22,9 @@ setup() {
   [[ "${check}" == *'"package-ecosystem"] == "terraform"'* ]]
   [[ "${check}" == *'Unexpected Terraform dependency PR file'* ]]
   [[ "${check}" == *'lockfile-only=true'* ]]
-  [ "$(yq -r '.jobs."terraform-lock-pr-check".steps[] | select(.name == "Checkout the trusted base branch configuration") | .with.ref' "${WORKFLOW}")" = '$''{{ github.event.pull_request.base.sha }}' ]
+  local config_step
+  config_step="$(yq -r '.jobs."terraform-lock-pr-check".steps[] | select(.name == "Read the trusted base branch Dependabot configuration") | .run' "${WORKFLOW}")"
+  [[ "${config_step}" == *'gh api "repos/${GITHUB_REPOSITORY}/contents/.github/dependabot.yml?ref=${PR_BASE_SHA}"'* ]]
 }
 
 @test "Already updated lockfile PRs do not upgrade all Terraform providers" {
