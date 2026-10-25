@@ -4,7 +4,7 @@ bats_require_minimum_version 1.5.0
 
 setup() {
   REPO_ROOT="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
-  WORKFLOW="${REPO_ROOT}/.github/workflows/terraform-lock-files-upgrade-and-pr-merge.yml"
+  WORKFLOW="${REPO_ROOT}/.github/workflows/terraform-dependabot-lock-upgrade-and-merge.yml"
   UPGRADE="${REPO_ROOT}/.github/workflows/terraform-lock-files-upgrade.yml"
 }
 
