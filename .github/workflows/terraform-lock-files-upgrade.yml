@@ -33,6 +33,11 @@ on:
         type: boolean
         description: Create a pull request instead of committing directly
         default: false
+      upgrade-providers:
+        required: false
+        type: boolean
+        description: Upgrade provider versions; false verifies existing lockfiles without changing versions
+        default: true
       runs-on:
         required: false
         type: string
@@ -91,16 +96,20 @@ jobs:
           TERRAFORM_WORKING_DIRECTORY_TO_VERSION_TF_JSON: ${{ inputs.terraform-working-directory-to-version-tf-json }}
           TERRAGRUNT_WORKING_DIRECTORIES: ${{ inputs.terragrunt-working-directories }}
           TERRAFORM_WORKING_DIRECTORIES: ${{ inputs.terraform-working-directories }}
-          TERRAFORM_INIT: terraform init -backend=false -upgrade -reconfigure && terraform validate && rm -rf .terraform
-          TERRAGRUNT_INIT: terragrunt init --non-interactive -backend=false -upgrade -reconfigure && terragrunt validate && rm -rf .terragrunt-cache
+          UPGRADE_PROVIDERS: ${{ inputs.upgrade-providers }}
         run: |
+          if [[ "${UPGRADE_PROVIDERS}" == true ]]; then
+            init_flags=(-upgrade)
+          else
+            init_flags=(-lockfile=readonly)
+          fi
           if [[ -n "${TERRAFORM_WORKING_DIRECTORY_TO_VERSION_TF_JSON}" ]]; then
             jq -r 'to_entries[] | [.key, .value] | @tsv' <<< "${TERRAFORM_WORKING_DIRECTORY_TO_VERSION_TF_JSON}" \
               | while IFS=$'\t' read -r working_dir version_tf; do
                   cp "${version_tf}" "${working_dir}"
                   (
                     cd "${working_dir}"
-                    terraform init -backend=false -upgrade -reconfigure
+                    terraform init -backend=false "${init_flags[@]}" -reconfigure
                     terraform validate
                     rm -rf .terraform
                     rm -f "$(basename "${version_tf}")"
@@ -139,7 +148,7 @@ jobs:
                       }
                     }
                   ' terragrunt.hcl.orig > terragrunt.hcl
-                  terragrunt init --non-interactive -backend=false -upgrade -reconfigure
+                  terragrunt init --non-interactive -backend=false "${init_flags[@]}" -reconfigure
                   terragrunt validate
                   rm -rf .terragrunt-cache
                   mv terragrunt.hcl.orig terragrunt.hcl
@@ -147,7 +156,7 @@ jobs:
               else
                 (
                   cd "${d}"
-                  terraform init -backend=false -upgrade -reconfigure
+                  terraform init -backend=false "${init_flags[@]}" -reconfigure
                   terraform validate
                   rm -rf .terraform
                 )
