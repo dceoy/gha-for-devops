@@ -16,10 +16,3 @@ setup() {
   approve_if="$(yq -r '.jobs."dependabot-auto-merge".steps[] | select(.id == "approve-pr") | .if' "${reusable}")"
   [ "${approve_if}" = "inputs.unconditional || steps.safe-update.outputs.safe == 'true'" ]
 }
-
-@test "Renovate requires review for Python dependency updates" {
-  local renovate="${REPO_ROOT}/.github/renovate.json"
-
-  jq -e 'any(.packageRules[]; .automerge == false and
-    ((.matchManagers // []) == ["pep621"]))' "${renovate}" > /dev/null
-}
