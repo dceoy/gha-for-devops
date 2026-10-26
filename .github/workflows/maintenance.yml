@@ -21,14 +21,18 @@ on:
           - minor-release
           - patch-release
           - scorecard
+          - mise-lock-upgrade
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.repository }}-maintenance-${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard')) && 'release' || 'scorecard' }}
+  group: ${{ github.repository }}-maintenance-${{ github.event_name == 'workflow_dispatch' && inputs.task == 'mise-lock-upgrade' && 'mise-lock-upgrade' || (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard')) && 'release' || 'scorecard' }}
   cancel-in-progress: false
 jobs:
   mise-lock-update:
-    if: github.repository == 'dceoy/gha-for-devops' && github.event_name == 'schedule'
+    if: >-
+      github.repository == 'dceoy/gha-for-devops'
+      && github.event_name == 'workflow_dispatch'
+      && inputs.task == 'mise-lock-upgrade'
     permissions:
       contents: write
       pull-requests: write
@@ -41,7 +45,7 @@ jobs:
     if: >-
       github.repository == 'dceoy/gha-for-devops'
       && (github.event_name == 'schedule'
-      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard'))
+      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard' && inputs.task != 'mise-lock-upgrade'))
     permissions:
       contents: write
     uses: $/.github/workflows/github-release.yml
@@ -66,7 +70,7 @@ jobs:
     if: >-
       github.repository == 'dceoy/gha-for-devops'
       && (github.event_name == 'schedule'
-      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard'))
+      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard' && inputs.task != 'mise-lock-upgrade'))
     runs-on: ubuntu-slim
     defaults:
       run:
