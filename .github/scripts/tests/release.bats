@@ -12,7 +12,7 @@ setup() {
 }
 
 @test 'maintenance retains the Bats regression job alongside release and Scorecard' {
-  [ "$(yq -r '.jobs | keys | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,bats-tests,github-release,major-version-tag,mise-lock-update ]
+  [ "$(yq -r '.jobs | keys | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,bats-tests,github-release,github-release-manual,major-version-tag,major-version-tag-manual,mise-lock-update ]
 }
 
 @test 'scheduled maintenance runs the full scanner E2E without release gating' {
@@ -25,17 +25,25 @@ setup() {
   yq -r '.jobs."bats-tests".steps[] | select(.name == "Run Bats tests") | .run' "${WORKFLOW_FILE}" | grep -Fq "\"\${GITHUB_EVENT_NAME}\" != schedule"
 }
 
-@test 'release uses direct event gating without preflight dependencies' {
+@test 'scheduled release requires successful Bats and analysis but manual release is independent' {
   local condition
   condition="$(yq -r '.jobs."github-release".if' "${WORKFLOW_FILE}")"
   [[ "${condition}" == *"github.repository == 'dceoy/gha-for-devops'"* ]]
   [[ "${condition}" == *"github.event_name == 'schedule'"* ]]
+  [[ "${condition}" == *"needs.bats-tests.result == 'success'"* ]]
+  [[ "${condition}" == *"needs.analysis.result == 'success'"* ]]
+  [ "$(yq -r '.jobs."github-release".needs | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,bats-tests ]
+  [ "$(yq -r '.jobs."github-release".permissions.contents' "${WORKFLOW_FILE}")" = write ]
+  [ "$(yq -r '.jobs."github-release".uses' "${WORKFLOW_FILE}")" = '$/.github/workflows/github-release.yml' ]
+
+  condition="$(yq -r '.jobs."github-release-manual".if' "${WORKFLOW_FILE}")"
+  [[ "${condition}" == *"github.repository == 'dceoy/gha-for-devops'"* ]]
   [[ "${condition}" == *"github.event_name == 'workflow_dispatch'"* ]]
   [[ "${condition}" == *"inputs.task != 'scorecard'"* ]]
   [[ "${condition}" == *"inputs.task != 'mise-lock-upgrade'"* ]]
-  [ "$(yq -r '.jobs."github-release" | has("needs")' "${WORKFLOW_FILE}")" = false ]
-  [ "$(yq -r '.jobs."github-release".permissions.contents' "${WORKFLOW_FILE}")" = write ]
-  [ "$(yq -r '.jobs."github-release".uses' "${WORKFLOW_FILE}")" = '$/.github/workflows/github-release.yml' ]
+  [ "$(yq -r '.jobs."github-release-manual" | has("needs")' "${WORKFLOW_FILE}")" = false ]
+  [ "$(yq -r '.jobs."github-release-manual".permissions.contents' "${WORKFLOW_FILE}")" = write ]
+  [ "$(yq -r '.jobs."github-release-manual".uses' "${WORKFLOW_FILE}")" = '$/.github/workflows/github-release.yml' ]
 }
 
 @test 'mise.lock update is manual-only and independent of release' {
@@ -53,19 +61,24 @@ setup() {
   [[ "${group}" == *"inputs.task == 'mise-lock-upgrade'"* ]]
 }
 
-@test 'automatic release checks workflow YAML changes' {
-  [ "$(yq -r '.jobs."github-release".with."version-bump"' "${WORKFLOW_FILE}")" = "\${{ inputs.task || 'auto' }}" ]
+@test 'automatic and manual releases use the appropriate bump and paths' {
+  [ "$(yq -r '.jobs."github-release".with."version-bump"' "${WORKFLOW_FILE}")" = auto ]
+  [ "$(yq -r '.jobs."github-release-manual".with."version-bump"' "${WORKFLOW_FILE}")" = "\${{ inputs.task }}" ]
   local paths
   paths="$(yq -r '.jobs."github-release".with."release-trigger-paths"' "${WORKFLOW_FILE}")"
   [[ "${paths}" == *'.github/workflows/*.yml'* ]]
   [[ "${paths}" == *'.github/workflows/*.yaml'* ]]
+  [ "$(yq -r '.jobs."github-release-manual".with."release-trigger-paths"' "${WORKFLOW_FILE}")" = "${paths}" ]
   [ "$(yq -r '.on.workflow_call.inputs."release-trigger-paths".default' "${RELEASE_WORKFLOW}")" = . ]
 }
 
-@test 'major tag sync runs when the release job succeeds' {
+@test 'major tag sync depends only on its matching release' {
   [ "$(yq -r '.jobs."major-version-tag".needs' "${WORKFLOW_FILE}")" = github-release ]
   [ "$(yq -r '.jobs."major-version-tag".if' "${WORKFLOW_FILE}")" = "needs.github-release.result == 'success'" ]
   [ "$(yq -r '.jobs."major-version-tag".permissions.contents' "${WORKFLOW_FILE}")" = write ]
+  [ "$(yq -r '.jobs."major-version-tag-manual".needs' "${WORKFLOW_FILE}")" = github-release-manual ]
+  [ "$(yq -r '.jobs."major-version-tag-manual".if' "${WORKFLOW_FILE}")" = "needs.github-release-manual.result == 'success'" ]
+  [ "$(yq -r '.jobs."major-version-tag-manual".permissions.contents' "${WORKFLOW_FILE}")" = write ]
 }
 
 @test 'Scorecard keeps its isolated permissions and triggers' {
