@@ -42,15 +42,37 @@ jobs:
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   github-release:
+    needs:
+      - bats-tests
+      - analysis
     if: >-
       github.repository == 'dceoy/gha-for-devops'
-      && (github.event_name == 'schedule'
-      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard' && inputs.task != 'mise-lock-upgrade'))
+      && github.event_name == 'schedule'
+      && needs.bats-tests.result == 'success'
+      && needs.analysis.result == 'success'
     permissions:
       contents: write
     uses: $/.github/workflows/github-release.yml
     with:
-      version-bump: ${{ inputs.task || 'auto' }}
+      version-bump: auto
+      release-trigger-paths: |
+        .github/workflows/*.yml
+        .github/workflows/*.yaml
+        !.github/workflows/ai-agents.yml
+        !.github/workflows/ci.yml
+        !.github/workflows/maintenance.yml
+      runs-on: ubuntu-slim
+  github-release-manual:
+    if: >-
+      github.repository == 'dceoy/gha-for-devops'
+      && github.event_name == 'workflow_dispatch'
+      && inputs.task != 'scorecard'
+      && inputs.task != 'mise-lock-upgrade'
+    permissions:
+      contents: write
+    uses: $/.github/workflows/github-release.yml
+    with:
+      version-bump: ${{ inputs.task }}
       release-trigger-paths: |
         .github/workflows/*.yml
         .github/workflows/*.yaml
@@ -61,6 +83,14 @@ jobs:
   major-version-tag:
     needs: github-release
     if: needs.github-release.result == 'success'
+    permissions:
+      contents: write
+    uses: $/.github/workflows/github-major-version-tag.yml
+    secrets:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  major-version-tag-manual:
+    needs: github-release-manual
+    if: needs.github-release-manual.result == 'success'
     permissions:
       contents: write
     uses: $/.github/workflows/github-major-version-tag.yml
