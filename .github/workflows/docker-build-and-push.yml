@@ -8,6 +8,11 @@ on:
         type: string
         description: Image registry to login (e.g., ghcr.io, docker.io)
         default: null
+      source-registry:
+        required: false
+        type: string
+        description: Optional base image registry to authenticate using DOCKER_TOKEN (e.g., dhi.io)
+        default: null
       registry-user:
         required: false
         type: string
@@ -289,6 +294,13 @@ jobs:
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         with:
           registry: ${{ inputs.registry }}
+          username: ${{ inputs.registry-user }}
+          password: ${{ secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+      - name: Login to base image registry
+        if: inputs.source-registry != null
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
+        with:
+          registry: ${{ inputs.source-registry }}
           username: ${{ inputs.registry-user }}
           password: ${{ secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
       - name: Validate local Docker load platform
