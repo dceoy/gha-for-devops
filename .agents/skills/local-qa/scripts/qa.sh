@@ -88,7 +88,7 @@ if [[ "${N_TYPESCRIPT_FILES}" -gt 0 ]] || [[ "${N_JAVASCRIPT_FILES}" -gt 0 ]]; t
   fi
 
   if command -v biome > /dev/null 2>&1; then
-    pnpm exec biome check --write --vcs-enabled=true --vcs-client-kind=git --vcs-use-ignore-file=true "${PACKAGE_DIRECTORY}"
+    pnpm exec biome check --write --md-formatter-enabled=false --vcs-enabled=true --vcs-client-kind=git --vcs-use-ignore-file=true "${PACKAGE_DIRECTORY}"
   fi
   if ! command -v biome > /dev/null 2>&1; then
     pnpm exec oxfmt --write --no-error-on-unmatched-pattern "${PACKAGE_DIRECTORY}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,scss}" '!**/node_modules/**' '!**/.venv/**'
