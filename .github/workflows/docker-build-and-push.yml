@@ -296,7 +296,7 @@ jobs:
           tags: ${{ inputs.docker-metadata-action-tags }}
       - name: Login to the Docker registry
         if: inputs.registry != null
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6  # v4.7.0
         with:
           registry: ${{ inputs.registry }}
           username: ${{ inputs.registry-user }}
@@ -312,7 +312,7 @@ jobs:
           fi
       - name: Login to DHI registry
         if: inputs.login-dhi
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6  # v4.7.0
         with:
           registry: dhi.io
           username: ${{ inputs.dhi-user || inputs.registry-user }}
