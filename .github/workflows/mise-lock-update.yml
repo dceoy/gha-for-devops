@@ -83,7 +83,7 @@ jobs:
           version: ${{ inputs.mise-version != 'latest' && inputs.mise-version || null }}
           auto_update: ${{ inputs.mise-version == 'latest' }}
           install: false
-          cache: false
+          cache: true
       - name: Refresh mise.lock
         working-directory: ${{ inputs.working-directory }}
         env:
