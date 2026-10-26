@@ -12,8 +12,7 @@ on:
         description: Version of mise to use
         type: string
         required: false
-        # renovate: datasource=github-releases depName=jdx/mise
-        default: 2026.8.5
+        default: latest
       bump:
         description: Re-resolve floating tool versions within their configured constraints
         type: boolean
@@ -38,8 +37,7 @@ on:
         required: false
         type: string
         description: Version of mise to use
-        # renovate: datasource=github-releases depName=jdx/mise
-        default: 2026.8.5
+        default: latest
       bump:
         required: false
         type: boolean
@@ -82,7 +80,7 @@ jobs:
       - name: Set up mise without installing project tools
         uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550  # v5.2.2
         with:
-          version: ${{ inputs.mise-version }}
+          version: ${{ inputs.mise-version != 'latest' && inputs.mise-version || null }}
           install: false
           cache: false
       - name: Refresh mise.lock
