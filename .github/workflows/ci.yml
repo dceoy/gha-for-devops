@@ -178,7 +178,6 @@ jobs:
     uses: $/.github/workflows/dependabot-auto-merge.yml
     with:
       unconditional: true
-      allow-python-dependency-auto-merge: false
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   # Write-capable maintenance jobs never run for pull_request events.

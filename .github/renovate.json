@@ -61,11 +61,6 @@
       "automerge": false
     },
     {
-      "description": "Disable automerge for Python dependency updates; assess Checkov ecdsa use separately",
-      "matchManagers": ["pep621"],
-      "automerge": false
-    },
-    {
       "description": "Allow GHCR Docker digest updates without release timestamps",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["ghcr.io/**"],
