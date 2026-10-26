@@ -49,7 +49,7 @@ on:
         required: false
         type: string
         description: GitHub Actions runner to use
-        default: ubuntu-latest
+        default: macos-latest
     secrets:
       GH_TOKEN:
         required: false
