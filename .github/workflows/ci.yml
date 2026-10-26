@@ -31,8 +31,6 @@ permissions:
 env:
   GH_TELEMETRY: 'false'
   MISE_USE_VERSIONS_HOST_TRACK: 'false'
-  # renovate: datasource=github-releases depName=jdx/mise
-  MISE_VERSION: 2026.8.5
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -84,7 +82,7 @@ jobs:
       - name: Set up mise
         uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550  # v5.2.2
         with:
-          version: ${{ env.MISE_VERSION }}
+          auto_update: true
           install_args: ${{ steps.bats-scope.outputs.scope == 'readme' && 'yq gomplate' || 'actionlint yq gomplate trivy syft grype' }}
       - name: Set up Go
         if: steps.bats-scope.outputs.scope != 'readme'
@@ -219,7 +217,7 @@ jobs:
       - name: Set up mise
         uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550  # v5.2.2
         with:
-          version: ${{ env.MISE_VERSION }}
+          auto_update: true
           install_args: yq gomplate
       - name: Provide Oxfmt wrapper
         env:
