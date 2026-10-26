@@ -21,14 +21,18 @@ on:
           - minor-release
           - patch-release
           - scorecard
+          - mise-lock-upgrade
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.repository }}-maintenance-${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard')) && 'release' || 'scorecard' }}
+  group: ${{ github.repository }}-maintenance-${{ github.event_name == 'workflow_dispatch' && inputs.task == 'mise-lock-upgrade' && 'mise-lock-upgrade' || (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard')) && 'release' || 'scorecard' }}
   cancel-in-progress: false
 jobs:
   mise-lock-update:
-    if: github.repository == 'dceoy/gha-for-devops' && github.event_name == 'schedule'
+    if: >-
+      github.repository == 'dceoy/gha-for-devops'
+      && github.event_name == 'workflow_dispatch'
+      && inputs.task == 'mise-lock-upgrade'
     permissions:
       contents: write
       pull-requests: write
@@ -38,10 +42,18 @@ jobs:
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   github-release:
+    needs:
+      - bats-tests
+      - analysis
     if: >-
-      github.repository == 'dceoy/gha-for-devops'
-      && (github.event_name == 'schedule'
-      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard'))
+      !cancelled()
+      && github.repository == 'dceoy/gha-for-devops'
+      && ((github.event_name == 'schedule'
+      && needs.bats-tests.result == 'success'
+      && needs.analysis.result == 'success')
+      || (github.event_name == 'workflow_dispatch'
+      && inputs.task != 'scorecard'
+      && inputs.task != 'mise-lock-upgrade'))
     permissions:
       contents: write
     uses: $/.github/workflows/github-release.yml
@@ -63,10 +75,7 @@ jobs:
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   bats-tests:
-    if: >-
-      github.repository == 'dceoy/gha-for-devops'
-      && (github.event_name == 'schedule'
-      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard'))
+    if: github.repository == 'dceoy/gha-for-devops' && github.event_name == 'schedule'
     runs-on: ubuntu-slim
     defaults:
       run:
@@ -75,8 +84,6 @@ jobs:
     env:
       GH_TELEMETRY: 'false'
       MISE_USE_VERSIONS_HOST_TRACK: 'false'
-      # renovate: datasource=github-releases depName=jdx/mise
-      MISE_VERSION: 2026.8.5
     steps:
       - name: Check out the release candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -85,7 +92,7 @@ jobs:
       - name: Set up mise
         uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e  # v5.2.3
         with:
-          version: ${{ env.MISE_VERSION }}
+          auto_update: true
           install_args: actionlint yq gomplate trivy syft grype
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
@@ -97,12 +104,7 @@ jobs:
         with:
           github-token: ${{ github.token }}
       - name: Run Bats tests
-        run: |
-          args=(--print-output-on-failure)
-          if [[ "${GITHUB_EVENT_NAME}" != schedule ]]; then
-            args+=(--filter-tags '!e2e')
-          fi
-          bats "${args[@]}" .github/scripts/tests/*.bats
+        run: bats --print-output-on-failure .github/scripts/tests/*.bats
   analysis:
     if: >-
       github.repository == 'dceoy/gha-for-devops'

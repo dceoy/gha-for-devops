@@ -81,8 +81,9 @@ jobs:
         uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e  # v5.2.3
         with:
           version: ${{ inputs.mise-version != 'latest' && inputs.mise-version || null }}
+          auto_update: ${{ inputs.mise-version == 'latest' }}
           install: false
-          cache: false
+          cache: true
       - name: Refresh mise.lock
         working-directory: ${{ inputs.working-directory }}
         env:
