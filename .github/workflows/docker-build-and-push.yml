@@ -11,7 +11,7 @@ on:
       login-dhi:
         required: false
         type: boolean
-        description: Authenticate to dhi.io using DOCKER_TOKEN (Docker Hub credentials)
+        description: Authenticate to dhi.io with DOCKER_TOKEN (Docker Hub credentials)
         default: false
       registry-user:
         required: false
@@ -210,9 +210,6 @@ on:
       DOCKER_TOKEN:
         required: false
         description: Registry token
-      DHI_TOKEN:
-        required: false
-        description: Docker Hub token for dhi.io when the push registry uses a different credential
       GH_TOKEN:
         required: false
         description: GitHub token
@@ -298,14 +295,14 @@ jobs:
         with:
           registry: ${{ inputs.registry }}
           username: ${{ inputs.registry-user }}
-          password: ${{ secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          password: ${{ inputs.login-dhi && inputs.registry == 'ghcr.io' && (secrets.GH_TOKEN || github.token) || secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
       - name: Login to DHI registry
         if: inputs.login-dhi
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         with:
           registry: dhi.io
           username: ${{ inputs.registry-user }}
-          password: ${{ secrets.DHI_TOKEN || (inputs.registry == 'docker.io' && secrets.DOCKER_TOKEN) || '' }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          password: ${{ secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
       - name: Validate local Docker load platform
         if: (! inputs.push)
         env:
@@ -431,7 +428,7 @@ jobs:
       snapshot-artifact-prefix: ${{ inputs.snapshot-artifact-prefix }}
       runs-on: ${{ inputs.runs-on }}
     secrets:
-      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+      DOCKER_TOKEN: ${{ inputs.login-dhi && inputs.registry == 'ghcr.io' && (secrets.GH_TOKEN || github.token) || secrets.DOCKER_TOKEN }}
   docker-postbuild-syft-grype:
     if: inputs.use-syft-grype && inputs.scan-after-build
     needs: docker-build-and-push
@@ -450,4 +447,4 @@ jobs:
       sbom-artifact-name: ${{ inputs.sbom-artifact-name && format('{0}-image', inputs.sbom-artifact-name) || '' }}
       runs-on: ${{ inputs.runs-on }}
     secrets:
-      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+      DOCKER_TOKEN: ${{ inputs.login-dhi && inputs.registry == 'ghcr.io' && (secrets.GH_TOKEN || github.token) || secrets.DOCKER_TOKEN }}
