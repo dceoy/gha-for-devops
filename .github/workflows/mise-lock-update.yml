@@ -1,7 +1,7 @@
 ---
 name: Update mise.lock and create a pull request
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # checkov:skip=CKV_GHA_7:Maintainer inputs intentionally configure the mise lockfile update
     inputs:
       working-directory:
         description: Directory containing mise.toml and mise.lock
