@@ -33,6 +33,8 @@ jobs:
       contents: write
       pull-requests: write
     uses: $/.github/workflows/mise-lock-update.yml
+    with:
+      runs-on: macos-latest
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   github-release:
