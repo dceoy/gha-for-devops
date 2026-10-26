@@ -1,6 +1,31 @@
 ---
 name: Update mise.lock and create a pull request
 on:
+  workflow_dispatch:  # checkov:skip=CKV_GHA_7:Maintainer inputs intentionally configure the mise lockfile update
+    inputs:
+      working-directory:
+        description: Directory containing mise.toml and mise.lock
+        type: string
+        required: false
+        default: .
+      mise-version:
+        description: Version of mise to use
+        type: string
+        required: false
+        default: latest
+      bump:
+        description: Re-resolve floating tool versions within their configured constraints
+        type: boolean
+        required: false
+        default: true
+      runs-on:
+        description: GitHub Actions runner to use
+        type: choice
+        required: false
+        default: macos-latest
+        options:
+          - macos-latest
+          - ubuntu-latest
   workflow_call:
     inputs:
       working-directory:
@@ -12,8 +37,7 @@ on:
         required: false
         type: string
         description: Version of mise to use
-        # renovate: datasource=github-releases depName=jdx/mise
-        default: 2026.8.5
+        default: latest
       bump:
         required: false
         type: boolean
@@ -23,7 +47,7 @@ on:
         required: false
         type: string
         description: GitHub Actions runner to use
-        default: ubuntu-latest
+        default: macos-latest
     secrets:
       GH_TOKEN:
         required: false
@@ -56,7 +80,7 @@ jobs:
       - name: Set up mise without installing project tools
         uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550  # v5.2.2
         with:
-          version: ${{ inputs.mise-version }}
+          version: ${{ inputs.mise-version != 'latest' && inputs.mise-version || null }}
           install: false
           cache: false
       - name: Refresh mise.lock
