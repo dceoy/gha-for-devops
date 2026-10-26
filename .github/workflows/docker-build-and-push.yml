@@ -13,6 +13,11 @@ on:
         type: boolean
         description: Authenticate to dhi.io with DOCKER_TOKEN (Docker Hub credentials)
         default: false
+      dhi-user:
+        required: false
+        type: string
+        description: Docker Hub username or organization for DHI login (defaults to registry-user)
+        default: null
       registry-user:
         required: false
         type: string
@@ -310,7 +315,7 @@ jobs:
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         with:
           registry: dhi.io
-          username: ${{ inputs.registry-user }}
+          username: ${{ inputs.dhi-user || inputs.registry-user }}
           password: ${{ secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
       - name: Validate local Docker load platform
         if: (! inputs.push)
