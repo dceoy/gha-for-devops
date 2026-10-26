@@ -8,7 +8,7 @@ setup() {
 @test 'maintenance retains scheduled and manual tasks' {
   [ "$(yq -r '.on.schedule[0].cron' "${WORKFLOW_FILE}")" = '15 0 * * 1' ]
   [ "$(yq -r '.on.workflow_dispatch.inputs.task.default' "${WORKFLOW_FILE}")" = patch-release ]
-  [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = major-release,minor-release,patch-release,scorecard ]
+  [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = major-release,minor-release,patch-release,scorecard,mise-lock-upgrade ]
 }
 
 @test 'maintenance retains the Bats regression job alongside release and Scorecard' {
@@ -20,6 +20,7 @@ setup() {
   condition="$(yq -r '.jobs."bats-tests".if' "${WORKFLOW_FILE}")"
   [[ "${condition}" == *"github.event_name == 'schedule'"* ]]
   [[ "${condition}" == *"inputs.task != 'scorecard'"* ]]
+  [[ "${condition}" == *"inputs.task != 'mise-lock-upgrade'"* ]]
   [ "$(yq -r '.jobs."bats-tests" | has("needs")' "${WORKFLOW_FILE}")" = false ]
   yq -r '.jobs."bats-tests".steps[] | select(.name == "Run Bats tests") | .run' "${WORKFLOW_FILE}" | grep -Fq "\"\${GITHUB_EVENT_NAME}\" != schedule"
 }
@@ -31,18 +32,25 @@ setup() {
   [[ "${condition}" == *"github.event_name == 'schedule'"* ]]
   [[ "${condition}" == *"github.event_name == 'workflow_dispatch'"* ]]
   [[ "${condition}" == *"inputs.task != 'scorecard'"* ]]
+  [[ "${condition}" == *"inputs.task != 'mise-lock-upgrade'"* ]]
   [ "$(yq -r '.jobs."github-release" | has("needs")' "${WORKFLOW_FILE}")" = false ]
   [ "$(yq -r '.jobs."github-release".permissions.contents' "${WORKFLOW_FILE}")" = write ]
   [ "$(yq -r '.jobs."github-release".uses' "${WORKFLOW_FILE}")" = '$/.github/workflows/github-release.yml' ]
 }
 
-@test 'weekly mise.lock update is independent of release' {
+@test 'mise.lock update is manual-only and independent of release' {
   local condition
   condition="$(yq -r '.jobs."mise-lock-update".if' "${WORKFLOW_FILE}")"
   [[ "${condition}" == *"github.repository == 'dceoy/gha-for-devops'"* ]]
-  [[ "${condition}" == *"github.event_name == 'schedule'"* ]]
+  [[ "${condition}" == *"github.event_name == 'workflow_dispatch'"* ]]
+  [[ "${condition}" == *"inputs.task == 'mise-lock-upgrade'"* ]]
+  [[ "${condition}" != *"github.event_name == 'schedule'"* ]]
   [ "$(yq -r '.jobs."mise-lock-update" | has("needs")' "${WORKFLOW_FILE}")" = false ]
   [ "$(yq -r '.jobs."mise-lock-update".permissions."pull-requests"' "${WORKFLOW_FILE}")" = write ]
+  [ "$(yq -r '.jobs."mise-lock-update".uses' "${WORKFLOW_FILE}")" = '$/.github/workflows/mise-lock-update.yml' ]
+  local group
+  group="$(yq -r '.concurrency.group' "${WORKFLOW_FILE}")"
+  [[ "${group}" == *"inputs.task == 'mise-lock-upgrade'"* ]]
 }
 
 @test 'automatic release checks workflow YAML changes' {
