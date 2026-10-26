@@ -210,6 +210,9 @@ on:
       DOCKER_TOKEN:
         required: false
         description: Registry token
+      DHI_TOKEN:
+        required: false
+        description: Docker Hub token for dhi.io when the push registry uses a different credential
       GH_TOKEN:
         required: false
         description: GitHub token
@@ -302,7 +305,7 @@ jobs:
         with:
           registry: dhi.io
           username: ${{ inputs.registry-user }}
-          password: ${{ secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          password: ${{ secrets.DHI_TOKEN || (inputs.registry == 'docker.io' && secrets.DOCKER_TOKEN) || '' }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
       - name: Validate local Docker load platform
         if: (! inputs.push)
         env:
