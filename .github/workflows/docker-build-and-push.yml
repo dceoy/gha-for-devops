@@ -296,6 +296,15 @@ jobs:
           registry: ${{ inputs.registry }}
           username: ${{ inputs.registry-user }}
           password: ${{ inputs.login-dhi && inputs.registry == 'ghcr.io' && (secrets.GH_TOKEN || github.token) || secrets.DOCKER_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+      - name: Check DHI registry credential
+        if: inputs.login-dhi
+        env:
+          DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+        run: |
+          if [[ -z "${DOCKER_TOKEN}" ]]; then
+            echo '::error::Configure a Docker Hub access token as the DOCKER_TOKEN repository secret for dhi.io pulls' >&2
+            exit 1
+          fi
       - name: Login to DHI registry
         if: inputs.login-dhi
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
