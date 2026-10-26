@@ -46,33 +46,19 @@ jobs:
       - bats-tests
       - analysis
     if: >-
-      github.repository == 'dceoy/gha-for-devops'
-      && github.event_name == 'schedule'
+      !cancelled()
+      && github.repository == 'dceoy/gha-for-devops'
+      && ((github.event_name == 'schedule'
       && needs.bats-tests.result == 'success'
-      && needs.analysis.result == 'success'
-    permissions:
-      contents: write
-    uses: $/.github/workflows/github-release.yml
-    with:
-      version-bump: auto
-      release-trigger-paths: |
-        .github/workflows/*.yml
-        .github/workflows/*.yaml
-        !.github/workflows/ai-agents.yml
-        !.github/workflows/ci.yml
-        !.github/workflows/maintenance.yml
-      runs-on: ubuntu-slim
-  github-release-manual:
-    if: >-
-      github.repository == 'dceoy/gha-for-devops'
-      && github.event_name == 'workflow_dispatch'
+      && needs.analysis.result == 'success')
+      || (github.event_name == 'workflow_dispatch'
       && inputs.task != 'scorecard'
-      && inputs.task != 'mise-lock-upgrade'
+      && inputs.task != 'mise-lock-upgrade'))
     permissions:
       contents: write
     uses: $/.github/workflows/github-release.yml
     with:
-      version-bump: ${{ inputs.task }}
+      version-bump: ${{ inputs.task || 'auto' }}
       release-trigger-paths: |
         .github/workflows/*.yml
         .github/workflows/*.yaml
@@ -88,19 +74,8 @@ jobs:
     uses: $/.github/workflows/github-major-version-tag.yml
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  major-version-tag-manual:
-    needs: github-release-manual
-    if: needs.github-release-manual.result == 'success'
-    permissions:
-      contents: write
-    uses: $/.github/workflows/github-major-version-tag.yml
-    secrets:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   bats-tests:
-    if: >-
-      github.repository == 'dceoy/gha-for-devops'
-      && (github.event_name == 'schedule'
-      || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard' && inputs.task != 'mise-lock-upgrade'))
+    if: github.repository == 'dceoy/gha-for-devops' && github.event_name == 'schedule'
     runs-on: ubuntu-slim
     defaults:
       run:
@@ -129,12 +104,7 @@ jobs:
         with:
           github-token: ${{ github.token }}
       - name: Run Bats tests
-        run: |
-          args=(--print-output-on-failure)
-          if [[ "${GITHUB_EVENT_NAME}" != schedule ]]; then
-            args+=(--filter-tags '!e2e')
-          fi
-          bats "${args[@]}" .github/scripts/tests/*.bats
+        run: bats --print-output-on-failure .github/scripts/tests/*.bats
   analysis:
     if: >-
       github.repository == 'dceoy/gha-for-devops'
