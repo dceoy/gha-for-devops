@@ -1,6 +1,32 @@
 ---
 name: Update mise.lock and create a pull request
 on:
+  workflow_dispatch:
+    inputs:
+      working-directory:
+        description: Directory containing mise.toml and mise.lock
+        type: string
+        required: false
+        default: .
+      mise-version:
+        description: Version of mise to use
+        type: string
+        required: false
+        # renovate: datasource=github-releases depName=jdx/mise
+        default: 2026.8.5
+      bump:
+        description: Re-resolve floating tool versions within their configured constraints
+        type: boolean
+        required: false
+        default: true
+      runs-on:
+        description: GitHub Actions runner to use
+        type: choice
+        required: false
+        default: macos-latest
+        options:
+          - macos-latest
+          - ubuntu-latest
   workflow_call:
     inputs:
       working-directory:
