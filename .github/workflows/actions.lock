@@ -39,11 +39,11 @@ workflows:
         - 'pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13'
+        - 'anthropics/claude-code-action@8041f1d17e0e7d2f2cfe35002962e9f26237c0bb'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/claude-code-review.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13'
+        - 'anthropics/claude-code-action@8041f1d17e0e7d2f2cfe35002962e9f26237c0bb'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/container-security.yml':
         - 'docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6'
@@ -355,9 +355,9 @@ dependencies:
         repo_id: 496012378
         uses:
             - 'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f'
-    'anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13':
-        ref: 'v1.0.262'
-        commit: 'sha1-925afb53776cf1a2b738c6bdbed37b4d4000ef13'
+    'anthropics/claude-code-action@8041f1d17e0e7d2f2cfe35002962e9f26237c0bb':
+        ref: 'v1.0.263'
+        commit: 'sha1-8041f1d17e0e7d2f2cfe35002962e9f26237c0bb'
         owner_id: 76263028
         repo_id: 986421638
         uses:
