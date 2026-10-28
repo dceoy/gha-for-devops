@@ -75,9 +75,22 @@ jobs:
         if: >
           steps.approve-pr.outcome == 'success' && inputs.auto-merge-after-requirements
         run: |
-          merge_state="$(gh pr view "${PR_URL}" --json mergeStateStatus --jq '.mergeStateStatus')"
+          for attempt in {1..5}; do
+            merge_state="$(gh pr view "${PR_URL}" --json mergeStateStatus --jq '.mergeStateStatus')"
+            if [[ "${merge_state}" != "UNKNOWN" ]]; then
+              break
+            fi
+            if (( attempt < 5 )); then
+              echo "mergeStateStatus is UNKNOWN (attempt ${attempt}/5); retrying in 3 seconds"
+              sleep 3
+            fi
+          done
           case "${merge_state}" in
-            BEHIND|BLOCKED|CLEAN|DIRTY|DRAFT|HAS_HOOKS|UNKNOWN|UNSTABLE)
+            BEHIND|BLOCKED|CLEAN|DIRTY|DRAFT|HAS_HOOKS|UNSTABLE)
+              ;;
+            UNKNOWN)
+              echo "mergeStateStatus remained UNKNOWN after 5 attempts" >&2
+              exit 1
               ;;
             *)
               echo "Unexpected mergeStateStatus: ${merge_state}" >&2
