@@ -35,15 +35,15 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         - 'bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43'
-        - 'jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e'
+        - 'jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d'
         - 'pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@8041f1d17e0e7d2f2cfe35002962e9f26237c0bb'
+        - 'anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/claude-code-review.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@8041f1d17e0e7d2f2cfe35002962e9f26237c0bb'
+        - 'anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/container-security.yml':
         - 'docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6'
@@ -138,11 +138,11 @@ workflows:
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         - 'bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43'
         - 'github/codeql-action@9b3254085494b55a0f7c4c2b3d2d52cc712ce370'
-        - 'jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e'
+        - 'jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d'
         - 'ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e'
     '.github/workflows/markdown-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e'
+        - 'jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d'
         - 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1'
         - 'pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e'
     '.github/workflows/markdown-lint.yml':
@@ -151,7 +151,7 @@ workflows:
         - 'pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e'
     '.github/workflows/mise-lock-update.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e'
+        - 'jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d'
         - 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1'
     '.github/workflows/python-package-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -198,14 +198,14 @@ workflows:
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         - 'astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e'
         - 'bridgecrewio/checkov-action@c3e106d5f8f4253a6de5110efb41a080f83db294'
-        - 'jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e'
+        - 'jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d'
     '.github/workflows/syft-grype-scan.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         - 'docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6'
-        - 'jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e'
+        - 'jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d'
     '.github/workflows/terraform-deploy-to-aws.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -355,9 +355,9 @@ dependencies:
         repo_id: 496012378
         uses:
             - 'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f'
-    'anthropics/claude-code-action@8041f1d17e0e7d2f2cfe35002962e9f26237c0bb':
-        ref: 'v1.0.263'
-        commit: 'sha1-8041f1d17e0e7d2f2cfe35002962e9f26237c0bb'
+    'anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6':
+        ref: 'v1.0.264'
+        commit: 'sha1-d70510b174a1244958df0b03166a54912811f3e6'
         owner_id: 76263028
         repo_id: 986421638
         uses:
@@ -485,9 +485,9 @@ dependencies:
         commit: 'sha1-dfe3c3f87815947d99a8997f908cb6525fc44e9e'
         owner_id: 761456
         repo_id: 258271226
-    'jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e':
-        ref: 'v5.2.3'
-        commit: 'sha1-82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e'
+    'jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d':
+        ref: 'v5.2.4'
+        commit: 'sha1-6be3c7ed4c21d4f76b208d351d95aac273ebb76d'
         owner_id: 216188
         repo_id: 738284564
     'ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e':
