@@ -239,7 +239,7 @@ jobs:
           persist-credentials: false
       - name: Set up uv for Semgrep
         if: ${{ !cancelled() && inputs.use-semgrep }}
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
           enable-cache: auto
       - name: Run Semgrep SAST scan
@@ -339,7 +339,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Checkov
-        uses: bridgecrewio/checkov-action@c3e106d5f8f4253a6de5110efb41a080f83db294  # v12.3135.0
+        uses: bridgecrewio/checkov-action@c10e2438743528f9e4549758fad8b7a62052541d  # v12.3136.0
         with:
           directory: ${{ inputs.package-path }}
           framework: ${{ inputs.checkov-framework }}
