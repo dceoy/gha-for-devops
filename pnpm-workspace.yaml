@@ -2,6 +2,7 @@ minimumReleaseAge: 1440
 
 # Fixed transitive releases while Markdown tooling still pins older versions.
 overrides:
+  're2js@<2.8.7': 2.8.7
   katex: 0.18.2
   markdown-it: 14.3.3
   smol-toml: ^1.9.0
