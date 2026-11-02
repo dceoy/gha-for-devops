@@ -80,7 +80,7 @@ jobs:
           fi
           echo "scope=${scope}" >> "${GITHUB_OUTPUT}"
       - name: Set up mise
-        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d  # v5.2.4
+        uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195  # v5.2.5
         with:
           auto_update: true
           install_args: ${{ steps.bats-scope.outputs.scope == 'readme' && 'yq gomplate' || 'actionlint yq gomplate trivy syft grype' }}
@@ -100,7 +100,7 @@ jobs:
           restore-keys: |
             go-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
       - name: Setup Bats and Bats libraries
-        uses: bats-core/bats-action@77d6fb60505b4d0d1d73e48bd035b55074bbfb43  # 4.0.0
+        uses: bats-core/bats-action@3566550e0f594451ac0f58fcbfdeca93aa29a45e  # 4.1.0
         with:
           github-token: ${{ github.token }}
       - name: Run README generator tests
@@ -214,7 +214,7 @@ jobs:
           version: 12
           install: false
       - name: Set up mise
-        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d  # v5.2.4
+        uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195  # v5.2.5
         with:
           auto_update: true
           install_args: yq gomplate
