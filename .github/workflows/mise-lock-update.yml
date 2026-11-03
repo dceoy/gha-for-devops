@@ -78,7 +78,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
       - name: Set up mise without installing project tools
-        uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195  # v5.2.5
+        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c  # v5.2.6
         with:
           version: ${{ inputs.mise-version != 'latest' && inputs.mise-version || null }}
           auto_update: ${{ inputs.mise-version == 'latest' }}

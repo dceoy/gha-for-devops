@@ -16,7 +16,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
         - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
-        - 'bridgecrewio/checkov-action@c10e2438743528f9e4549758fad8b7a62052541d'
+        - 'bridgecrewio/checkov-action@45edc9d8856b664db2ec251f5f8632361f0a67aa'
     '.github/workflows/aws-codebuild-run.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'aws-actions/aws-codebuild-run-build@7e46c3fa1c1f217e26a73712796b1f78938b534b'
@@ -35,7 +35,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         - 'bats-core/bats-action@3566550e0f594451ac0f58fcbfdeca93aa29a45e'
-        - 'jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195'
+        - 'jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c'
         - 'pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -89,7 +89,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
         - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
-        - 'zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b'
+        - 'zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd'
     '.github/workflows/github-codeql-analysis.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
@@ -138,11 +138,11 @@ workflows:
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         - 'bats-core/bats-action@3566550e0f594451ac0f58fcbfdeca93aa29a45e'
         - 'github/codeql-action@9b3254085494b55a0f7c4c2b3d2d52cc712ce370'
-        - 'jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195'
+        - 'jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c'
         - 'ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e'
     '.github/workflows/markdown-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195'
+        - 'jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c'
         - 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1'
         - 'pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e'
     '.github/workflows/markdown-lint.yml':
@@ -151,7 +151,7 @@ workflows:
         - 'pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e'
     '.github/workflows/mise-lock-update.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195'
+        - 'jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c'
         - 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1'
     '.github/workflows/python-package-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -197,15 +197,15 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
-        - 'bridgecrewio/checkov-action@c10e2438743528f9e4549758fad8b7a62052541d'
-        - 'jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195'
+        - 'bridgecrewio/checkov-action@45edc9d8856b664db2ec251f5f8632361f0a67aa'
+        - 'jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c'
     '.github/workflows/syft-grype-scan.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         - 'docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6'
-        - 'jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195'
+        - 'jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c'
     '.github/workflows/terraform-deploy-to-aws.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -405,9 +405,9 @@ dependencies:
         repo_id: 735298439
         uses:
             - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
-    'bridgecrewio/checkov-action@c10e2438743528f9e4549758fad8b7a62052541d':
-        ref: 'v12.3136.0'
-        commit: 'sha1-c10e2438743528f9e4549758fad8b7a62052541d'
+    'bridgecrewio/checkov-action@45edc9d8856b664db2ec251f5f8632361f0a67aa':
+        ref: 'v12.3139.0'
+        commit: 'sha1-45edc9d8856b664db2ec251f5f8632361f0a67aa'
         owner_id: 48174253
         repo_id: 256738016
     'dceoy/setup-terragrunt@1cbef4029fa29d03260e3572cd1df1d45fd3f290':
@@ -455,11 +455,6 @@ dependencies:
         commit: 'sha1-cc9c08ba6c8df3b93a8f2db63e89b98368ae2ae8'
         owner_id: 26386270
         repo_id: 209101661
-    'github/codeql-action@24c54180a607b1449ed407dd24f251e4e9147c8d':
-        ref: 'v4.38.3'
-        commit: 'sha1-24c54180a607b1449ed407dd24f251e4e9147c8d'
-        owner_id: 9919
-        repo_id: 259445878
     'github/codeql-action@9b3254085494b55a0f7c4c2b3d2d52cc712ce370':
         ref: 'v4.39.1'
         commit: 'sha1-9b3254085494b55a0f7c4c2b3d2d52cc712ce370'
@@ -485,9 +480,9 @@ dependencies:
         commit: 'sha1-dfe3c3f87815947d99a8997f908cb6525fc44e9e'
         owner_id: 761456
         repo_id: 258271226
-    'jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195':
-        ref: 'v5.2.5'
-        commit: 'sha1-6612f0ef07ed2a736cd1e00a94a065522dd41195'
+    'jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c':
+        ref: 'v5.2.6'
+        commit: 'sha1-f5be966e4a917d54244728e6a5fdcd1d93a35e6c'
         owner_id: 216188
         repo_id: 738284564
     'ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e':
@@ -559,10 +554,10 @@ dependencies:
         commit: 'sha1-6ffdbaa3be476b3431f7275c26966ef32ff60337'
         owner_id: 54197850
         repo_id: 281705852
-    'zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b':
-        ref: 'v0.8.0'
-        commit: 'sha1-53290badfa369cb0bf7ad16342cb62c2fa47ac7b'
+    'zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd':
+        ref: 'v0.8.1'
+        commit: 'sha1-45d7276c9ca790aabd705e31ca99c6185c3e76dd'
         owner_id: 210636713
         repo_id: 985558803
         uses:
-            - 'github/codeql-action@24c54180a607b1449ed407dd24f251e4e9147c8d'
+            - 'github/codeql-action@9b3254085494b55a0f7c4c2b3d2d52cc712ce370'
