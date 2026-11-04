@@ -90,7 +90,7 @@ jobs:
   renovate:
     uses: dceoy/gha-for-devops/.github/workflows/renovate.yml@<pinned-ref>
     secrets:
-      RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+      RENOVATE_TOKEN: {{ "${{ secrets.RENOVATE_TOKEN }}" }}
 ```
 
 Provide a dedicated GitHub PAT with repository Contents and Pull requests write access; updating GitHub Actions workflow files also requires Workflow write access. Alternatively, omit `RENOVATE_TOKEN` and pass `RENOVATE_APP_ID` and `RENOVATE_APP_PRIVATE_KEY` for a GitHub App installed on the caller repository with equivalent permissions. Missing or conflicting credentials fail closed.
