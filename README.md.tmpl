@@ -89,10 +89,11 @@ permissions:
 jobs:
   renovate:
     uses: dceoy/gha-for-devops/.github/workflows/renovate.yml@<pinned-ref>
-    secrets: inherit
+    secrets:
+      RENOVATE_TOKEN: YOUR_RENOVATE_TOKEN_SECRET_EXPRESSION
 ```
 
-Provide a dedicated GitHub PAT with repository Contents and Pull requests write access; updating GitHub Actions workflow files also requires Workflow write access. Alternatively, omit `RENOVATE_TOKEN` and pass `RENOVATE_APP_ID` and `RENOVATE_APP_PRIVATE_KEY` for a GitHub App installed on the caller repository with equivalent permissions. Missing or conflicting credentials fail closed. The example inherits caller secrets for brevity; explicitly map only the required secret(s) for least privilege.
+Provide a dedicated GitHub PAT with repository Contents and Pull requests write access; updating GitHub Actions workflow files also requires Workflow write access. Alternatively, omit `RENOVATE_TOKEN` and pass `RENOVATE_APP_ID` and `RENOVATE_APP_PRIVATE_KEY` for a GitHub App installed on the caller repository with equivalent permissions. Missing or conflicting credentials fail closed. Replace `YOUR_RENOVATE_TOKEN_SECRET_EXPRESSION` with a GitHub Actions expression referencing the caller's `RENOVATE_TOKEN` secret; map only the required secret(s) rather than inheriting all caller secrets.
 
 Use a Docker-capable runner, and configure auto-merge explicitly in the caller's Renovate configuration if desired (disabled by default). Do not run Renovate and Dependabot on the same dependencies unless their responsibilities are intentionally separated. The workflow intentionally skips pull request events; run it on `schedule` or `workflow_dispatch`.
 
