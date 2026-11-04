@@ -80,7 +80,7 @@ Schedule it from the calling repository (pin the reusable workflow to a release 
 name: Renovate
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: "0 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -89,11 +89,10 @@ permissions:
 jobs:
   renovate:
     uses: dceoy/gha-for-devops/.github/workflows/renovate.yml@<pinned-ref>
-    secrets:
-      RENOVATE_TOKEN: {{ "${{ secrets.RENOVATE_TOKEN }}" }}
+    secrets: inherit
 ```
 
-Provide a dedicated GitHub PAT with repository Contents and Pull requests write access; updating GitHub Actions workflow files also requires Workflow write access. Alternatively, omit `RENOVATE_TOKEN` and pass `RENOVATE_APP_ID` and `RENOVATE_APP_PRIVATE_KEY` for a GitHub App installed on the caller repository with equivalent permissions. Missing or conflicting credentials fail closed.
+Provide a dedicated GitHub PAT with repository Contents and Pull requests write access; updating GitHub Actions workflow files also requires Workflow write access. Alternatively, omit `RENOVATE_TOKEN` and pass `RENOVATE_APP_ID` and `RENOVATE_APP_PRIVATE_KEY` for a GitHub App installed on the caller repository with equivalent permissions. Missing or conflicting credentials fail closed. The example inherits caller secrets for brevity; explicitly map only the required secret(s) for least privilege.
 
 Use a Docker-capable runner, and configure auto-merge explicitly in the caller's Renovate configuration if desired (disabled by default). Do not run Renovate and Dependabot on the same dependencies unless their responsibilities are intentionally separated. The workflow intentionally skips pull request events; run it on `schedule` or `workflow_dispatch`.
 
