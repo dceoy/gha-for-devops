@@ -70,6 +70,33 @@ When a scan finds no resolved package URLs, the workflow skips submission so an 
 
 Docker build, multi-target, and Bake workflows reuse their postbuild scan for publication. Set `submit-dependencies: true` and `push: true`; grant `contents: write` and `packages: read` for GHCR, and pass `DOCKER_TOKEN` for registry access. Avoid submitting the same inventory twice.
 
+## Renovate OSS
+
+Use [Renovate OSS](https://docs.renovatebot.com/) without a hosted Renovate service. The reusable workflow processes only the caller repository; configure update rules in its `renovate.json`.
+
+Schedule it from the calling repository (pin the reusable workflow to a release tag or commit SHA in production):
+
+```yaml
+name: Renovate
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    uses: dceoy/gha-for-devops/.github/workflows/renovate.yml@<pinned-ref>
+    secrets:
+      RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+```
+
+Provide a dedicated GitHub PAT with repository Contents and Pull requests write access; updating GitHub Actions workflow files also requires Workflow write access. Alternatively, omit `RENOVATE_TOKEN` and pass `RENOVATE_APP_ID` and `RENOVATE_APP_PRIVATE_KEY` for a GitHub App installed on the caller repository with equivalent permissions. Missing or conflicting credentials fail closed.
+
+Use a Docker-capable runner, and configure auto-merge explicitly in the caller's Renovate configuration if desired (disabled by default). Do not run Renovate and Dependabot on the same dependencies unless their responsibilities are intentionally separated. The workflow intentionally skips pull request events; run it on `schedule` or `workflow_dispatch`.
+
 ## Local QA
 
 Install the tools in `mise.toml`, then run:
