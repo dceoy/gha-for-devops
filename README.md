@@ -69,6 +69,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [python-pyinstaller.yml](.github/workflows/python-pyinstaller.yml)                                               | Build using PyInstaller                                           |
 | [r-package-format-and-pr.yml](.github/workflows/r-package-format-and-pr.yml)                                     | Formatting for R                                                  |
 | [r-package-lint.yml](.github/workflows/r-package-lint.yml)                                                       | Lint for R                                                        |
+| [renovate.yml](.github/workflows/renovate.yml)                                                                   | Renovate OSS                                                      |
 | [scorecard-assessment.yml](.github/workflows/scorecard-assessment.yml)                                           | OpenSSF Scorecard assessment                                      |
 | [security-audit.yml](.github/workflows/security-audit.yml)                                                       | Deep security audit                                               |
 | [security-pr.yml](.github/workflows/security-pr.yml)                                                             | Security PR checks                                                |
@@ -127,6 +128,33 @@ Publication is opt-in and limited to default-branch `push`, `schedule`, or `work
 When a scan finds no resolved package URLs, the workflow skips submission so an empty inventory does not replace the repository's existing dependency graph.
 
 Docker build, multi-target, and Bake workflows reuse their postbuild scan for publication. Set `submit-dependencies: true` and `push: true`; grant `contents: write` and `packages: read` for GHCR, and pass `DOCKER_TOKEN` for registry access. Avoid submitting the same inventory twice.
+
+## Renovate OSS
+
+Use [Renovate OSS](https://docs.renovatebot.com/) without a hosted Renovate service. The reusable workflow processes only the caller repository; configure update rules in its `renovate.json`.
+
+Schedule it from the calling repository (pin the reusable workflow to a release tag or commit SHA in production):
+
+```yaml
+name: Renovate
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    uses: dceoy/gha-for-devops/.github/workflows/renovate.yml@<pinned-ref>
+    secrets:
+      RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+```
+
+Provide a dedicated GitHub PAT with repository Contents and Pull requests write access; updating GitHub Actions workflow files also requires Workflow write access. Alternatively, omit `RENOVATE_TOKEN` and pass `RENOVATE_APP_ID` and `RENOVATE_APP_PRIVATE_KEY` for a GitHub App installed on the caller repository with equivalent permissions. Missing or conflicting credentials fail closed.
+
+Use a Docker-capable runner, and configure auto-merge explicitly in the caller's Renovate configuration if desired (disabled by default). Do not run Renovate and Dependabot on the same dependencies unless their responsibilities are intentionally separated. The workflow intentionally skips pull request events; run it on `schedule` or `workflow_dispatch`.
 
 ## Local QA
 
