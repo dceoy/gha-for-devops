@@ -69,7 +69,6 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [python-pyinstaller.yml](.github/workflows/python-pyinstaller.yml)                                               | Build using PyInstaller                                           |
 | [r-package-format-and-pr.yml](.github/workflows/r-package-format-and-pr.yml)                                     | Formatting for R                                                  |
 | [r-package-lint.yml](.github/workflows/r-package-lint.yml)                                                       | Lint for R                                                        |
-| [renovate-integration.yml](.github/workflows/renovate-integration.yml)                                           | Renovate integration                                              |
 | [renovate.yml](.github/workflows/renovate.yml)                                                                   | Renovate OSS                                                      |
 | [scorecard-assessment.yml](.github/workflows/scorecard-assessment.yml)                                           | OpenSSF Scorecard assessment                                      |
 | [security-audit.yml](.github/workflows/security-audit.yml)                                                       | Deep security audit                                               |

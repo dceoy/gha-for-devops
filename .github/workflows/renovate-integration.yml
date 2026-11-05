@@ -27,7 +27,7 @@ jobs:
       || (github.event_name == 'workflow_dispatch' && !inputs.live)
     permissions:
       contents: read
-    uses: $/.github/workflows/renovate.yml
+    uses: ./.github/workflows/renovate.yml
     with:
       dry-run: true
     secrets:
@@ -36,7 +36,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.live
     permissions:
       contents: read
-    uses: $/.github/workflows/renovate.yml
+    uses: ./.github/workflows/renovate.yml
     secrets:
       RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
       RENOVATE_APP_ID: ${{ secrets.RENOVATE_APP_ID }}
