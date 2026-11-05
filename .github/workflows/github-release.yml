@@ -16,7 +16,7 @@ on:
       draft:
         required: false
         type: boolean
-        description: Create a new release as a draft (the tag is created first so it can be checked out)
+        description: Create a new release as a draft and create its tag first; publish or delete a leftover draft and tag before the next release
         default: false
       version-bump:
         required: false

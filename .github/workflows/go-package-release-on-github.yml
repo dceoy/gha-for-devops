@@ -107,7 +107,9 @@ jobs:
     with:
       tag-name: ${{ inputs.tag-name }}
       create-new-tag: ${{ inputs.create-new-tag }}
-      draft: true  # Published only after every binary and checksum is attached.
+      # Published only after every binary and checksum is attached. If a run fails, rerun it to resume
+      # from the draft; otherwise publish or delete the draft and its tag before the next release.
+      draft: true
       version-bump: ${{ inputs.version-bump }}
       release-trigger-paths: ${{ inputs.release-trigger-paths }}
       runs-on: ${{ inputs.runs-on }}
