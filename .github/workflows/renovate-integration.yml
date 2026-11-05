@@ -1,0 +1,43 @@
+---
+name: Renovate integration
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/renovate.yml
+      - .github/workflows/renovate-integration.yml
+  workflow_dispatch:  # checkov:skip=CKV_GHA_7:Explicit opt-in controls write-capable execution
+    inputs:
+      live:
+        required: true
+        type: boolean
+        description: Allow Renovate to create or update real branches and pull requests
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  renovate-dry-run:
+    if: >-
+      (github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository)
+      || (github.event_name == 'workflow_dispatch' && !inputs.live)
+    permissions:
+      contents: read
+    uses: $/.github/workflows/renovate.yml
+    with:
+      dry-run: true
+    secrets:
+      RENOVATE_TOKEN: ${{ github.token }}
+  renovate-live:
+    if: github.event_name == 'workflow_dispatch' && inputs.live
+    permissions:
+      contents: read
+    uses: $/.github/workflows/renovate.yml
+    secrets:
+      RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+      RENOVATE_APP_ID: ${{ secrets.RENOVATE_APP_ID }}
+      RENOVATE_APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}

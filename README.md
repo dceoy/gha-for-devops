@@ -69,6 +69,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [python-pyinstaller.yml](.github/workflows/python-pyinstaller.yml)                                               | Build using PyInstaller                                           |
 | [r-package-format-and-pr.yml](.github/workflows/r-package-format-and-pr.yml)                                     | Formatting for R                                                  |
 | [r-package-lint.yml](.github/workflows/r-package-lint.yml)                                                       | Lint for R                                                        |
+| [renovate-integration.yml](.github/workflows/renovate-integration.yml)                                           | Renovate integration                                              |
 | [renovate.yml](.github/workflows/renovate.yml)                                                                   | Renovate OSS                                                      |
 | [scorecard-assessment.yml](.github/workflows/scorecard-assessment.yml)                                           | OpenSSF Scorecard assessment                                      |
 | [security-audit.yml](.github/workflows/security-audit.yml)                                                       | Deep security audit                                               |
@@ -132,6 +133,8 @@ Docker build, multi-target, and Bake workflows reuse their postbuild scan for pu
 ## Renovate OSS
 
 Use [Renovate OSS](https://docs.renovatebot.com/) without a hosted Renovate service. The reusable workflow processes only the caller repository; configure update rules in its `renovate.json`.
+
+On same-repository pull requests that change `renovate.yml`, [Renovate integration](.github/workflows/renovate-integration.yml) executes the real reusable workflow against GitHub in `dry-run=full` mode using the read-only `GITHUB_TOKEN`. It performs real authentication, repository discovery, and dependency resolution but does not create branches, issues, or PRs. To validate real writes after merging, manually dispatch **Renovate integration** with `live: true` and configure either the dedicated `RENOVATE_TOKEN` or the `RENOVATE_APP_ID`/`RENOVATE_APP_PRIVATE_KEY` secrets. This may create or merge dependency updates under the repository's `renovate.json` settings; keep it opt-in and separate from Dependabot.
 
 Schedule it from the calling repository (pin the reusable workflow to a release tag or commit SHA in production):
 
