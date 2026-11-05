@@ -21,6 +21,7 @@ on:
           - analyze
           - release
           - update
+          - renovate
         description: Choose the workflow to run
         default: lint
 concurrency:
@@ -62,6 +63,8 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    outputs:
+      renovate-changed: ${{ steps.bats-scope.outputs.renovate-changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -77,6 +80,9 @@ jobs:
             if [[ -n "${changed_paths}" ]] && ! grep -Eqv '^(README\.md(\.tmpl)?|\.github/scripts/(update-readme\.sh|tests/update-readme\.bats))$' <<< "${changed_paths}"; then
               scope=readme
             fi
+          fi
+          if [[ -n "${changed_paths:-}" ]] && grep -Fxq '.github/workflows/renovate.yml' <<< "${changed_paths}"; then
+            echo 'renovate-changed=true' >> "${GITHUB_OUTPUT}"
           fi
           echo "scope=${scope}" >> "${GITHUB_OUTPUT}"
       - name: Set up mise
@@ -180,6 +186,28 @@ jobs:
       unconditional: true
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  renovate-integration:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && needs.bats-test.outputs.renovate-changed == 'true'
+    needs: bats-test
+    permissions:
+      contents: read
+    uses: $/.github/workflows/renovate.yml
+    with:
+      dry-run: true
+    secrets:
+      RENOVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  renovate-live:
+    if: github.event_name == 'workflow_dispatch' && inputs.workflow == 'renovate'
+    permissions:
+      contents: read
+    uses: $/.github/workflows/renovate.yml
+    secrets:
+      RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+      RENOVATE_APP_ID: ${{ secrets.RENOVATE_APP_ID }}
+      RENOVATE_APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
   # Write-capable maintenance jobs never run for pull_request events.
   markdown-format-and-pr:
     if: >
