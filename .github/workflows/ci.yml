@@ -214,7 +214,7 @@ jobs:
           persist-credentials: false
       - name: Enable read-only mode for PRs
         if: github.event_name == 'pull_request'
-        run: printf '%s\\n' 'RENOVATE_DRY_RUN=full' >> "${GITHUB_ENV}"
+        run: printf '%s\n' 'RENOVATE_DRY_RUN=full' >> "${GITHUB_ENV}"
       - name: Execute Renovate against GitHub
         uses: renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc  # v46.3.12
         with:
