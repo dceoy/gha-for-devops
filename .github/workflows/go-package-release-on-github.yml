@@ -51,7 +51,7 @@ on:
       cgo-enabled:
         required: false
         type: boolean
-        description: Build with CGO_ENABLED=1
+        description: Build with CGO_ENABLED=1 (only targets matching the runner's own GOOS/GOARCH are allowed; use a native runner per target)
         default: false
       ldflags:
         required: false
@@ -107,6 +107,7 @@ jobs:
     with:
       tag-name: ${{ inputs.tag-name }}
       create-new-tag: ${{ inputs.create-new-tag }}
+      draft: true  # Published only after every binary and checksum is attached.
       version-bump: ${{ inputs.version-bump }}
       release-trigger-paths: ${{ inputs.release-trigger-paths }}
       runs-on: ${{ inputs.runs-on }}
@@ -198,11 +199,8 @@ jobs:
         run: |
           main_package="${GO_MAIN_PACKAGE}"
           [[ "${main_package}" == . || "${main_package}" == ./* ]] || main_package="./${main_package}"
-          if [[ "$(go list -f '{{.Name}}' "${main_package}")" != main ]]; then
-            echo "::error::main-package is not a main package: ${GO_MAIN_PACKAGE}"
-            exit 1
-          fi
-          binary_name="${GO_BINARY_NAME:-$(basename -- "$(go list -f '{{.ImportPath}}' "${main_package}")")}"
+          # -e keeps the import path available when build constraints exclude the host platform.
+          binary_name="${GO_BINARY_NAME:-$(basename -- "$(go list -e -f '{{.ImportPath}}' "${main_package}")")}"
           if [[ ! "${binary_name}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
             echo "::error::Unsupported binary name: ${binary_name}"
             exit 1
@@ -212,6 +210,7 @@ jobs:
             ldflags="${ldflags:+${ldflags} }-X ${GO_VERSION_VARIABLE}=${RELEASE_TAG}"
           fi
           supported_targets="$(go tool dist list)"
+          host_target="$(go env GOHOSTOS)/$(go env GOHOSTARCH)"
           read -r -a targets <<< "${GO_TARGETS//$'\n'/ }"
           if ((${#targets[@]} == 0)); then
             echo '::error::targets must contain at least one GOOS/GOARCH pair'
@@ -224,8 +223,17 @@ jobs:
               echo "::error::Unsupported build target: ${target}"
               exit 1
             fi
+            if [[ "${GO_CGO_ENABLED}" == 1 && "${target}" != "${host_target}" ]]; then
+              echo "::error::cgo-enabled builds support only the runner's native target (${host_target}), not ${target}"
+              exit 1
+            fi
             goos="${target%/*}"
             goarch="${target#*/}"
+            # Evaluate build constraints for the target, not the runner.
+            if [[ "$(GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED="${GO_CGO_ENABLED}" go list -f '{{.Name}}' "${main_package}")" != main ]]; then
+              echo "::error::main-package is not a main package for ${target}: ${GO_MAIN_PACKAGE}"
+              exit 1
+            fi
             extension=''
             [[ "${goos}" == windows ]] && extension='.exe'
             asset="${binary_name}_${RELEASE_TAG}_${goos}_${goarch}${extension}"
@@ -270,3 +278,12 @@ jobs:
           RELEASE_TAG: ${{ needs.github-release.outputs.release-tag }}
         run: |
           gh release upload "${RELEASE_TAG}" dist/* --repo "${REPOSITORY}" --clobber
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.github-release.outputs.release-tag }}
+        run: |
+          if [[ "$(gh release view "${RELEASE_TAG}" --repo "${REPOSITORY}" --json isDraft --jq .isDraft)" == true ]]; then
+            gh release edit "${RELEASE_TAG}" --repo "${REPOSITORY}" --draft=false
+          fi

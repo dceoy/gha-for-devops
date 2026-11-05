@@ -141,3 +141,68 @@ run_build() {
   [ "${status}" -ne 0 ]
   [[ "${output}" == *'go.mod not found'* ]]
 }
+
+@test 'release stays a draft until binaries are attached' {
+  [ "$(yq -r '.jobs."github-release".with.draft' "${WORKFLOW}")" = true ]
+  [ "$(yq -r '.jobs."go-release-upload".steps[].name' "${WORKFLOW}" | tail -n 2 | paste -sd, -)" = 'Attach binaries and checksums to the release,Publish the release' ]
+  [[ "$(yq -r '.jobs."go-release-upload".steps[] | select(.name == "Publish the release") | .run' "${WORKFLOW}")" == *'--draft=false'* ]]
+}
+
+@test 'build step evaluates main package constraints per target' {
+  rm "${PROJECT}/cmd/hello/main.go"
+  cat > "${PROJECT}/cmd/hello/main_windows.go" << 'GO'
+package main
+
+func main() {}
+GO
+  run_build GO_TARGETS=windows/amd64
+  [ "${status}" -eq 0 ]
+  [ -f "${DIST_DIR}/hello_v1.2.3_windows_amd64.exe" ]
+}
+
+@test 'build step rejects cgo cross-compilation targets' {
+  local foreign=linux/arm64
+  [[ "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" == linux/arm64 ]] && foreign=linux/amd64
+  run_build GO_TARGETS="${foreign}" GO_CGO_ENABLED=1
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *"cgo-enabled builds support only the runner's native target"* ]]
+}
+
+run_release_publish() {
+  local stub_dir="${TEST_TEMP}/bin"
+  local release_workflow="${REPO_ROOT}/.github/workflows/github-release.yml"
+  local step_script="${TEST_TEMP}/publish.sh"
+
+  mkdir -p "${stub_dir}"
+  cat > "${stub_dir}/gh" << 'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${GH_CALLS}"
+[[ "$1 $2" == 'release view' ]] && exit 1
+exit 0
+SH
+  chmod +x "${stub_dir}/gh"
+  yq -r '.jobs."github-release".steps[] | select(.name == "Publish GitHub release") | .run' "${release_workflow}" > "${step_script}"
+  export GH_CALLS="${TEST_TEMP}/gh-calls"
+  : > "${GH_CALLS}"
+  : > "${TEST_TEMP}/output"
+  run env PATH="${stub_dir}:${PATH}" GITHUB_OUTPUT="${TEST_TEMP}/output" \
+    GITHUB_REF=refs/heads/main GITHUB_REF_NAME=main GITHUB_REPOSITORY=o/r REPOSITORY=o/r \
+    TAG_NAME=v1.0.0 PLANNED_TAG= PREVIOUS_TAG= RELEASE_BUMP=auto CREATE_NEW_TAG=true \
+    RELEASE_SHA=0123456789abcdef0123456789abcdef01234567 "$@" \
+    bash -euo pipefail "${step_script}"
+}
+
+@test 'github-release creates the tag before a draft release' {
+  run_release_publish RELEASE_DRAFT=true
+  [ "${status}" -eq 0 ]
+  grep -Fxq 'api repos/o/r/git/refs --method POST -f ref=refs/tags/v1.0.0 -f sha=0123456789abcdef0123456789abcdef01234567' "${GH_CALLS}"
+  grep -Fxq 'release create v1.0.0 --repo o/r --generate-notes --draft --verify-tag' "${GH_CALLS}"
+  grep -Fxq 'tag=v1.0.0' "${TEST_TEMP}/output"
+}
+
+@test 'github-release keeps non-draft behavior by default' {
+  run_release_publish RELEASE_DRAFT=false
+  [ "${status}" -eq 0 ]
+  run ! grep -q 'git/refs' "${GH_CALLS}"
+  grep -Fxq 'release create v1.0.0 --repo o/r --generate-notes' "${GH_CALLS}"
+}
