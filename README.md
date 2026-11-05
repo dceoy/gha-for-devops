@@ -51,6 +51,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [github-pr-branch-aggregation.yml](.github/workflows/github-pr-branch-aggregation.yml)                           | Aggregation of open pull request branches                         |
 | [github-release.yml](.github/workflows/github-release.yml)                                                       | Release on GitHub                                                 |
 | [go-package-lint-and-scan.yml](.github/workflows/go-package-lint-and-scan.yml)                                   | Lint and security scan for Go                                     |
+| [go-package-release-on-github.yml](.github/workflows/go-package-release-on-github.yml)                           | Go package release on GitHub                                      |
 | [go-package-test.yml](.github/workflows/go-package-test.yml)                                                     | Test a Go package                                                 |
 | [html-lint-and-scan.yml](.github/workflows/html-lint-and-scan.yml)                                               | Lint and scan for HTML/CSS                                        |
 | [hugo-deploy-to-gh-pages.yml](.github/workflows/hugo-deploy-to-gh-pages.yml)                                     | Build and deployment of Hugo site to GitHub Pages                 |

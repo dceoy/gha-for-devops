@@ -60,6 +60,9 @@ paths:
   .github/workflows/go-package-lint-and-scan.yml:
     ignore:
       - 'reusable workflow call "\$/.+" at "uses" is not following the format'
+  .github/workflows/go-package-release-on-github.yml:
+    ignore:
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format'
   .github/workflows/html-lint-and-scan.yml:
     ignore:
       - 'reusable workflow call "\$/.+" at "uses" is not following the format'

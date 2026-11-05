@@ -1,0 +1,272 @@
+---
+name: Go package release on GitHub
+on:
+  workflow_call:
+    inputs:
+      tag-name:
+        required: false
+        type: string
+        description: Git tag to create a release for
+        default: null
+      create-new-tag:
+        required: false
+        type: boolean
+        description: Create a new tag if the input tag does not exist
+        default: false
+      version-bump:
+        required: false
+        type: string
+        description: SemVer increment when tag-name is absent (auto, major-release, minor-release, or patch-release)
+        default: auto
+      release-trigger-paths:
+        required: false
+        type: string
+        description: Newline-delimited release path patterns; prefix ! to exclude
+        default: .
+      working-directory:
+        required: false
+        type: string
+        description: Relative path to the Go module
+        default: .
+      main-package:
+        required: false
+        type: string
+        description: Main package to build, relative to working-directory
+        default: .
+      binary-name:
+        required: false
+        type: string
+        description: Binary name used in asset file names (defaults to the last element of the main package import path)
+        default: null
+      targets:
+        required: false
+        type: string
+        description: Whitespace-delimited GOOS/GOARCH build targets
+        default: linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
+      go-version:
+        required: false
+        type: string
+        description: Go version to use (defaults to the version in go.mod)
+        default: null
+      cgo-enabled:
+        required: false
+        type: boolean
+        description: Build with CGO_ENABLED=1
+        default: false
+      ldflags:
+        required: false
+        type: string
+        description: Linker flags passed to go build
+        default: -s -w
+      version-variable:
+        required: false
+        type: string
+        description: Fully qualified string variable set to the release tag with -X (e.g., github.com/owner/repo/internal/cli.Version)
+        default: null
+      checksum-file-name:
+        required: false
+        type: string
+        description: Name of the SHA-256 checksum asset
+        default: SHA256SUMS
+      artifact-name:
+        required: false
+        type: string
+        description: Name of the intermediate artifact holding the release assets
+        default: go-release-binaries
+      runs-on:
+        required: false
+        type: string
+        description: GitHub Actions runner to use
+        default: ubuntu-latest
+      timeout-minutes:
+        required: false
+        type: number
+        description: Maximum duration of the build job
+        default: 30
+    outputs:
+      release-tag:
+        description: Release tag, empty if no release was needed
+        value: ${{ jobs.github-release.outputs.release-tag }}
+    secrets:
+      GH_TOKEN:
+        required: false
+        description: GitHub token
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+env:
+  GH_TELEMETRY: 'false'
+jobs:
+  github-release:
+    permissions:
+      contents: write  # IMPORTANT: mandatory for making GitHub Releases
+    uses: $/.github/workflows/github-release.yml
+    with:
+      tag-name: ${{ inputs.tag-name }}
+      create-new-tag: ${{ inputs.create-new-tag }}
+      version-bump: ${{ inputs.version-bump }}
+      release-trigger-paths: ${{ inputs.release-trigger-paths }}
+      runs-on: ${{ inputs.runs-on }}
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+  go-release-build:
+    needs:
+      - github-release
+    if: needs.github-release.outputs.release-tag != ''
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/tags/${{ needs.github-release.outputs.release-tag }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Validate inputs
+        env:
+          RELEASE_TAG: ${{ needs.github-release.outputs.release-tag }}
+          GO_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+          GO_MAIN_PACKAGE: ${{ inputs.main-package }}
+          GO_BINARY_NAME: ${{ inputs.binary-name }}
+          GO_VERSION_VARIABLE: ${{ inputs.version-variable }}
+          CHECKSUM_FILE_NAME: ${{ inputs.checksum-file-name }}
+          ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        run: |
+          validate_relative_path() {
+            local name="$1"
+            local value="$2"
+            if [[ -z "${value}" || "${value}" == /* || "${value}" == ".." || "${value}" == ../* || "${value}" == */../* || "${value}" == */.. ]]; then
+              echo "::error::${name} must be a relative path without parent-directory components"
+              exit 1
+            fi
+            if [[ ! "${value}" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+              echo "::error::${name} contains unsupported characters"
+              exit 1
+            fi
+          }
+          validate_file_name() {
+            local name="$1"
+            local value="$2"
+            if [[ ! "${value}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+              echo "::error::${name} must contain only letters, digits, periods, underscores, and hyphens"
+              exit 1
+            fi
+          }
+          # The tag is embedded in ldflags and asset names.
+          if [[ ! "${RELEASE_TAG}" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]]; then
+            echo "::error::Release tag contains unsupported characters: ${RELEASE_TAG}"
+            exit 1
+          fi
+          validate_relative_path "working-directory" "${GO_WORKING_DIRECTORY}"
+          validate_relative_path "main-package" "${GO_MAIN_PACKAGE}"
+          validate_file_name "checksum-file-name" "${CHECKSUM_FILE_NAME}"
+          validate_file_name "artifact-name" "${ARTIFACT_NAME}"
+          if [[ -n "${GO_BINARY_NAME}" ]]; then
+            validate_file_name "binary-name" "${GO_BINARY_NAME}"
+          fi
+          if [[ -n "${GO_VERSION_VARIABLE}" && ! "${GO_VERSION_VARIABLE}" =~ ^[A-Za-z0-9._/~-]+\.[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+            echo "::error::version-variable must be a fully qualified variable such as example.com/m/pkg.Version"
+            exit 1
+          fi
+          if [[ ! -f "${GO_WORKING_DIRECTORY}/go.mod" ]]; then
+            echo "::error::go.mod not found in working-directory: ${GO_WORKING_DIRECTORY}"
+            exit 1
+          fi
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version: ${{ inputs.go-version }}
+          go-version-file: ${{ inputs.go-version == '' && format('{0}/go.mod', inputs.working-directory) || '' }}
+          cache: false  # Release builds never restore caches to avoid cache poisoning.
+      - name: Build binaries and checksums
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          RELEASE_TAG: ${{ needs.github-release.outputs.release-tag }}
+          GO_MAIN_PACKAGE: ${{ inputs.main-package }}
+          GO_BINARY_NAME: ${{ inputs.binary-name }}
+          GO_TARGETS: ${{ inputs.targets }}
+          GO_CGO_ENABLED: ${{ inputs.cgo-enabled && '1' || '0' }}
+          GO_LDFLAGS: ${{ inputs.ldflags }}
+          GO_VERSION_VARIABLE: ${{ inputs.version-variable }}
+          CHECKSUM_FILE_NAME: ${{ inputs.checksum-file-name }}
+          DIST_DIR: ${{ runner.temp }}/go-release-dist
+        run: |
+          main_package="${GO_MAIN_PACKAGE}"
+          [[ "${main_package}" == . || "${main_package}" == ./* ]] || main_package="./${main_package}"
+          if [[ "$(go list -f '{{.Name}}' "${main_package}")" != main ]]; then
+            echo "::error::main-package is not a main package: ${GO_MAIN_PACKAGE}"
+            exit 1
+          fi
+          binary_name="${GO_BINARY_NAME:-$(basename -- "$(go list -f '{{.ImportPath}}' "${main_package}")")}"
+          if [[ ! "${binary_name}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+            echo "::error::Unsupported binary name: ${binary_name}"
+            exit 1
+          fi
+          ldflags="${GO_LDFLAGS}"
+          if [[ -n "${GO_VERSION_VARIABLE}" ]]; then
+            ldflags="${ldflags:+${ldflags} }-X ${GO_VERSION_VARIABLE}=${RELEASE_TAG}"
+          fi
+          supported_targets="$(go tool dist list)"
+          read -r -a targets <<< "${GO_TARGETS//$'\n'/ }"
+          if ((${#targets[@]} == 0)); then
+            echo '::error::targets must contain at least one GOOS/GOARCH pair'
+            exit 1
+          fi
+          rm -rf "${DIST_DIR}"
+          mkdir -p "${DIST_DIR}"
+          for target in "${targets[@]}"; do
+            if [[ ! "${target}" =~ ^[a-z0-9]+/[a-z0-9]+$ ]] || ! grep -Fxq -- "${target}" <<< "${supported_targets}"; then
+              echo "::error::Unsupported build target: ${target}"
+              exit 1
+            fi
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            extension=''
+            [[ "${goos}" == windows ]] && extension='.exe'
+            asset="${binary_name}_${RELEASE_TAG}_${goos}_${goarch}${extension}"
+            if [[ -e "${DIST_DIR}/${asset}" ]]; then
+              echo "::error::Duplicate build target: ${target}"
+              exit 1
+            fi
+            echo "Building ${asset}"
+            GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED="${GO_CGO_ENABLED}" \
+              go build -trimpath -ldflags="${ldflags}" -o "${DIST_DIR}/${asset}" "${main_package}"
+          done
+          (
+            cd "${DIST_DIR}" || exit 1
+            sha256sum -- "${binary_name}_${RELEASE_TAG}_"* > "${CHECKSUM_FILE_NAME}"
+            cat "${CHECKSUM_FILE_NAME}"
+          )
+      - name: Stage release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ runner.temp }}/go-release-dist/*
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+  go-release-upload:
+    needs:
+      - github-release
+      - go-release-build
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: write  # IMPORTANT: mandatory for uploading release assets
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: dist
+      - name: Attach binaries and checksums to the release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.github-release.outputs.release-tag }}
+        run: |
+          gh release upload "${RELEASE_TAG}" dist/* --repo "${REPOSITORY}" --clobber
