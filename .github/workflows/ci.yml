@@ -22,6 +22,7 @@ on:
           - release
           - update
           - renovate
+          - renovate-check
         description: Choose the workflow to run
         default: lint
 concurrency:
@@ -186,7 +187,8 @@ jobs:
     if: >-
       (github.event_name == 'pull_request'
       && github.event.pull_request.head.repo.full_name == github.repository)
-      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'renovate')
+      || (github.event_name == 'workflow_dispatch'
+      && (inputs.workflow == 'renovate' || inputs.workflow == 'renovate-check'))
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -204,7 +206,7 @@ jobs:
             echo 'changed=true' >> "${GITHUB_OUTPUT}"
           fi
       - name: Validate live credentials
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.workflow == 'renovate'
         env:
           TOKEN: ${{ secrets.RENOVATE_TOKEN }}
         run: |
@@ -213,14 +215,14 @@ jobs:
             exit 1
           fi
       - name: Enable read-only mode for PRs
-        if: steps.renovate-changes.outputs.changed == 'true'
+        if: steps.renovate-changes.outputs.changed == 'true' || inputs.workflow == 'renovate-check'
         run: printf '%s\n' 'RENOVATE_DRY_RUN=full' >> "${GITHUB_ENV}"
       - name: Execute Renovate against GitHub
         if: github.event_name == 'workflow_dispatch' || steps.renovate-changes.outputs.changed == 'true'
         uses: renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc  # v46.3.12
         with:
           renovate-version: 44.210.2
-          token: ${{ github.event_name == 'pull_request' && github.token || secrets.RENOVATE_TOKEN }}  # zizmor: ignore[secrets-outside-env] explicitly provided bot token
+          token: ${{ (github.event_name == 'pull_request' || inputs.workflow == 'renovate-check') && github.token || secrets.RENOVATE_TOKEN }}  # zizmor: ignore[secrets-outside-env] explicitly provided bot token
         env:
           RENOVATE_PLATFORM: github
           RENOVATE_ENDPOINT: ${{ github.api_url }}
