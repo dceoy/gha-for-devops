@@ -120,7 +120,6 @@ run_build() {
     GO_BINARY_NAME=
     GO_VERSION_VARIABLE=example.com/hello/internal/version.Version
     CHECKSUM_FILE_NAME=SHA256SUMS
-    ARTIFACT_NAME=go-release-binaries
   )
   run_step go-release-build 'Validate inputs' "${valid[@]}"
   [ "${status}" -eq 0 ]
@@ -146,6 +145,9 @@ run_build() {
   [ "$(yq -r '.jobs."github-release".with.draft' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.jobs."go-release-upload".steps[].name' "${WORKFLOW}" | tail -n 2 | paste -sd, -)" = 'Attach binaries and checksums to the release,Publish the release' ]
   [[ "$(yq -r '.jobs."go-release-upload".steps[] | select(.name == "Publish the release") | .run' "${WORKFLOW}")" == *'--draft=false'* ]]
+  [ "$(yq -r '.on.workflow_call.inputs | has("artifact-name")' "${WORKFLOW}")" = false ]
+  [ "$(yq -r '.jobs."go-release-build".steps[] | select(.name == "Stage release assets") | .with.name' "${WORKFLOW}")" = go-release-assets ]
+  [ "$(yq -r '.jobs."go-release-upload".steps[] | select(.name == "Download release assets") | .with.name' "${WORKFLOW}")" = go-release-assets ]
 }
 
 @test 'build step evaluates main package constraints per target' {
