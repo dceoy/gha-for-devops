@@ -187,27 +187,44 @@ jobs:
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   renovate-integration:
-    if: >-
-      github.event_name == 'pull_request'
-      && github.event.pull_request.head.repo.full_name == github.repository
-      && needs.bats-test.outputs.renovate-changed == 'true'
     needs: bats-test
+    if: >-
+      always()
+      && ((github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && needs.bats-test.result == 'success'
+      && needs.bats-test.outputs.renovate-changed == 'true')
+      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'renovate'))
     permissions:
       contents: read
-    uses: $/.github/workflows/renovate.yml
-    with:
-      dry-run: true
-    secrets:
-      RENOVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  renovate-live:
-    if: github.event_name == 'workflow_dispatch' && inputs.workflow == 'renovate'
-    permissions:
-      contents: read
-    uses: $/.github/workflows/renovate.yml
-    secrets:
-      RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
-      RENOVATE_APP_ID: ${{ secrets.RENOVATE_APP_ID }}
-      RENOVATE_APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate live credentials
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+        run: |
+          if [[ -z "${TOKEN}" ]]; then
+            echo '::error::Configure RENOVATE_TOKEN for live Renovate integration'
+            exit 1
+          fi
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enable read-only mode for PRs
+        if: github.event_name == 'pull_request'
+        run: printf '%s\\n' 'RENOVATE_DRY_RUN=full' >> "${GITHUB_ENV}"
+      - name: Execute Renovate against GitHub
+        uses: renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc  # v46.3.12
+        with:
+          renovate-version: 44.210.2
+          token: ${{ github.event_name == 'pull_request' && github.token || secrets.RENOVATE_TOKEN }}  # zizmor: ignore[secrets-outside-env] explicitly provided bot token
+        env:
+          RENOVATE_PLATFORM: github
+          RENOVATE_ENDPOINT: ${{ github.api_url }}
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_AUTODISCOVER: 'false'
   # Write-capable maintenance jobs never run for pull_request events.
   markdown-format-and-pr:
     if: >
