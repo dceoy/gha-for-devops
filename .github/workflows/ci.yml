@@ -63,8 +63,6 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    outputs:
-      renovate-changed: ${{ steps.bats-scope.outputs.renovate-changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -80,9 +78,6 @@ jobs:
             if [[ -n "${changed_paths}" ]] && ! grep -Eqv '^(README\.md(\.tmpl)?|\.github/scripts/(update-readme\.sh|tests/update-readme\.bats))$' <<< "${changed_paths}"; then
               scope=readme
             fi
-          fi
-          if [[ -n "${changed_paths:-}" ]] && grep -Fxq '.github/workflows/renovate.yml' <<< "${changed_paths}"; then
-            echo 'renovate-changed=true' >> "${GITHUB_OUTPUT}"
           fi
           echo "scope=${scope}" >> "${GITHUB_OUTPUT}"
       - name: Set up mise
@@ -187,18 +182,26 @@ jobs:
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   renovate-integration:
-    needs: bats-test
     if: >-
-      always()
-      && ((github.event_name == 'pull_request'
-      && github.event.pull_request.head.repo.full_name == github.repository
-      && needs.bats-test.result == 'success'
-      && needs.bats-test.outputs.renovate-changed == 'true')
-      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'renovate'))
+      (github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository)
+      || (github.event_name == 'workflow_dispatch' && inputs.workflow == 'renovate')
     permissions:
       contents: read
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Detect Renovate workflow changes
+        id: renovate-changes
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --name-only HEAD^1 HEAD | grep -Fxq '.github/workflows/renovate.yml'; then
+            echo 'changed=true' >> "${GITHUB_OUTPUT}"
+          fi
       - name: Validate live credentials
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -208,14 +211,11 @@ jobs:
             echo '::error::Configure RENOVATE_TOKEN for live Renovate integration'
             exit 1
           fi
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          persist-credentials: false
       - name: Enable read-only mode for PRs
-        if: github.event_name == 'pull_request'
+        if: steps.renovate-changes.outputs.changed == 'true'
         run: printf '%s\n' 'RENOVATE_DRY_RUN=full' >> "${GITHUB_ENV}"
       - name: Execute Renovate against GitHub
+        if: github.event_name == 'workflow_dispatch' || steps.renovate-changes.outputs.changed == 'true'
         uses: renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc  # v46.3.12
         with:
           renovate-version: 44.210.2
