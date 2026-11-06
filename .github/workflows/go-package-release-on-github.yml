@@ -63,6 +63,11 @@ on:
         type: string
         description: Fully qualified string variable set to the release tag with -X (e.g., github.com/owner/repo/internal/cli.Version)
         default: null
+      version-check-args:
+        required: false
+        type: string
+        description: Optional whitespace-delimited arguments to check a native binary prints exactly the release tag (e.g., version or --version)
+        default: null
       checksum-file-name:
         required: false
         type: string
@@ -189,6 +194,7 @@ jobs:
           GO_CGO_ENABLED: ${{ inputs.cgo-enabled && '1' || '0' }}
           GO_LDFLAGS: ${{ inputs.ldflags }}
           GO_VERSION_VARIABLE: ${{ inputs.version-variable }}
+          GO_VERSION_CHECK_ARGS: ${{ inputs.version-check-args }}
           CHECKSUM_FILE_NAME: ${{ inputs.checksum-file-name }}
           DIST_DIR: ${{ runner.temp }}/go-release-dist
         run: |
@@ -240,6 +246,69 @@ jobs:
             GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED="${GO_CGO_ENABLED}" \
               go build -trimpath -ldflags="${ldflags}" -o "${DIST_DIR}/${asset}" "${main_package}"
           done
+          if [[ -n "${GO_VERSION_CHECK_ARGS}" ]]; then
+            native_asset="${binary_name}_${RELEASE_TAG}_${host_target%/*}_${host_target#*/}"
+            if [[ "${host_target%/*}" == windows ]]; then
+              native_asset+='.exe'
+            fi
+            if [[ ! -f "${DIST_DIR}/${native_asset}" ]]; then
+              echo "::error::Version verification requires a native build target (${host_target})"
+              exit 1
+            fi
+            read -r -a version_args <<< "${GO_VERSION_CHECK_ARGS//
+              echo "::error::checksum-file-name collides with a built asset: ${CHECKSUM_FILE_NAME}"
+              exit 1
+            fi
+            sha256sum -- "${binary_name}_${RELEASE_TAG}_"* > "${CHECKSUM_FILE_NAME}"
+            cat "${CHECKSUM_FILE_NAME}"
+          )
+      - name: Stage release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: go-release-assets
+          path: ${{ runner.temp }}/go-release-dist/*
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+  go-release-upload:
+    needs:
+      - github-release
+      - go-release-build
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: write  # IMPORTANT: mandatory for uploading release assets
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: go-release-assets
+          path: dist
+      - name: Attach binaries and checksums to the release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.github-release.outputs.release-tag }}
+        run: |
+          gh release upload "${RELEASE_TAG}" dist/* --repo "${REPOSITORY}" --clobber
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.github-release.outputs.release-tag }}
+        run: |
+          if [[ "$(gh release view "${RELEASE_TAG}" --repo "${REPOSITORY}" --json isDraft --jq .isDraft)" == true ]]; then
+            gh release edit "${RELEASE_TAG}" --repo "${REPOSITORY}" --draft=false
+          fi
+\\n'/ }"
+            if ! actual_version="$("${DIST_DIR}/${native_asset}" "${version_args[@]}")"; then
+              echo "::error::Version command failed for ${native_asset}"
+              exit 1
+            fi
+            if [[ "${actual_version}" != "${RELEASE_TAG}" ]]; then
+              echo "::error::Binary version '${actual_version}' does not match release tag '${RELEASE_TAG}'"
+              exit 1
+            fi
+          fi
           (
             cd "${DIST_DIR}" || exit 1
             if [[ -e "${CHECKSUM_FILE_NAME}" ]]; then
