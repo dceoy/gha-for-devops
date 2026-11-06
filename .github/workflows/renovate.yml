@@ -30,39 +30,29 @@ on:
         required: false
         type: string
         default: latest
-# GITHUB_TOKEN permissions are inherited from the caller to allow read-only PR checks.
-# A direct workflow_dispatch run uses the repository's default token permissions;
-# live runs require write access enabled in the repository's Actions settings.
-# Declaring write permissions here would prevent read-only reusable callers from starting.
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  statuses: write
 defaults:
   run:
     shell: bash -euo pipefail {0}
 jobs:
   renovate:
-    if: >-
-      (github.event_name != 'pull_request' && github.event_name != 'pull_request_target')
-      || (github.event_name == 'pull_request' && inputs.dry-run
-      && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     timeout-minutes: 45
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          fetch-depth: 2
+          fetch-depth: 1
           persist-credentials: false
-      - name: Detect Renovate changes
-        if: github.event_name == 'pull_request'
-        id: renovate-changes
-        run: |
-          if git diff --name-only HEAD^1 HEAD | grep -Eq '^(\.github/workflows/renovate\.yml|\.github/renovate\.json|renovate\.json)$'; then
-            echo 'changed=true' >> "${GITHUB_OUTPUT}"
-          fi
       - name: Enable read-only integration run
         if: inputs.dry-run
         run: printf '%s\n' 'RENOVATE_DRY_RUN=full' >> "${GITHUB_ENV}"
       - name: Run Renovate
-        if: github.event_name != 'pull_request' || steps.renovate-changes.outputs.changed == 'true'
         uses: renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc  # v46.3.12
         with:
           renovate-version: ${{ inputs.renovate-version || 'latest' }}
