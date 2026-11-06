@@ -127,6 +127,8 @@ jobs:
       go-version: stable
       python-version: 3.x
       actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml
+      # CKV2_GHA_1 misclassifies reusable workflows that inherit caller-scoped permissions.
+      checkov-skip-check: CKV2_GHA_1
   github-codeql-analysis:
     if: >
       github.event_name == 'push'
