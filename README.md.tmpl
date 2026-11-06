@@ -72,43 +72,26 @@ Docker build, multi-target, and Bake workflows reuse their postbuild scan for pu
 
 ## Renovate OSS
 
-Use [Renovate OSS](https://docs.renovatebot.com/) without a hosted service, PAT, or custom GitHub App. The reusable workflow authenticates with the calling repository's built-in `GITHUB_TOKEN` and processes only that repository. Configure update rules in `renovate.json` or `.github/renovate.json`.
-
-The repository [CI/CD](.github/workflows/ci.yml) runs a real read-only Renovate integration check when a same-repository PR changes `renovate.yml`. To repeat that check, manually run **CI/CD** with `workflow: renovate-check`; it uses `RENOVATE_DRY_RUN=full` and `contents: read`. To opt into writes, manually run **CI/CD** with `workflow: renovate`, which calls the reusable workflow with the required write permissions. Neither mode needs a separate secret. A live run may open or merge updates according to this repository's Renovate configuration.
-
-Schedule the reusable workflow in each caller repository, pinning it to a release tag or commit SHA:
+Run [Renovate OSS](https://docs.renovatebot.com/) with the caller's `GITHUB_TOKEN` (no PAT or GitHub App):
 
 ```yaml
 name: Renovate
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: "0 3 * * *"
   workflow_dispatch:
 
 jobs:
   renovate:
+    uses: dceoy/gha-for-devops/.github/workflows/renovate.yml@<pinned-ref>
     permissions:
       contents: write
       issues: write
       pull-requests: write
       statuses: write
-    uses: dceoy/gha-for-devops/.github/workflows/renovate.yml@<pinned-ref>
 ```
 
-Enable **Settings > Actions > General > Workflow permissions > Allow GitHub Actions to create and approve pull requests** in the caller repository. GitHub's built-in token cannot update GitHub Actions workflow files; let Dependabot manage those files and exclude workflow dependencies from Renovate, including custom managers:
-
-```json
-{
-  "packageRules": [
-    {
-      "matchFileNames": [".github/workflows/**"],
-      "enabled": false
-    }
-  ]
-}
-```
-
-This repository already has that exclusion in `.github/renovate.json`. The `GITHUB_TOKEN` also creates PRs whose CI workflows require a maintainer to select **Approve workflows to run**; therefore PR creation, CI, and automatic merging are **not fully unattended**. Keep required checks/branch protections enabled and do not rely on auto-merge until CI has run and passed. Use `dry-run: true` for a write-suppressed reusable-workflow run; it still needs the declared token permissions. Do not overlap Renovate and Dependabot ownership of the same dependencies.
+Enable **Allow GitHub Actions to create and approve pull requests** in the caller's Actions settings. Use `with: dry-run: true` and `contents: read` for read-only checks. Workflow-file updates require a separate mechanism such as Dependabot; CI on Renovate-created PRs requires manual approval.
 
 ## Local QA
 
