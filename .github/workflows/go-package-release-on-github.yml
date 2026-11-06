@@ -242,6 +242,10 @@ jobs:
           done
           (
             cd "${DIST_DIR}" || exit 1
+            if [[ -e "${CHECKSUM_FILE_NAME}" ]]; then
+              echo "::error::checksum-file-name collides with a built asset: ${CHECKSUM_FILE_NAME}"
+              exit 1
+            fi
             sha256sum -- "${binary_name}_${RELEASE_TAG}_"* > "${CHECKSUM_FILE_NAME}"
             cat "${CHECKSUM_FILE_NAME}"
           )

@@ -106,6 +106,12 @@ run_build() {
   [[ "${output}" == *'targets must contain at least one'* ]]
 }
 
+@test 'build step rejects a checksum file name that collides with an asset' {
+  run_build GO_TARGETS=linux/amd64 CHECKSUM_FILE_NAME=hello_v1.2.3_linux_amd64
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'checksum-file-name collides with a built asset'* ]]
+}
+
 @test 'build step rejects a non-main package' {
   run_build GO_TARGETS=linux/amd64 GO_MAIN_PACKAGE=internal/version
   [ "${status}" -ne 0 ]
