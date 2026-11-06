@@ -13,6 +13,11 @@ on:
         type: boolean
         description: Create a new tag if the input tag does not exist
         default: false
+      draft:
+        required: false
+        type: boolean
+        description: Create a new release as a draft and create its tag first; publish or delete a leftover draft and tag before the next release
+        default: false
       version-bump:
         required: false
         type: string
@@ -208,6 +213,7 @@ jobs:
           PREVIOUS_TAG: ${{ steps.plan.outputs.previous-tag }}
           RELEASE_BUMP: ${{ inputs.version-bump }}
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
+          RELEASE_DRAFT: ${{ inputs.draft }}
           RELEASE_SHA: ${{ github.sha }}
           REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
@@ -234,10 +240,22 @@ jobs:
             fi
           fi
           if ! gh release view "${tag}" --repo "${REPOSITORY}" > /dev/null 2>&1; then
-            if [[ -z "${PLANNED_TAG}" && "${CREATE_NEW_TAG}" == true && "${GITHUB_REF}" != refs/tags/* ]]; then
-              gh release create "${tag}" --repo "${REPOSITORY}" --generate-notes
-            else
-              gh release create "${tag}" --repo "${REPOSITORY}" --generate-notes --verify-tag
+            create_args=(--repo "${REPOSITORY}" --generate-notes)
+            if [[ "${RELEASE_DRAFT}" == true ]]; then
+              create_args+=(--draft)
             fi
+            if [[ -z "${PLANNED_TAG}" && "${CREATE_NEW_TAG}" == true && "${GITHUB_REF}" != refs/tags/* ]]; then
+              if [[ "${RELEASE_DRAFT}" == true ]]; then
+                # Draft releases do not create tags, so create the tag first for checkout by callers.
+                existing="$(gh api "repos/${REPOSITORY}/git/matching-refs/tags/${tag}" --jq ".[] | select(.ref == \"refs/tags/${tag}\") | .ref")"
+                if [[ -z "${existing}" ]]; then
+                  gh api "repos/${REPOSITORY}/git/refs" --method POST -f "ref=refs/tags/${tag}" -f "sha=${RELEASE_SHA}" > /dev/null
+                fi
+                create_args+=(--verify-tag)
+              fi
+            else
+              create_args+=(--verify-tag)
+            fi
+            gh release create "${tag}" "${create_args[@]}"
           fi
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"

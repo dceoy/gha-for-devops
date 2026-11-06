@@ -179,3 +179,52 @@ MOCK
   [ ! -s "${GITHUB_OUTPUT}" ]
   [[ "${output}" == *'empty exclusion'* ]]
 }
+
+run_release_publish() {
+  local bin="${BATS_TEST_TMPDIR}/bin"
+  local publish_script="${BATS_TEST_TMPDIR}/release-publish.sh"
+  mkdir -p "${bin}"
+  yq -r '.jobs."github-release".steps[] | select(.id == "publish") | .run' "${RELEASE_WORKFLOW}" > "${publish_script}"
+  cat > "${bin}/gh" << 'MOCK'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${GH_CALLS}"
+case "$1 $2" in
+  'release view')
+    exit 1
+    ;;
+  'api repos/example/test/git/matching-refs/tags/v1.0.0' | 'api repos/example/test/git/refs' | 'release create') ;;
+  *)
+    echo "Unexpected gh invocation: $*" >&2
+    exit 99
+    ;;
+esac
+MOCK
+  chmod +x "${bin}/gh"
+  export GH_CALLS="${BATS_TEST_TMPDIR}/gh-calls"
+  RELEASE_OUTPUT="${BATS_TEST_TMPDIR}/publish-output"
+  : > "${GH_CALLS}"
+  : > "${RELEASE_OUTPUT}"
+  local base_path
+  base_path="$(printenv PATH)"
+  run env PATH="${bin}:${base_path}" GITHUB_OUTPUT="${RELEASE_OUTPUT}" \
+    GITHUB_REF=refs/heads/main GITHUB_REF_NAME=main GITHUB_REPOSITORY=example/test REPOSITORY=example/test \
+    TAG_NAME=v1.0.0 PLANNED_TAG='' PREVIOUS_TAG='' RELEASE_BUMP=auto CREATE_NEW_TAG=true \
+    RELEASE_SHA=0123456789abcdef0123456789abcdef01234567 "$@" \
+    bash -euo pipefail "${publish_script}"
+}
+
+@test 'draft release creates the tag before the draft release' {
+  run_release_publish RELEASE_DRAFT=true
+  [ "${status}" -eq 0 ]
+  grep -Fxq 'api repos/example/test/git/refs --method POST -f ref=refs/tags/v1.0.0 -f sha=0123456789abcdef0123456789abcdef01234567' "${GH_CALLS}"
+  grep -Fxq 'release create v1.0.0 --repo example/test --generate-notes --draft --verify-tag' "${GH_CALLS}"
+  grep -Fxq 'tag=v1.0.0' "${RELEASE_OUTPUT}"
+}
+
+@test 'release keeps non-draft tag creation by default' {
+  run_release_publish RELEASE_DRAFT=false
+  [ "${status}" -eq 0 ]
+  [ "$(grep -c 'git/' "${GH_CALLS}")" -eq 0 ]
+  grep -Fxq 'release create v1.0.0 --repo example/test --generate-notes' "${GH_CALLS}"
+  grep -Fxq 'tag=v1.0.0' "${RELEASE_OUTPUT}"
+}
