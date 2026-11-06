@@ -62,8 +62,13 @@
       "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     {
-      "description": "Dependencies already managed by Dependabot",
-      "matchFileNames": [".github/workflows/**", "package.json", "pnpm-lock.yaml", "pyproject.toml", "uv.lock"],
+      "description": "GitHub Actions dependencies are managed by Dependabot",
+      "matchManagers": ["github-actions"],
+      "enabled": false
+    },
+    {
+      "description": "npm and uv dependencies are managed by Dependabot",
+      "matchFileNames": ["package.json", "pnpm-lock.yaml", "pyproject.toml", "uv.lock"],
       "enabled": false
     }
   ]
