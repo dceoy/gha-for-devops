@@ -1,6 +1,6 @@
 ---
 name: Renovate OSS
-on:  # checkov:skip=CKV2_GHA_1:token permissions are restricted by the calling job
+on:
   workflow_call:
     inputs:
       renovate-version:
