@@ -6,9 +6,8 @@ on:
       renovate-version:
         required: false
         type: string
-        description: Pinned Renovate version
-        # renovate: datasource=github-releases depName=renovatebot/renovate
-        default: 44.210.2
+        description: Renovate image tag (latest or an explicit version)
+        default: latest
       runs-on:
         required: false
         type: string
@@ -19,13 +18,6 @@ on:
         type: boolean
         description: Exercise Renovate against the GitHub API without modifying the repository
         default: false
-  workflow_dispatch:  # checkov:skip=CKV_GHA_7:manual dry-run input controls execution mode
-    inputs:
-      dry-run:
-        required: false
-        type: boolean
-        description: Run Renovate without writing branches, issues, or pull requests
-        default: true
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -36,7 +28,7 @@ jobs:
       || (github.event_name == 'pull_request' && inputs.dry-run
       && github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 45
-    runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -57,7 +49,7 @@ jobs:
         if: github.event_name != 'pull_request' || steps.renovate-changes.outputs.changed == 'true'
         uses: renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc  # v46.3.12
         with:
-          renovate-version: ${{ inputs.renovate-version || '44.210.2' }}
+          renovate-version: ${{ inputs.renovate-version }}
           token: ${{ github.token }}  # zizmor: ignore[secrets-outside-env] built-in workflow token
         env:
           RENOVATE_PLATFORM: github
