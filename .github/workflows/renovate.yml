@@ -43,6 +43,7 @@ permissions:
 defaults:
   run:
     shell: bash -euo pipefail {0}
+    working-directory: .
 jobs:
   renovate:
     if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
@@ -56,11 +57,12 @@ jobs:
           persist-credentials: false
       - name: Enable read-only integration run
         if: inputs.dry-run
-        run: printf '%s\n' 'RENOVATE_DRY_RUN=full' >> "${GITHUB_ENV}"
+        run: >
+          printf '%s\n' 'RENOVATE_DRY_RUN=full' >> "${GITHUB_ENV}"
       - name: Run Renovate
         uses: renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc  # v46.3.12
         with:
-          renovate-version: ${{ inputs.renovate-version || 'latest' }}
+          renovate-version: ${{ inputs.renovate-version }}
           token: ${{ github.token }}  # zizmor: ignore[secrets-outside-env] built-in workflow token
         env:
           RENOVATE_PLATFORM: github
