@@ -24,11 +24,15 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"example.com/hello/internal/version"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] != "version" {
+		os.Exit(2)
+	}
 	fmt.Println(version.Version)
 }
 EOF
@@ -57,6 +61,7 @@ run_build() {
     GO_VERSION_VARIABLE= \
     GO_CGO_ENABLED=0 \
     GO_LDFLAGS='-s -w' \
+    GO_VERSION_CHECK_ARGS= \
     CHECKSUM_FILE_NAME=SHA256SUMS \
     DIST_DIR="${DIST_DIR}" \
     "$@"
@@ -84,6 +89,35 @@ run_build() {
   if [[ "$(go env GOOS)/$(go env GOARCH)" == linux/amd64 ]]; then
     [ "$("${DIST_DIR}/hello_v1.2.3_linux_amd64")" = v1.2.3 ]
   fi
+}
+
+@test 'optional native version check fails closed on mismatch or command error' {
+  local native_target
+  native_target="$(go env GOHOSTOS)/$(go env GOHOSTARCH)"
+  run_build GO_TARGETS="${native_target}" \
+    GO_VERSION_VARIABLE=example.com/hello/internal/version.Version \
+    GO_VERSION_CHECK_ARGS=version
+  [ "${status}" -eq 0 ]
+
+  run_build GO_TARGETS="${native_target}" GO_VERSION_CHECK_ARGS=version
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *"does not match release tag"* ]]
+
+  run_build GO_TARGETS="${native_target}" \
+    GO_VERSION_VARIABLE=example.com/hello/internal/version.Version \
+    GO_VERSION_CHECK_ARGS=wrong
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *"Version command failed"* ]]
+}
+
+@test 'version check requires a native target to execute' {
+  local foreign=linux/arm64
+  [[ "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" == linux/arm64 ]] && foreign=linux/amd64
+  run_build GO_TARGETS="${foreign}" \
+    GO_VERSION_VARIABLE=example.com/hello/internal/version.Version \
+    GO_VERSION_CHECK_ARGS=version
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *"Version verification requires a native build target"* ]]
 }
 
 @test 'build step honors an explicit binary name' {
