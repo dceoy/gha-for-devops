@@ -45,12 +45,6 @@
   ],
   "packageRules": [
     {
-      "description": "Automatically merge minor and patch-level updates",
-      "matchUpdateTypes": ["minor", "patch", "digest"],
-      "automerge": true,
-      "automergeType": "branch"
-    },
-    {
       "description": "Require review for workflow tool versions updated by regex managers",
       "matchManagers": ["custom.regex"],
       "automerge": false
@@ -66,6 +60,16 @@
       "matchPackageNames": ["ghcr.io/**"],
       "minimumReleaseAge": "1 day",
       "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
+      "description": "GitHub Actions dependencies are managed by Dependabot",
+      "matchManagers": ["github-actions"],
+      "enabled": false
+    },
+    {
+      "description": "npm and uv dependencies are managed by Dependabot",
+      "matchFileNames": ["package.json", "pnpm-lock.yaml", "pyproject.toml", "uv.lock"],
+      "enabled": false
     }
   ]
 }
