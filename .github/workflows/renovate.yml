@@ -17,19 +17,24 @@ on:
         required: false
         type: boolean
         description: Exercise Renovate against the GitHub API without modifying the repository
-        default: false
+        default: true
   workflow_dispatch:  # checkov:skip=CKV_GHA_7:manual dry-run input selects execution mode
     inputs:
-      dry-run:
-        description: Check updates without modifying the repository
-        required: false
-        type: boolean
-        default: true
       renovate-version:
-        description: Renovate image tag (latest or an explicit version)
         required: false
         type: string
+        description: Renovate image tag (latest or an explicit version)
         default: latest
+      runs-on:
+        required: false
+        type: string
+        description: Docker-capable GitHub Actions runner
+        default: ubuntu-latest
+      dry-run:
+        required: false
+        type: boolean
+        description: Exercise Renovate against the GitHub API without modifying the repository
+        default: true
 permissions:
   contents: write
   issues: write
