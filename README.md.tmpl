@@ -70,29 +70,6 @@ When a scan finds no resolved package URLs, the workflow skips submission so an 
 
 Docker build, multi-target, and Bake workflows reuse their postbuild scan for publication. Set `submit-dependencies: true` and `push: true`; grant `contents: write` and `packages: read` for GHCR, and pass `DOCKER_TOKEN` for registry access. Avoid submitting the same inventory twice.
 
-## Renovate OSS
-
-Run [Renovate OSS](https://docs.renovatebot.com/) with the caller's `GITHUB_TOKEN` (no PAT or GitHub App):
-
-```yaml
-name: Renovate
-on:
-  schedule:
-    - cron: "0 3 * * *"
-  workflow_dispatch:
-
-jobs:
-  renovate:
-    uses: dceoy/gha-for-devops/.github/workflows/renovate.yml@<pinned-ref>
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-      statuses: write
-```
-
-Enable **Allow GitHub Actions to create and approve pull requests** in the caller's Actions settings. Use `with: dry-run: true` and `contents: read` for read-only checks. Workflow-file updates require a separate mechanism such as Dependabot; CI on Renovate-created PRs requires manual approval.
-
 ## Local QA
 
 Install the tools in `mise.toml`, then run:
