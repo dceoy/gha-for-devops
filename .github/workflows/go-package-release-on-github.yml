@@ -63,6 +63,11 @@ on:
         type: string
         description: Fully qualified string variable set to the release tag with -X (e.g., github.com/owner/repo/internal/cli.Version)
         default: null
+      version-check-args:
+        required: false
+        type: string
+        description: Optional whitespace-delimited arguments to check a native binary prints exactly the release tag (e.g., version or --version)
+        default: null
       checksum-file-name:
         required: false
         type: string
@@ -189,6 +194,7 @@ jobs:
           GO_CGO_ENABLED: ${{ inputs.cgo-enabled && '1' || '0' }}
           GO_LDFLAGS: ${{ inputs.ldflags }}
           GO_VERSION_VARIABLE: ${{ inputs.version-variable }}
+          GO_VERSION_CHECK_ARGS: ${{ inputs.version-check-args }}
           CHECKSUM_FILE_NAME: ${{ inputs.checksum-file-name }}
           DIST_DIR: ${{ runner.temp }}/go-release-dist
         run: |
@@ -240,6 +246,25 @@ jobs:
             GOOS="${goos}" GOARCH="${goarch}" CGO_ENABLED="${GO_CGO_ENABLED}" \
               go build -trimpath -ldflags="${ldflags}" -o "${DIST_DIR}/${asset}" "${main_package}"
           done
+          if [[ -n "${GO_VERSION_CHECK_ARGS}" ]]; then
+            native_asset="${binary_name}_${RELEASE_TAG}_${host_target%/*}_${host_target#*/}"
+            if [[ "${host_target%/*}" == windows ]]; then
+              native_asset+='.exe'
+            fi
+            if [[ ! -f "${DIST_DIR}/${native_asset}" ]]; then
+              echo "::error::Version verification requires a native build target (${host_target})"
+              exit 1
+            fi
+            read -r -a version_args <<< "${GO_VERSION_CHECK_ARGS//$'\n'/ }"
+            if ! actual_version="$("${DIST_DIR}/${native_asset}" "${version_args[@]}")"; then
+              echo "::error::Version command failed for ${native_asset}"
+              exit 1
+            fi
+            if [[ "${actual_version}" != "${RELEASE_TAG}" ]]; then
+              echo "::error::Binary version '${actual_version}' does not match release tag '${RELEASE_TAG}'"
+              exit 1
+            fi
+          fi
           (
             cd "${DIST_DIR}" || exit 1
             if [[ -e "${CHECKSUM_FILE_NAME}" ]]; then
