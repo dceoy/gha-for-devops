@@ -1,6 +1,6 @@
 ---
 name: Renovate OSS
-on:
+on:  # checkov:skip=CKV2_GHA_1:token permissions are restricted by the calling job
   workflow_call:
     inputs:
       renovate-version:
@@ -19,20 +19,16 @@ on:
         type: boolean
         description: Exercise Renovate against the GitHub API without modifying the repository
         default: false
-permissions:
-  contents: read
 defaults:
   run:
     shell: bash -euo pipefail {0}
 jobs:
-  renovate-check:
+  renovate:
     if: >-
-      inputs.dry-run && github.event_name != 'pull_request_target'
-      && (github.event_name != 'pull_request'
-      || github.event.pull_request.head.repo.full_name == github.repository)
+      (github.event_name != 'pull_request' && github.event_name != 'pull_request_target')
+      || (github.event_name == 'pull_request' && inputs.dry-run
+      && github.event.pull_request.head.repo.full_name == github.repository)
     timeout-minutes: 45
-    permissions:
-      contents: read
     runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Checkout repository
@@ -47,31 +43,11 @@ jobs:
           if git diff --name-only HEAD^1 HEAD | grep -Eq '^(\.github/workflows/renovate\.yml|\.github/renovate\.json|renovate\.json)$'; then
             echo 'changed=true' >> "${GITHUB_OUTPUT}"
           fi
-      - name: Run Renovate in read-only mode
-        if: github.event_name != 'pull_request' || steps.renovate-changes.outputs.changed == 'true'
-        uses: renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc  # v46.3.12
-        with:
-          renovate-version: ${{ inputs.renovate-version }}
-          token: ${{ github.token }}  # zizmor: ignore[secrets-outside-env] built-in workflow token
-        env:
-          RENOVATE_DRY_RUN: full
-          RENOVATE_PLATFORM: github
-          RENOVATE_ENDPOINT: ${{ github.api_url }}
-          RENOVATE_REPOSITORIES: ${{ github.repository }}
-          RENOVATE_AUTODISCOVER: 'false'
-  renovate:
-    if: >-
-      !inputs.dry-run && github.event_name != 'pull_request'
-      && github.event_name != 'pull_request_target'
-    timeout-minutes: 45
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-      statuses: write
-    runs-on: ${{ inputs.runs-on }}
-    steps:
+      - name: Enable read-only integration run
+        if: inputs.dry-run
+        run: printf '%s\n' 'RENOVATE_DRY_RUN=full' >> "${GITHUB_ENV}"
       - name: Run Renovate
+        if: github.event_name != 'pull_request' || steps.renovate-changes.outputs.changed == 'true'
         uses: renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc  # v46.3.12
         with:
           renovate-version: ${{ inputs.renovate-version }}
