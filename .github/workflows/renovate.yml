@@ -19,61 +19,19 @@ on:
         type: boolean
         description: Exercise Renovate against the GitHub API without modifying the repository
         default: false
-    secrets:
-      RENOVATE_TOKEN:
-        required: false
-        description: GitHub PAT; omit when using a GitHub App
-      RENOVATE_APP_ID:
-        required: false
-        description: GitHub App ID; supply with RENOVATE_APP_PRIVATE_KEY
-      RENOVATE_APP_PRIVATE_KEY:
-        required: false
-        description: GitHub App private key; supply with RENOVATE_APP_ID
 permissions:
-  contents: read
+  contents: write
+  issues: write
+  pull-requests: write
+  statuses: write
 defaults:
   run:
     shell: bash -euo pipefail {0}
 jobs:
   renovate:
-    if: >-
-      (github.event_name != 'pull_request' && github.event_name != 'pull_request_target')
-      || (github.event_name == 'pull_request' && inputs.dry-run)
+    if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     runs-on: ${{ inputs.runs-on }}
     steps:
-      - name: Validate authentication
-        id: auth
-        env:
-          PAT: ${{ secrets.RENOVATE_TOKEN }}
-          APP_ID: ${{ secrets.RENOVATE_APP_ID }}
-          APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-        run: |
-          if [[ -n "${PAT}" ]]; then
-            if [[ -n "${APP_ID}" || -n "${APP_PRIVATE_KEY}" ]]; then
-              echo '::error::Provide either RENOVATE_TOKEN or a GitHub App credential pair, not both'
-              exit 1
-            fi
-            echo 'use-app=false' >> "${GITHUB_OUTPUT}"
-          elif [[ -n "${APP_ID}" && -n "${APP_PRIVATE_KEY}" ]]; then
-            echo 'use-app=true' >> "${GITHUB_OUTPUT}"
-          else
-            echo '::error::Provide RENOVATE_TOKEN or both RENOVATE_APP_ID and RENOVATE_APP_PRIVATE_KEY'
-            exit 1
-          fi
-      - name: Create GitHub App token
-        if: steps.auth.outputs.use-app == 'true'
-        id: app-token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510  # v3.3.0
-        with:
-          app-id: ${{ secrets.RENOVATE_APP_ID }}
-          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          permission-contents: write
-          permission-issues: write
-          permission-pull-requests: write
-          permission-statuses: write
-          permission-workflows: write
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -85,7 +43,7 @@ jobs:
         uses: renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc  # v46.3.12
         with:
           renovate-version: ${{ inputs.renovate-version }}
-          token: ${{ steps.app-token.outputs.token || secrets.RENOVATE_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided token
+          token: ${{ github.token }}  # zizmor: ignore[secrets-outside-env] built-in workflow token
         env:
           RENOVATE_PLATFORM: github
           RENOVATE_ENDPOINT: ${{ github.api_url }}
