@@ -30,6 +30,10 @@ on:
         required: false
         type: string
         default: latest
+# GITHUB_TOKEN permissions are inherited from the caller to allow read-only PR checks.
+# A direct workflow_dispatch run uses the repository's default token permissions;
+# live runs require write access enabled in the repository's Actions settings.
+# Declaring write permissions here would prevent read-only reusable callers from starting.
 defaults:
   run:
     shell: bash -euo pipefail {0}
