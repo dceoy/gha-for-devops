@@ -45,12 +45,6 @@
   ],
   "packageRules": [
     {
-      "description": "Automatically merge minor and patch-level updates",
-      "matchUpdateTypes": ["minor", "patch", "digest"],
-      "automerge": true,
-      "automergeType": "branch"
-    },
-    {
       "description": "Require review for workflow tool versions updated by regex managers",
       "matchManagers": ["custom.regex"],
       "automerge": false
@@ -68,8 +62,8 @@
       "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     {
-      "description": "GitHub Actions workflows are managed by Dependabot; GITHUB_TOKEN cannot update workflow files",
-      "matchFileNames": [".github/workflows/**"],
+      "description": "Dependencies already managed by Dependabot",
+      "matchFileNames": [".github/workflows/**", "package.json", "pnpm-lock.yaml", "pyproject.toml", "uv.lock"],
       "enabled": false
     }
   ]
