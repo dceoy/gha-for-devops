@@ -78,7 +78,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
       - name: Set up mise without installing project tools
-        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c  # v5.2.6
+        uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b  # v5.2.7
         with:
           version: ${{ inputs.mise-version != 'latest' && inputs.mise-version || null }}
           auto_update: ${{ inputs.mise-version == 'latest' }}
@@ -108,7 +108,7 @@ jobs:
           target_hash=$(printf '%s' "${TARGET_PATH}" | shasum -a 256 | cut -c1-12)
           printf 'branch=github-actions/mise-lock-update/%s/%s\n' "${PR_BASE}" "${target_hash}" >> "${GITHUB_OUTPUT}"
       - name: Create a pull request if the lockfile changed
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
+        uses: peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8  # v8.1.2
         with:
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
           commit-message: Update mise.lock
