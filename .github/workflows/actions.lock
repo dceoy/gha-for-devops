@@ -39,11 +39,11 @@ workflows:
         - 'pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe'
+        - 'anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/claude-code-review.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe'
+        - 'anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/container-security.yml':
         - 'docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550'
@@ -190,7 +190,7 @@ workflows:
         - 'r-lib/actions@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05'
     '.github/workflows/renovate.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc'
+        - 'renovatebot/github-action@266fef21329c44765ad42f9dea1f01f5d2d91084'
     '.github/workflows/scorecard-assessment.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
@@ -363,9 +363,9 @@ dependencies:
         repo_id: 496012378
         uses:
             - 'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f'
-    'anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe':
-        ref: 'v1.0.269'
-        commit: 'sha1-61a9c274fa7110a66dfafc1bbbced03833eb25fe'
+    'anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9':
+        ref: 'v1.0.270'
+        commit: 'sha1-9eb012b6d0900c2b9eede65ee1758cec4d2973e9'
         owner_id: 76263028
         repo_id: 986421638
         uses:
@@ -552,9 +552,9 @@ dependencies:
             - 'actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae'
             - 'quarto-dev/quarto-actions@8a96df13519ee81fd526f2dfca5962811136661b'
             - 'r-lib/actions@9f58233a78a2a9fd874714be10f8bba627233339'
-    'renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc':
-        ref: 'v46.3.12'
-        commit: 'sha1-1c0cf989c02653fba0efe7ca5772338860ca71dc'
+    'renovatebot/github-action@266fef21329c44765ad42f9dea1f01f5d2d91084':
+        ref: 'v46.3.13'
+        commit: 'sha1-266fef21329c44765ad42f9dea1f01f5d2d91084'
         owner_id: 38656520
         repo_id: 252754603
     'sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532':
