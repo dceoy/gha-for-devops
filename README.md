@@ -15,10 +15,10 @@ on:
 
 jobs:
   lint:
-    uses: dceoy/gha-for-devops/.github/workflows/yaml-lint.yml@main
+    uses: dceoy/gha-for-devops/.github/workflows/yaml-lint.yml@9e394d7c18b3a00fb853cd3c693cc4eeb5f0c825  # v2.3.0
 ```
 
-Pin a release tag or commit SHA in production. Set `with:`, `secrets:`, and `permissions:` as documented in the workflow file.
+Use an immutable full commit SHA (with a release-version comment) in production. Set `with:`, `secrets:`, and `permissions:` as documented in the workflow file.
 
 ## Reusable Workflows
 
