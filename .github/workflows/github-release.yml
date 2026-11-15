@@ -253,16 +253,22 @@ jobs:
             if [[ -z "${PLANNED_TAG}" && "${CREATE_NEW_TAG}" == true && "${GITHUB_REF}" != refs/tags/* ]]; then
               if [[ "${RELEASE_DRAFT}" == true ]]; then
                 # Draft releases do not create tags, so create the tag first for checkout by callers.
+                if [[ -n "${SOURCE_BRANCH}" ]]; then
+                  branch_sha="$(gh api "repos/${REPOSITORY}/git/ref/heads/${SOURCE_BRANCH}" --jq '.object.sha')"
+                  if [[ "${branch_sha}" != "${RELEASE_SHA}" ]]; then
+                    echo "::error::${SOURCE_BRANCH} advanced past ${RELEASE_SHA}; refusing to draft a release for a stale commit."
+                    exit 1
+                  fi
+                fi
                 existing="$(gh api "repos/${REPOSITORY}/git/matching-refs/tags/${tag}" --jq ".[] | select(.ref == \"refs/tags/${tag}\") | .ref")"
                 if [[ -z "${existing}" ]]; then
-                  if [[ -n "${SOURCE_BRANCH}" ]]; then
-                    branch_sha="$(gh api "repos/${REPOSITORY}/git/ref/heads/${SOURCE_BRANCH}" --jq '.object.sha')"
-                    if [[ "${branch_sha}" != "${RELEASE_SHA}" ]]; then
-                      echo "::error::${SOURCE_BRANCH} advanced past ${RELEASE_SHA}; refusing to tag a stale commit."
-                      exit 1
-                    fi
-                  fi
                   gh api "repos/${REPOSITORY}/git/refs" --method POST -f "ref=refs/tags/${tag}" -f "sha=${RELEASE_SHA}" > /dev/null
+                else
+                  tag_sha="$(gh api "repos/${REPOSITORY}/commits/${tag}" --jq '.sha')"
+                  if [[ "${tag_sha}" != "${RELEASE_SHA}" ]]; then
+                    echo "::error::Tag ${tag} resolves to ${tag_sha}, not ${RELEASE_SHA}; refusing to draft a release for another commit."
+                    exit 1
+                  fi
                 fi
                 create_args+=(--verify-tag)
               fi

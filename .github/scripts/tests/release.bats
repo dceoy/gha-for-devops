@@ -195,7 +195,15 @@ case "$1 $2" in
   'api repos/example/test/git/ref/heads/main')
     printf '%s\n' "${MOCK_BRANCH_SHA:-0123456789abcdef0123456789abcdef01234567}"
     ;;
-  'api repos/example/test/git/matching-refs/tags/v1.0.0' | 'api repos/example/test/git/refs' | 'release create') ;;
+  'api repos/example/test/git/matching-refs/tags/v1.0.0')
+    if [[ -n "${MOCK_EXISTING_TAG:-}" ]]; then
+      echo refs/tags/v1.0.0
+    fi
+    ;;
+  'api repos/example/test/commits/v1.0.0')
+    printf '%s\n' "${MOCK_TAG_SHA:-0123456789abcdef0123456789abcdef01234567}"
+    ;;
+  'api repos/example/test/git/refs' | 'release create') ;;
   *)
     echo "Unexpected gh invocation: $*" >&2
     exit 99
@@ -243,8 +251,32 @@ MOCK
 @test 'explicit draft tag is refused when the source branch advanced' {
   run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_BRANCH_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
   [ "${status}" -ne 0 ]
-  [[ "${output}" == *'refusing to tag a stale commit'* ]]
+  [[ "${output}" == *'refusing to draft a release for a stale commit'* ]]
   [ "$(grep -c 'git/refs' "${GH_CALLS}")" -eq 0 ]
+  [ "$(grep -c 'release create' "${GH_CALLS}")" -eq 0 ]
+  [ ! -s "${RELEASE_OUTPUT}" ]
+}
+
+@test 'existing explicit draft tag is refused when the source branch advanced' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_EXISTING_TAG=1 MOCK_BRANCH_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'refusing to draft a release for a stale commit'* ]]
+  [ "$(grep -c 'release create' "${GH_CALLS}")" -eq 0 ]
+  [ ! -s "${RELEASE_OUTPUT}" ]
+}
+
+@test 'existing explicit draft tag is reused when it matches and the source branch is current' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_EXISTING_TAG=1
+  [ "${status}" -eq 0 ]
+  [ "$(grep -c 'git/refs' "${GH_CALLS}")" -eq 0 ]
+  grep -Fxq 'release create v1.0.0 --repo example/test --generate-notes --draft --verify-tag' "${GH_CALLS}"
+  grep -Fxq 'tag=v1.0.0' "${RELEASE_OUTPUT}"
+}
+
+@test 'existing explicit draft tag is refused when it resolves to another commit' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_EXISTING_TAG=1 MOCK_TAG_SHA=cccccccccccccccccccccccccccccccccccccccc
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'refusing to draft a release for another commit'* ]]
   [ "$(grep -c 'release create' "${GH_CALLS}")" -eq 0 ]
   [ ! -s "${RELEASE_OUTPUT}" ]
 }
