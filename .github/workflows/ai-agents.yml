@@ -9,14 +9,6 @@ on:
       - ready_for_review
     paths-ignore:
       - .github/workflows/ai-agents.yml
-  pull_request_target:  # zizmor: ignore[dangerous-triggers] -- Pi checks out only the trusted base commit
-    branches:
-      - main
-    types:
-      - opened
-      - ready_for_review
-    paths-ignore:
-      - .github/workflows/ai-agents.yml
 permissions:
   contents: read
 defaults:
@@ -66,7 +58,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   pi-review:
     if: >-
-      github.event_name == 'pull_request_target'
+      github.event_name == 'pull_request'
       && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
       && github.event.pull_request.head.repo.full_name == github.repository
       && (! github.event.pull_request.draft)
@@ -81,6 +73,6 @@ jobs:
       pull-requests: write
       issues: read
       actions: read
-    uses: dceoy/pi-action/.github/workflows/pi-review.yml@682e8809659a3b51ea7dee38e519d4c5e2b1061d  # v0.1.0
+    uses: dceoy/pi-action/.github/workflows/pi-review.yml@8f3b86ae4391684e2e126153348f8bcf0de595b7  # v0.1.1
     secrets:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
