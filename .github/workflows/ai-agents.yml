@@ -52,9 +52,7 @@ jobs:
       issues: write
       id-token: write
       actions: read
-    uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@163f9a9cd3d3f497e2847635585419f951371d2f  # v0.8.1
-    with:
-      model: openrouter/nvidia/nemotron-3.5-super-vl:free
+    uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@3fffa878be91b1b84f958696238b260961b96973  # v0.8.2
     secrets:
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
