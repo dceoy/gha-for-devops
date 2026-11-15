@@ -181,7 +181,8 @@ jobs:
           tag_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${RELEASE_TAG}" --jq '.[] | select(.ref == "refs/tags/'"${RELEASE_TAG}"'") | [.object.type, .object.sha] | @tsv')"
           if [[ -n "${tag_ref}" ]]; then
             read -r object_type tag_sha <<< "${tag_ref}"
-            for ((depth=0; depth<8 && object_type == "tag"; depth++)); do
+            for ((depth=0; depth<8; depth++)); do
+              [[ "${object_type}" == tag ]] || break
               read -r object_type tag_sha < <(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_sha}" --jq '[.object.type, .object.sha] | @tsv')
             done
             if [[ "${object_type}" != commit || "${tag_sha}" != "${SOURCE_SHA}" ]]; then

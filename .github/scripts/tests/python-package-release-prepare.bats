@@ -4,7 +4,9 @@ setup() {
   export PREPARE_WORKFLOW="${BATS_TEST_DIRNAME}/../../workflows/python-package-release-prepare.yml"
   export PLAN_SCRIPT="${BATS_TEST_TMPDIR}/plan.sh"
   export ASSETS_SCRIPT="${BATS_TEST_TMPDIR}/assets.sh"
+  export VERIFY_SCRIPT="${BATS_TEST_TMPDIR}/verify.sh"
   yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${PREPARE_WORKFLOW}" > "${PLAN_SCRIPT}"
+  yq -r '.jobs."verify-source".steps[] | select(.id == "verify") | .run' "${PREPARE_WORKFLOW}" > "${VERIFY_SCRIPT}"
   yq -r '.jobs."attach-assets".steps[] | select(.name == "Check distribution names and version") | .run' "${PREPARE_WORKFLOW}" > "${ASSETS_SCRIPT}"
 }
 
@@ -37,6 +39,12 @@ case "$1 $2" in
   'release view')
     exit 1
     ;;
+  'api repos/example/test/git/matching-refs/tags/v1.2.3')
+    [ -z "${MOCK_TAG_TYPE:-}" ] || printf '%s\t%s\n' "${MOCK_TAG_TYPE}" "${MOCK_TAG_SHA}"
+    ;;
+  'api repos/example/test/git/tags/'*)
+    printf 'commit\t%s\n' "${MOCK_TAG_TARGET}"
+    ;;
   *)
     echo "Unexpected gh command: $*" >&2
     exit 3
@@ -49,6 +57,7 @@ MOCK
   export RELEASE_BRANCH=main
   export CI_WORKFLOW=ci.yml
   export GITHUB_REPOSITORY=example/test
+  export RELEASE_TAG=v1.2.3
   export GH_TOKEN=test
   export SOURCE_SHA
   SOURCE_SHA="$(git rev-parse HEAD)"
@@ -105,4 +114,32 @@ MOCK
   run env PROJECT_NAME=foo-bar RELEASE_TAG=v1.2.4 bash -euo pipefail "${ASSETS_SCRIPT}"
   [ "${status}" -ne 0 ]
   [[ "${output}" == *'Missing source distribution'* ]]
+}
+
+@test 'source verifier accepts missing, lightweight and annotated tags for the validated source' {
+  make_fixture
+  run bash -euo pipefail "${VERIFY_SCRIPT}"
+  [ "${status}" -eq 0 ]
+  grep -qx 'current=true' "${GITHUB_OUTPUT}"
+
+  : > "${GITHUB_OUTPUT}"
+  run env MOCK_TAG_TYPE=commit MOCK_TAG_SHA="${SOURCE_SHA}" bash -euo pipefail "${VERIFY_SCRIPT}"
+  [ "${status}" -eq 0 ]
+  grep -qx 'current=true' "${GITHUB_OUTPUT}"
+
+  : > "${GITHUB_OUTPUT}"
+  run env MOCK_TAG_TYPE=tag MOCK_TAG_SHA=cccccccccccccccccccccccccccccccccccccccc MOCK_TAG_TARGET="${SOURCE_SHA}" bash -euo pipefail "${VERIFY_SCRIPT}"
+  [ "${status}" -eq 0 ]
+  grep -qx 'current=true' "${GITHUB_OUTPUT}"
+}
+
+@test 'source verifier rejects an existing tag that resolves to another commit' {
+  make_fixture
+  run env MOCK_TAG_TYPE=commit MOCK_TAG_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb bash -euo pipefail "${VERIFY_SCRIPT}"
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'does not resolve to the validated source'* ]]
+
+  run env MOCK_TAG_TYPE=tag MOCK_TAG_SHA=cccccccccccccccccccccccccccccccccccccccc MOCK_TAG_TARGET=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb bash -euo pipefail "${VERIFY_SCRIPT}"
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'does not resolve to the validated source'* ]]
 }
