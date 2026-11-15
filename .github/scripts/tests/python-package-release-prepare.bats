@@ -15,14 +15,14 @@ make_fixture() {
   git init -q -b main
   git config user.email ci@example.invalid
   git config user.name 'Release tests'
-  cat > pkg/pyproject.toml <<'TOML'
+  cat > pkg/pyproject.toml << 'TOML'
 [project]
 name = "foo-bar"
 version = "1.2.3"
 TOML
   git add .
   git commit -qm 'test: initial release'
-  cat > bin/gh <<'MOCK'
+  cat > bin/gh << 'MOCK'
 #!/usr/bin/env bash
 case "$1 $2" in
   'api repos/example/test/git/ref/heads/main')
