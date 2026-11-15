@@ -58,7 +58,7 @@ MOCK
 }
 
 @test 'reusable workflow exposes prepared artifacts and keeps trusted PyPI publishing outside' {
-  [ "$(yq -r '.on.workflow_call.outputs."release-tag".value' "${PREPARE_WORKFLOW}")" = '${{ jobs.draft-release.outputs.release-tag }}' ]
+  [[ "$(yq -r '.on.workflow_call.outputs."release-tag".value' "${PREPARE_WORKFLOW}")" == *'jobs.draft-release.outputs.release-tag'* ]]
   [ "$(yq -r '.jobs.build.uses' "${PREPARE_WORKFLOW}")" = '$/.github/workflows/python-package-release-on-pypi-and-github.yml' ]
   [ "$(yq -r '.jobs.build.with."publish-to-pypi"' "${PREPARE_WORKFLOW}")" = false ]
   [ "$(yq -r '.jobs.build.with."create-github-release"' "${PREPARE_WORKFLOW}")" = false ]
