@@ -57,7 +57,7 @@ EOF
     run bash -euo pipefail "${PIN_SCRIPT}"
     [ "${status}" -eq 0 ]
     grep -Fq "dceoy/${repo}@${RELEASE_SHA}  # ${RELEASE_TAG}" README.md
-    grep -Fq "actions/checkout${CHECKOUT_SHA}  # ${CHECKOUT_TAG}" README.md
+    grep -Fq "actions/checkout@${CHECKOUT_SHA}  # ${CHECKOUT_TAG}" README.md
     grep -Fq "default: ${PR_LOOP_SHA}  # ${PR_LOOP_TAG}" action.yml
     if [ "${repo}" = opencode-action ]; then
       [ "$(grep -Ec "opencode-action/\\.github/workflows/.*${RELEASE_SHA}" docs/reusable-workflows.md)" -eq 2 ]
