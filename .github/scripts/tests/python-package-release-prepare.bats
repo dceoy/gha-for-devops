@@ -72,6 +72,7 @@ MOCK
   [ "$(yq -r '.jobs.build.with."publish-to-pypi"' "${PREPARE_WORKFLOW}")" = false ]
   [ "$(yq -r '.jobs.build.with."create-github-release"' "${PREPARE_WORKFLOW}")" = false ]
   [ "$(yq -r '.jobs."draft-release".with.draft' "${PREPARE_WORKFLOW}")" = true ]
+  [ "$(yq -r '.jobs."draft-release".with."source-branch"' "${PREPARE_WORKFLOW}")" = "\${{ inputs.release-branch }}" ]
   [ "$(yq -r '.jobs."attach-assets".permissions."id-token"' "${PREPARE_WORKFLOW}")" = write ]
   [ "$(yq -r '.jobs | has("publish-to-pypi")' "${PREPARE_WORKFLOW}")" = false ]
 }

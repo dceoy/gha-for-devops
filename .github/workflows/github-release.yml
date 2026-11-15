@@ -18,6 +18,11 @@ on:
         type: boolean
         description: Create a new release as a draft and create its tag first; publish or delete a leftover draft and tag before the next release
         default: false
+      source-branch:
+        required: false
+        type: string
+        description: Branch whose live tip must still equal the workflow commit immediately before an explicit new tag is created
+        default: ''
       version-bump:
         required: false
         type: string
@@ -215,6 +220,7 @@ jobs:
           CREATE_NEW_TAG: ${{ inputs.create-new-tag }}
           RELEASE_DRAFT: ${{ inputs.draft }}
           RELEASE_SHA: ${{ github.sha }}
+          SOURCE_BRANCH: ${{ inputs.source-branch }}
           REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
         run: |
@@ -249,6 +255,13 @@ jobs:
                 # Draft releases do not create tags, so create the tag first for checkout by callers.
                 existing="$(gh api "repos/${REPOSITORY}/git/matching-refs/tags/${tag}" --jq ".[] | select(.ref == \"refs/tags/${tag}\") | .ref")"
                 if [[ -z "${existing}" ]]; then
+                  if [[ -n "${SOURCE_BRANCH}" ]]; then
+                    branch_sha="$(gh api "repos/${REPOSITORY}/git/ref/heads/${SOURCE_BRANCH}" --jq '.object.sha')"
+                    if [[ "${branch_sha}" != "${RELEASE_SHA}" ]]; then
+                      echo "::error::${SOURCE_BRANCH} advanced past ${RELEASE_SHA}; refusing to tag a stale commit."
+                      exit 1
+                    fi
+                  fi
                   gh api "repos/${REPOSITORY}/git/refs" --method POST -f "ref=refs/tags/${tag}" -f "sha=${RELEASE_SHA}" > /dev/null
                 fi
                 create_args+=(--verify-tag)

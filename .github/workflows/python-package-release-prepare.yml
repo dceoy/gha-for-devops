@@ -203,6 +203,7 @@ jobs:
     with:
       tag-name: ${{ needs.plan.outputs.release-tag }}
       create-new-tag: true
+      source-branch: ${{ inputs.release-branch }}
       draft: true
       runs-on: ${{ inputs.runs-on }}
   attach-assets:
