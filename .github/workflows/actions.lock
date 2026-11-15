@@ -84,6 +84,9 @@ workflows:
         - 'google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db'
     '.github/workflows/git-secret-scan.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+    '.github/workflows/github-action-release-pins.yml':
+        - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+        - 'peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1'
     '.github/workflows/github-actions-lint-and-scan.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
