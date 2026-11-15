@@ -12,17 +12,17 @@ make_fixture() {
   local input="$2"
   local directory="${BATS_TEST_TMPDIR}/${repo}"
   mkdir -p "${directory}/docs"
-  cat > "${directory}/README.md" <<EOF
+  cat > "${directory}/README.md" << EOF
 - uses: dceoy/${repo}@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  # v0.0.1
 - uses: actions/checkout@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  # v0.0.1
 EOF
-  cat > "${directory}/action.yml" <<EOF
+  cat > "${directory}/action.yml" << EOF
   ${input}:
     required: false
     description: Pinned pr-loop commit
     default: cccccccccccccccccccccccccccccccccccccccc  # v1.0.0
 EOF
-  cat > "${directory}/docs/reusable-workflows.md" <<EOF
+  cat > "${directory}/docs/reusable-workflows.md" << EOF
 - uses: dceoy/${repo}/.github/workflows/${repo}-bot.yml@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  # v0.0.1
 - uses: dceoy/${repo}/.github/workflows/${repo}-review.yml@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  # v0.0.1
 EOF
