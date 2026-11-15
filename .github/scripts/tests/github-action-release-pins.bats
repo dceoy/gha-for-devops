@@ -52,9 +52,9 @@ EOF
     input=pr-loop-ref
     [ "${repo}" != opencode-action ] || input=pr-review-ref
     make_fixture "${repo}" "${input}"
-    export UPDATE_WORKFLOW_DOCS=false
-    [ "${repo}" != opencode-action ] || UPDATE_WORKFLOW_DOCS=true
-    run bash -euo pipefail "${PIN_SCRIPT}"
+    local update_docs=false
+    [ "${repo}" != opencode-action ] || update_docs=true
+    run env UPDATE_WORKFLOW_DOCS="${update_docs}" bash -euo pipefail "${PIN_SCRIPT}"
     [ "${status}" -eq 0 ]
     grep -Fq "dceoy/${repo}@${RELEASE_SHA}  # ${RELEASE_TAG}" README.md
     grep -Fq "actions/checkout@${CHECKOUT_SHA}  # ${CHECKOUT_TAG}" README.md
@@ -62,16 +62,15 @@ EOF
     if [ "${repo}" = opencode-action ]; then
       [ "$(grep -Ec "opencode-action/\\.github/workflows/.*${RELEASE_SHA}" docs/reusable-workflows.md)" -eq 2 ]
     fi
-    run bash -euo pipefail "${PIN_SCRIPT}"
+    run env UPDATE_WORKFLOW_DOCS="${update_docs}" bash -euo pipefail "${PIN_SCRIPT}"
     [ "${status}" -eq 0 ]
   done
 }
 
 @test 'release pin updates fail closed if required docs references are missing' {
   make_fixture opencode-action pr-review-ref
-  export UPDATE_WORKFLOW_DOCS=true
   sed -i '/opencode-action-review.yml/d' docs/reusable-workflows.md
-  run bash -euo pipefail "${PIN_SCRIPT}"
+  run env UPDATE_WORKFLOW_DOCS=true bash -euo pipefail "${PIN_SCRIPT}"
   [ "${status}" -ne 0 ]
   [[ "${output}" == *'expected two self-referencing pins'* ]]
 }
