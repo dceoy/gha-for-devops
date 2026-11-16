@@ -18,6 +18,10 @@ on:
         type: boolean
         description: Exercise Renovate against the GitHub API without modifying the repository
         default: true
+    secrets:
+      GH_TOKEN:
+        required: false
+        description: Optional GitHub token to trigger CI on Renovate-created PRs
   workflow_dispatch:  # checkov:skip=CKV_GHA_7:manual dry-run input selects execution mode
     inputs:
       renovate-version:
@@ -35,10 +39,6 @@ on:
         type: boolean
         description: Exercise Renovate against the GitHub API without modifying the repository
         default: true
-    secrets:
-      GH_TOKEN:
-        required: false
-        description: Optional GitHub token to trigger CI on Renovate-created PRs
 permissions:
   contents: write
   issues: write
