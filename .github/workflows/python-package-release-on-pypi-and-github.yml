@@ -100,73 +100,21 @@ env:
   GH_TELEMETRY: 'false'
 jobs:
   python-release-build:
-    name: Build the Python 🐍 distribution 📦
-    runs-on: ${{ inputs.runs-on }}
-    env:
-      UV_EXCLUDE_NEWER: 1 day
-      UV_MALWARE_CHECK: "1"
-      PACKAGE_PATH: ${{ inputs.package-path }}
-    outputs:
-      project-name: ${{ steps.read-project-name.outputs.project_name }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          fetch-depth: 1
-          persist-credentials: false
-      - name: Set up uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
-        with:
-          version: ${{ inputs.uv-version }}
-          enable-cache: ${{ inputs.enable-cache }}
-          cache-dependency-glob: ${{ inputs.cache-dependency-path || format('{0}/uv.lock', inputs.package-path) }}
-          cache-suffix: ${{ inputs.cache-salt }}
-      - name: Set up Python
-        if: hashFiles(format('{0}/uv.lock', inputs.package-path)) == ''
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
-        with:
-          python-version: ${{ inputs.python-version }}
-      - name: Read the project name
-        id: read-project-name
-        working-directory: ${{ inputs.package-path }}
-        shell: python {0}
-        run: |
-          import os
-          import tomllib
-          from pathlib import PurePosixPath, PureWindowsPath
-          package_path = os.environ["PACKAGE_PATH"]
-          if (PurePosixPath(package_path).is_absolute() or PureWindowsPath(package_path).drive
-                  or ".." in PurePosixPath(package_path).parts or ".." in PureWindowsPath(package_path).parts
-                  or "\\" in package_path or any(char in package_path for char in "*?[]{}!()+@|")):
-              raise ValueError("package-path must be relative, use forward slashes, and contain no .. or glob characters")
-          with open("pyproject.toml", "rb") as f:
-              d = tomllib.load(f)
-          if "project" in d and "name" in d["project"]:
-              name = d["project"]["name"]
-          else:
-              raise ValueError(f"project name not found in pyproject.toml: {d}")
-          print(f"project_name={name}")
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              print(f"project_name={name}", file=f)
-      - name: Build a binary wheel and a source tarball
-        env:
-          REQUIREMENTS_TXT_PATH: ${{ inputs.requirements-txt }}
-          HAS_UV_LOCK: ${{ hashFiles(format('{0}/uv.lock', inputs.package-path)) != '' }}
-          STEPS_READ_PROJECT_NAME_OUTPUTS_PROJECT_NAME: ${{ steps.read-project-name.outputs.project_name }}
-        working-directory: ${{ inputs.package-path }}
-        run: |
-          if [[ "${HAS_UV_LOCK}" != "true" && -n "${REQUIREMENTS_TXT_PATH}" ]]; then
-            uv pip install --system -r "${REQUIREMENTS_TXT_PATH}"
-          fi
-          uv build
-          mv dist "/tmp/${STEPS_READ_PROJECT_NAME_OUTPUTS_PROJECT_NAME}_dist"
-      - name: Store the distribution packages
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: ${{ inputs.distribution-artifact-name }}
-          path: /tmp/${{ steps.read-project-name.outputs.project_name }}_dist/
-          retention-days: ${{ inputs.artifact-retention-days }}
-          overwrite: ${{ inputs.artifact-overwrite }}
+    permissions:
+      contents: read
+    uses: $/.github/workflows/python-package-build.yml
+    with:
+      package-path: ${{ inputs.package-path }}
+      python-version: ${{ inputs.python-version }}
+      uv-version: ${{ inputs.uv-version }}
+      enable-cache: ${{ inputs.enable-cache }}
+      cache-dependency-path: ${{ inputs.cache-dependency-path }}
+      cache-salt: ${{ inputs.cache-salt }}
+      requirements-txt: ${{ inputs.requirements-txt }}
+      distribution-artifact-name: ${{ inputs.distribution-artifact-name }}
+      artifact-retention-days: ${{ inputs.artifact-retention-days }}
+      artifact-overwrite: ${{ inputs.artifact-overwrite }}
+      runs-on: ${{ inputs.runs-on }}
   python-release-testpypi:
     name: Publish the Python 🐍 distribution 📦 to TestPyPI
     if: >
