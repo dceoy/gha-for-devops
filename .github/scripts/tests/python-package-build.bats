@@ -23,7 +23,7 @@ setup() {
   [ "$(yq -r '.jobs."python-release-build".with."requirements-txt"' "${LEGACY_WORKFLOW}")" = "\${{ inputs.requirements-txt }}" ]
   [ "$(yq -r '.jobs."python-release-testpypi".needs[0]' "${LEGACY_WORKFLOW}")" = python-release-build ]
   [ "$(yq -r '.jobs."python-release-github".needs[0]' "${LEGACY_WORKFLOW}")" = python-release-build ]
-  [ "$(yq -r '.jobs."python-release-pypi".needs | index("python-release-build") != null' "${LEGACY_WORKFLOW}")" = true ]
+  [ "$(yq -r '.jobs."python-release-pypi".needs | join(",")' "${LEGACY_WORKFLOW}")" = "python-release-build,python-release-testpypi,python-release-github" ]
 }
 
 @test 'guarded release preparation calls build without publishing permissions' {
