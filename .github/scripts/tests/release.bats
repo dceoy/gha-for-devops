@@ -8,11 +8,11 @@ setup() {
 @test 'maintenance retains scheduled and manual tasks' {
   [ "$(yq -r '.on.schedule[0].cron' "${WORKFLOW_FILE}")" = '15 0 * * 1' ]
   [ "$(yq -r '.on.workflow_dispatch.inputs.task.default' "${WORKFLOW_FILE}")" = patch-release ]
-  [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = major-release,minor-release,patch-release,scorecard,mise-lock-upgrade ]
+  [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = major-release,minor-release,patch-release,scorecard,mise-lock-upgrade,dependencies-upgrade ]
 }
 
 @test 'maintenance retains the Bats regression job alongside release and Scorecard' {
-  [ "$(yq -r '.jobs | keys | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,bats-tests,github-release,major-version-tag,mise-lock-update ]
+  [ "$(yq -r '.jobs | keys | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,bats-tests,dependency-lock-update,github-release,major-version-tag,mise-lock-update ]
 }
 
 @test 'scheduled maintenance runs full scanner E2E without release gating' {
@@ -35,6 +35,7 @@ setup() {
   [[ "${condition}" == *"github.event_name == 'workflow_dispatch'"* ]]
   [[ "${condition}" == *"inputs.task != 'scorecard'"* ]]
   [[ "${condition}" == *"inputs.task != 'mise-lock-upgrade'"* ]]
+  [[ "${condition}" == *"inputs.task != 'dependencies-upgrade'"* ]]
   [ "$(yq -r '.jobs."github-release".needs | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,bats-tests ]
   [ "$(yq -r '.jobs."github-release".permissions.contents' "${WORKFLOW_FILE}")" = write ]
   [ "$(yq -r '.jobs."github-release".uses' "${WORKFLOW_FILE}")" = '$/.github/workflows/github-release.yml' ]
