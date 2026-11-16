@@ -31,6 +31,14 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [{{ .file }}](.github/workflows/{{ .file }}) | {{ .name }} |
 {{- end }}
 
+### Python package responsibilities
+
+`python-package-format-and-pr.yml`, `python-package-lint-and-scan.yml`, `python-package-test.yml`, `python-package-mkdocs-gh-deploy.yml`, and `python-pyinstaller.yml` independently handle formatting, validation, tests, documentation, and executable packaging.
+
+Use `python-package-build.yml` for a read-only wheel/sdist build and artifact upload. `python-package-release-prepare.yml` adds release-branch, CI, and version checks before creating a signed draft release. `python-package-release-on-pypi-and-github.yml` remains a backward-compatible tag-driven release orchestrator and reuses the build workflow.
+
+For GitHub-hosted PyPI Trusted Publishing, keep the OIDC publication job in the package repository. The separate GitHub Release finalizer is tracked in [#1206](https://github.com/dceoy/gha-for-devops/pull/1206).
+
 ## Security Workflows
 
 | Use case                       | Workflow                 | Checks                                                      |
