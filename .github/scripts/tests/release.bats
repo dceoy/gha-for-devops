@@ -73,6 +73,7 @@ setup() {
   [ "$(yq -r '.on.workflow_call.inputs."allow-unsafe-mise-execution".default' "${renovation}")" = false ]
   [ "$(yq -r '.jobs.renovate.steps[] | select(.name == "Run Renovate") | .env.RENOVATE_ALLOWED_UNSAFE_EXECUTIONS' "${renovation}")" = "\${{ inputs.allow-unsafe-mise-execution && '[\"mise\"]' || '[]' }}" ]
   config="${BATS_TEST_DIRNAME}/../../../.github/renovate.json"
+  [ "$(jq -r '.extends | index("group:all") != null' "${config}")" = true ]
   [ "$(jq -r '.lockFileMaintenance.groupName' "${config}")" = 'All dependency lockfiles' ]
   [ "$(jq -r '.lockFileMaintenance.schedule | join(",")' "${config}")" = 'at any time' ]
   jq -e '.packageRules | any(.[]; .matchUpdateTypes == ["lockFileMaintenance"] and .automerge == false and .minimumReleaseAge == null)' "${config}" > /dev/null
