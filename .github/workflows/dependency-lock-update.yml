@@ -1,0 +1,144 @@
+---
+name: Update mise, pnpm, and uv lockfiles and create a pull request
+on:
+  workflow_dispatch:  # checkov:skip=CKV_GHA_7:Maintainer inputs configure the dependency lockfile update
+    inputs:
+      working-directory:
+        description: Directory containing the dependency lockfiles
+        type: string
+        required: false
+        default: .
+      mise-version:
+        description: Version of mise to use
+        type: string
+        required: false
+        default: latest
+      runs-on:
+        description: GitHub Actions runner to use
+        type: choice
+        required: false
+        default: macos-latest
+        options:
+          - macos-latest
+          - ubuntu-latest
+  workflow_call:
+    inputs:
+      working-directory:
+        required: false
+        type: string
+        description: Directory containing the dependency lockfiles
+        default: .
+      mise-version:
+        required: false
+        type: string
+        description: Version of mise to use
+        default: latest
+      runs-on:
+        required: false
+        type: string
+        description: GitHub Actions runner to use
+        default: macos-latest
+    secrets:
+      GH_TOKEN:
+        required: false
+        description: Optional GitHub token for creating PRs and triggering their checks
+permissions:
+  contents: write
+  pull-requests: write
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+env:
+  MISE_USE_VERSIONS_HOST_TRACK: 'false'
+jobs:
+  dependency-lock-update:
+    if: >-
+      startsWith(github.ref, 'refs/heads/')
+      && !startsWith(github.ref, 'refs/heads/github-actions/dependency-lock-update/')
+      && github.event_name != 'pull_request'
+      && github.event_name != 'pull_request_target'
+    runs-on: ${{ inputs.runs-on }}
+    env:
+      MISE_SAFE: '1'
+      MISE_GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up mise without installing project tools
+        uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b  # v5.2.7
+        with:
+          version: ${{ inputs.mise-version != 'latest' && inputs.mise-version || null }}
+          auto_update: ${{ inputs.mise-version == 'latest' }}
+          install: false
+          cache: true
+      - name: Detect dependency lockfiles
+        id: targets
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          if [[ ! -f mise.toml ]]; then
+            echo '::error::mise.toml is required to resolve pnpm and uv tool versions'
+            exit 1
+          fi
+          if [[ -f pnpm-lock.yaml && ! -f package.json ]]; then
+            echo '::error::pnpm-lock.yaml exists without package.json'
+            exit 1
+          fi
+          if [[ -f uv.lock && ! -f pyproject.toml ]]; then
+            echo '::error::uv.lock exists without pyproject.toml'
+            exit 1
+          fi
+          if [[ -f pnpm-lock.yaml ]]; then
+            echo 'pnpm=true' >> "\${GITHUB_OUTPUT}"
+          fi
+          if [[ -f uv.lock ]]; then
+            echo 'uv=true' >> "\${GITHUB_OUTPUT}"
+          fi
+      - name: Upgrade mise.lock
+        working-directory: ${{ inputs.working-directory }}
+        run: mise lock --bump
+      - name: Set up Node.js for pnpm
+        if: steps.targets.outputs.pnpm == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 24
+      - name: Upgrade pnpm-lock.yaml
+        if: steps.targets.outputs.pnpm == 'true'
+        working-directory: ${{ inputs.working-directory }}
+        run: mise exec pnpm -- pnpm up --latest --lockfile-only --no-save
+      - name: Upgrade uv.lock
+        if: steps.targets.outputs.uv == 'true'
+        working-directory: ${{ inputs.working-directory }}
+        run: mise exec uv -- uv lock --upgrade
+      - name: Create update branch name
+        id: parameters
+        env:
+          PR_BASE: ${{ github.ref_name }}
+          TARGET_PATH: ${{ inputs.working-directory }}
+        run: |
+          target_hash=$(printf '%s' "\${TARGET_PATH}" | shasum -a 256 | cut -c1-12)
+          printf 'branch=github-actions/dependency-lock-update/%s/%s\n' "\${PR_BASE}" "\${target_hash}" >> "\${GITHUB_OUTPUT}"
+      - name: Create a pull request if lockfiles changed
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
+        with:
+          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          commit-message: Update dependency lockfiles
+          title: Update mise, pnpm, and uv lockfiles
+          branch: ${{ steps.parameters.outputs.branch }}
+          base: ${{ github.ref_name }}
+          body: |
+            Refresh the dependency lockfiles with the latest eligible versions:
+
+            - \`mise lock --bump\` re-resolves floating tool versions.
+            - \`pnpm up --latest --lockfile-only --no-save\` updates pnpm dependencies without rewriting declared ranges.
+            - \`uv lock --upgrade\` updates uv dependencies within existing constraints.
+
+            Respect the repositories' configured release-age policies and dependency overrides.
+            Tool/package manifests are not modified.
+
+            Generated by [${{ github.workflow_ref }}](https://github.com/${{ github.repository }}/).
+          delete-branch: true
+          draft: false

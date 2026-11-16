@@ -35,6 +35,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [claude-code-bot.yml](.github/workflows/claude-code-bot.yml)                                                     | Mention bot using Claude Code                                     |
 | [claude-code-review.yml](.github/workflows/claude-code-review.yml)                                               | Pull request review using Claude Code                             |
 | [container-security.yml](.github/workflows/container-security.yml)                                               | Container security scan and signature verification                |
+| [dependency-lock-update.yml](.github/workflows/dependency-lock-update.yml)                                       | Update mise, pnpm, and uv lockfiles and create a pull request     |
 | [dependabot-auto-merge.yml](.github/workflows/dependabot-auto-merge.yml)                                         | Dependabot auto-merge                                             |
 | [docker-build-and-push.yml](.github/workflows/docker-build-and-push.yml)                                         | Docker image build and push                                       |
 | [docker-build-with-multi-targets.yml](.github/workflows/docker-build-with-multi-targets.yml)                     | Docker image build and save for multiple build targets            |
