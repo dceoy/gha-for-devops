@@ -59,33 +59,33 @@ MOCK
   run_finalize MOCK_BRANCH_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   [ "${status}" -ne 0 ]
   [[ "${output}" == *'Release branch advanced'* ]]
-  ! grep -q 'release edit' "${GH_CALLS}"
+  run ! grep -q 'release edit' "${GH_CALLS}"
 }
 
 @test 'refuses publication when the release tag resolves to another commit' {
   run_finalize MOCK_TAG_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
   [ "${status}" -ne 0 ]
   [[ "${output}" == *'does not resolve'* ]]
-  ! grep -q 'release edit' "${GH_CALLS}"
+  run ! grep -q 'release edit' "${GH_CALLS}"
 }
 
 @test 'refuses publication when the draft is already published' {
   run_finalize MOCK_DRAFT=false
   [ "${status}" -ne 0 ]
   [[ "${output}" == *'must be a draft'* ]]
-  ! grep -q 'release edit' "${GH_CALLS}"
+  run ! grep -q 'release edit' "${GH_CALLS}"
 }
 
 @test 'refuses publication when the draft is missing a wheel' {
   run_finalize MOCK_WHEEL=missing.txt
   [ "${status}" -ne 0 ]
   [[ "${output}" == *'wheel and source distribution'* ]]
-  ! grep -q 'release edit' "${GH_CALLS}"
+  run ! grep -q 'release edit' "${GH_CALLS}"
 }
 
 @test 'refuses publication from an unexpected ref' {
   run_finalize GITHUB_REF=refs/heads/topic
   [ "${status}" -ne 0 ]
   [[ "${output}" == *'Release must run on main'* ]]
-  ! grep -q 'release edit' "${GH_CALLS}"
+  run ! grep -q 'release edit' "${GH_CALLS}"
 }
