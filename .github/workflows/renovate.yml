@@ -18,6 +18,11 @@ on:
         type: boolean
         description: Exercise Renovate against the GitHub API without modifying the repository
         default: true
+      allow-unsafe-mise-execution:
+        required: false
+        type: boolean
+        description: Allow Renovate to run repository-defined mise commands (trusted repositories only)
+        default: false
     secrets:
       GH_TOKEN:
         required: false
@@ -73,5 +78,5 @@ jobs:
           RENOVATE_ENDPOINT: ${{ github.api_url }}
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           RENOVATE_AUTODISCOVER: 'false'
-          # mise.lock refresh requires administrator opt-in to repository commands.
-          RENOVATE_ALLOWED_UNSAFE_EXECUTIONS: '["mise"]'
+          # mise.lock refresh requires explicit opt-in to repository-defined commands.
+          RENOVATE_ALLOWED_UNSAFE_EXECUTIONS: ${{ inputs.allow-unsafe-mise-execution && '["mise"]' || '[]' }}

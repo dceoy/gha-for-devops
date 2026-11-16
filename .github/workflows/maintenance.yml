@@ -55,6 +55,7 @@ jobs:
     uses: $/.github/workflows/renovate.yml
     with:
       dry-run: false
+      allow-unsafe-mise-execution: true
     secrets:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   github-release:

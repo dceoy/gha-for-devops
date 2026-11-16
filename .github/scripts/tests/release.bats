@@ -69,7 +69,9 @@ setup() {
   renovation="${BATS_TEST_DIRNAME}/../../workflows/renovate.yml"
   [ "$(yq -r '.on.workflow_call.secrets.GH_TOKEN.required' "${renovation}")" = false ]
   [ "$(yq -r '.on.workflow_call.inputs."dry-run".default' "${renovation}")" = true ]
-  [ "$(yq -r '.jobs.renovate.steps[] | select(.name == "Run Renovate") | .env.RENOVATE_ALLOWED_UNSAFE_EXECUTIONS' "${renovation}")" = '["mise"]' ]
+  [ "$(yq -r '.jobs."renovate-dependencies".with."allow-unsafe-mise-execution"' "${WORKFLOW_FILE}")" = true ]
+  [ "$(yq -r '.on.workflow_call.inputs."allow-unsafe-mise-execution".default' "${renovation}")" = false ]
+  [ "$(yq -r '.jobs.renovate.steps[] | select(.name == "Run Renovate") | .env.RENOVATE_ALLOWED_UNSAFE_EXECUTIONS' "${renovation}")" = "\${{ inputs.allow-unsafe-mise-execution && '[\"mise\"]' || '[]' }}" ]
   config="${BATS_TEST_DIRNAME}/../../../.github/renovate.json"
   [ "$(jq -r '.lockFileMaintenance.groupName' "${config}")" = 'All dependency lockfiles' ]
   [ "$(jq -r '.lockFileMaintenance.schedule | join(",")' "${config}")" = 'at any time' ]
