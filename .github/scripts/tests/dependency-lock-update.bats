@@ -28,7 +28,7 @@ setup() {
   [[ "${output}" == *'mise lock --bump'* ]]
   [[ "${output}" == *'pnpm up --latest --lockfile-only --no-save'* ]]
   [[ "${output}" == *'uv lock --upgrade'* ]]
-  run yq -r '.jobs."dependency-lock-update".steps[] | select(.uses | test("peter-evans/create-pull-request@")) | .with.branch' "${workflow}"
+  run yq -r '.jobs."dependency-lock-update".steps[] | select(.uses != null and (.uses | test("peter-evans/create-pull-request@"))) | .with.branch' "${workflow}"
   [ "${status}" -eq 0 ]
   [ -n "${output}" ]
 }
