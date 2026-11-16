@@ -28,7 +28,7 @@ setup() {
   [[ "${output}" == *'mise lock --bump'* ]]
   [[ "${output}" == *'pnpm up --latest --lockfile-only --no-save'* ]]
   [[ "${output}" == *'uv lock --upgrade'* ]]
-  [[ "${output}" != *'\${'* ]]
+  [[ "${output}" != *"\\\${"* ]]
   run yq -r '.jobs."dependency-lock-update".steps[] | select(.run != null and (.run | test("pnpm up|uv lock"))) | .if' "${workflow}"
   [ "${status}" -eq 0 ]
   [[ "${output}" == *"steps.targets.outputs.pnpm == 'true'"* ]]
