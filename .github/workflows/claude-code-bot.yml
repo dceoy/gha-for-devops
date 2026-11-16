@@ -17,7 +17,7 @@ on:
         required: false
         type: string
         description: Custom prompt to run instead of using the triggering event
-        default: ''
+        default: null
       claude-args:
         required: false
         type: string

@@ -22,7 +22,7 @@ on:
         required: false
         type: string
         description: Branch whose live tip must still equal the workflow commit immediately before an explicit new tag is created
-        default: ''
+        default: null
       version-bump:
         required: false
         type: string

@@ -7,7 +7,7 @@ on:
         description: Published stable SemVer release to pin (defaults to the release event or latest release)
         type: string
         required: false
-        default: ''
+        default: null
       pr-loop-ref-input:
         description: action.yml input whose default pins pr-loop
         type: string
