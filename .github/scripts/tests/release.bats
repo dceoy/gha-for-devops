@@ -73,8 +73,8 @@ setup() {
   config="${BATS_TEST_DIRNAME}/../../../.github/renovate.json"
   [ "$(jq -r '.lockFileMaintenance.groupName' "${config}")" = 'All dependency lockfiles' ]
   [ "$(jq -r '.lockFileMaintenance.schedule | join(",")' "${config}")" = 'at any time' ]
-  jq -e '.packageRules | any(.[]; .matchUpdateTypes == ["lockFileMaintenance"] and .automerge == false and .minimumReleaseAge == null)' "${config}" >/dev/null
-  jq -e '.packageRules | any(.[]; .matchManagers == ["npm","pep621"] and .enabled == false and (.matchUpdateTypes | index("lockFileMaintenance") | not))' "${config}" >/dev/null
+  jq -e '.packageRules | any(.[]; .matchUpdateTypes == ["lockFileMaintenance"] and .automerge == false and .minimumReleaseAge == null)' "${config}" > /dev/null
+  jq -e '.packageRules | any(.[]; .matchManagers == ["npm","pep621"] and .enabled == false and (.matchUpdateTypes | index("lockFileMaintenance") | not))' "${config}" > /dev/null
 }
 
 @test 'automatic and manual releases use a shared job with the appropriate bump' {
