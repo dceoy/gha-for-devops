@@ -9,7 +9,7 @@ setup() {
   [ "$(yq -r '.on.workflow_call.inputs."release-branch".default' "${RELEASE_FINALIZE_WORKFLOW}")" = main ]
   [ "$(yq -r '.permissions.contents' "${RELEASE_FINALIZE_WORKFLOW}")" = read ]
   [ "$(yq -r '.jobs."release-finalize".permissions.contents' "${RELEASE_FINALIZE_WORKFLOW}")" = write ]
-  [ "$(yq -r '.jobs."release-finalize".if' "${RELEASE_FINALIZE_WORKFLOW}")" = "inputs.mode == 'finalize'" ]
+  [[ "$(yq -r '.jobs."release-finalize".if' "${RELEASE_FINALIZE_WORKFLOW}")" == *"inputs.mode == 'finalize'"* ]]
   [ "$(yq -r '.on.workflow_call.inputs.mode.default' "${RELEASE_FINALIZE_WORKFLOW}")" = tag-release ]
 }
 
@@ -110,4 +110,21 @@ MOCK
   [ "${status}" -ne 0 ]
   [[ "${output}" == *'Invalid project-name'* ]]
   run ! grep -q 'release edit' "${GH_CALLS}"
+}
+
+@test 'github-only mode finalizes only after draft and signed asset attachment succeed' {
+  [ "$(yq -r '.on.workflow_call.inputs.mode.default' "${RELEASE_FINALIZE_WORKFLOW}")" = tag-release ]
+  local workflow="${RELEASE_FINALIZE_WORKFLOW}"
+  local finalize_if
+  finalize_if="$(yq -r '.jobs."release-finalize".if' "${workflow}")"
+  [[ "${finalize_if}" == *"inputs.mode == 'github-only'"* ]]
+  [[ "${finalize_if}" == *"needs.prepare-draft-release.result == 'success'"* ]]
+  [[ "${finalize_if}" == *"needs.prepare-attach-assets.result == 'success'"* ]]
+  [[ "${finalize_if}" == *"needs.python-release-build.result == 'success'"* ]]
+  [[ "${finalize_if}" == *"!cancelled()"* ]]
+  [ "$(yq -r '.jobs."release-finalize".needs | contains(["validate", "prepare-draft-release", "prepare-attach-assets", "python-release-build"])' "${workflow}")" = true ]
+  [[ "$(yq -r '.jobs."release-finalize".steps[0].env.RELEASE_TAG' "${workflow}")" == *"needs.prepare-draft-release.outputs.release-tag"* ]]
+  [[ "$(yq -r '.jobs."release-finalize".steps[0].env.PROJECT_NAME' "${workflow}")" == *"needs.python-release-build.outputs.project-name"* ]]
+  [[ "$(yq -r '.jobs."python-release-pypi".if' "${workflow}")" == *"inputs.mode == 'tag-release'"* ]]
+  [[ "$(yq -r '.jobs."python-release-testpypi".if' "${workflow}")" == *"inputs.mode == 'tag-release'"* ]]
 }

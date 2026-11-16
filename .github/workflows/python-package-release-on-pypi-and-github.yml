@@ -6,7 +6,7 @@ on:
       mode:
         required: false
         type: string
-        description: Release mode (tag-release, prepare, finalize)
+        description: Release mode (tag-release, prepare, finalize, github-only)
         default: tag-release
       release-branch:
         required: false
@@ -137,7 +137,7 @@ jobs:
           PROJECT_NAME: ${{ inputs.project-name }}
         run: |
           case "${MODE}" in
-            tag-release|prepare) ;;
+            tag-release|prepare|github-only) ;;
             finalize)
               if [[ -z "${RELEASE_TAG}" || -z "${PROJECT_NAME}" ]]; then
                 echo '::error::finalize requires release-tag and project-name.'
@@ -154,7 +154,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.validate.result == 'success'
-      && (inputs.mode == 'tag-release' || (inputs.mode == 'prepare'
+      && (inputs.mode == 'tag-release' || ((inputs.mode == 'prepare' || inputs.mode == 'github-only')
           && needs.prepare-plan.result == 'success'
           && needs.prepare-plan.outputs.release-tag != ''))
     runs-on: ${{ inputs.runs-on }}
@@ -364,7 +364,7 @@ jobs:
           verbose: true
   prepare-plan:
     needs: validate
-    if: inputs.mode == 'prepare' && github.ref == format('refs/heads/{0}', inputs.release-branch)
+    if: (inputs.mode == 'prepare' || inputs.mode == 'github-only') && github.ref == format('refs/heads/{0}', inputs.release-branch)
     runs-on: ${{ inputs.runs-on }}
     permissions:
       actions: read
@@ -559,8 +559,19 @@ jobs:
         run: |
           gh release upload "${RELEASE_TAG}" dist/* --repo "${GITHUB_REPOSITORY}" --clobber
   release-finalize:
-    needs: validate
-    if: inputs.mode == 'finalize'
+    needs:
+      - validate
+      - prepare-draft-release
+      - prepare-attach-assets
+      - python-release-build
+    if: >-
+      !cancelled()
+      && needs.validate.result == 'success'
+      && (inputs.mode == 'finalize'
+          || (inputs.mode == 'github-only'
+              && needs.prepare-draft-release.result == 'success'
+              && needs.prepare-attach-assets.result == 'success'
+              && needs.python-release-build.result == 'success'))
     runs-on: ${{ inputs.runs-on }}
     permissions:
       contents: write
@@ -568,10 +579,10 @@ jobs:
       - name: Verify source, tag, and draft assets before publication
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release-tag }}
+          RELEASE_TAG: ${{ inputs.mode == 'github-only' && needs.prepare-draft-release.outputs.release-tag || inputs.release-tag }}
           RELEASE_BRANCH: ${{ inputs.release-branch }}
           SOURCE_SHA: ${{ github.sha }}
-          PROJECT_NAME: ${{ inputs.project-name }}
+          PROJECT_NAME: ${{ inputs.mode == 'github-only' && needs.python-release-build.outputs.project-name || inputs.project-name }}
         run: |
           if [[ ! "${RELEASE_TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "::error::Invalid stable release tag: ${RELEASE_TAG}."
