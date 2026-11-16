@@ -139,16 +139,11 @@ jobs:
   build:
     needs: plan
     if: needs.plan.outputs.release-tag != ''
-    # Nested reusable workflow declares optional publish jobs requesting id-token:write,
-    # even when both publish options are disabled. The caller ceiling must permit them.
     permissions:
-      contents: write
-      id-token: write
-    uses: $/.github/workflows/python-package-release-on-pypi-and-github.yml
+      contents: read
+    uses: $/.github/workflows/python-package-build.yml
     with:
       package-path: ${{ inputs.package-path }}
-      create-github-release: false
-      publish-to-pypi: false
       runs-on: ${{ inputs.runs-on }}
   verify-source:
     needs:
