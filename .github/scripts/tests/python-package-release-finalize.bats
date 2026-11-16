@@ -1,22 +1,23 @@
 #!/usr/bin/env bats
 
 setup() {
-  export RELEASE_FINALIZE_WORKFLOW="${BATS_TEST_DIRNAME}/../../workflows/python-package-release-finalize.yml"
+  export RELEASE_FINALIZE_WORKFLOW="${BATS_TEST_DIRNAME}/../../workflows/python-package-release-on-pypi-and-github.yml"
 }
 
 @test 'Python release finalization is a callable, least-privilege workflow' {
   [ "$(yq -r '.on.workflow_call.inputs."release-tag".required' "${RELEASE_FINALIZE_WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."release-branch".default' "${RELEASE_FINALIZE_WORKFLOW}")" = main ]
   [ "$(yq -r '.permissions.contents' "${RELEASE_FINALIZE_WORKFLOW}")" = read ]
-  [ "$(yq -r '.jobs.finalize.permissions.contents' "${RELEASE_FINALIZE_WORKFLOW}")" = write ]
-  [ "$(yq -r '.jobs.finalize.if' "${RELEASE_FINALIZE_WORKFLOW}")" = "inputs.release-tag != ''" ]
+  [ "$(yq -r '.jobs."release-finalize".permissions.contents' "${RELEASE_FINALIZE_WORKFLOW}")" = write ]
+  [ "$(yq -r '.jobs."release-finalize".if' "${RELEASE_FINALIZE_WORKFLOW}")" = "inputs.mode == 'finalize'" ]
+  [ "$(yq -r '.on.workflow_call.inputs.mode.default' "${RELEASE_FINALIZE_WORKFLOW}")" = legacy ]
 }
 
 run_finalize() {
   local script="${BATS_TEST_TMPDIR}/finalize.sh"
   local mock_bin="${BATS_TEST_TMPDIR}/bin"
   mkdir -p "${mock_bin}"
-  yq -r '.jobs.finalize.steps[0].run' "${RELEASE_FINALIZE_WORKFLOW}" > "${script}"
+  yq -r '.jobs."release-finalize".steps[0].run' "${RELEASE_FINALIZE_WORKFLOW}" > "${script}"
   cat > "${mock_bin}/gh" << 'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "${GH_CALLS}"
@@ -28,8 +29,9 @@ case "$1 $2" in
     echo "${MOCK_TAG_SHA:-0123456789abcdef0123456789abcdef01234567}"
     ;;
   'release view')
-    printf '{"isDraft":%s,"assets":[{"name":"%s"},{"name":"pkg-1.2.3.tar.gz"}]}\n' \
-      "${MOCK_DRAFT:-true}" "${MOCK_WHEEL:-pkg-1.2.3-py3-none-any.whl}"
+    printf '{"isDraft":%s,"assets":[{"name":"%s"},{"name":"%s"}]}\n' \
+      "${MOCK_DRAFT:-true}" "${MOCK_WHEEL:-pkg-1.2.3-py3-none-any.whl}" \
+      "${MOCK_SDIST:-pkg-1.2.3.tar.gz}"
     ;;
   'release edit') ;;
   *)
@@ -45,7 +47,7 @@ MOCK
   run env PATH="${mock_bin}:${original_path}" \
     GITHUB_REF=refs/heads/main GITHUB_REPOSITORY=example/pkg \
     RELEASE_TAG=v1.2.3 RELEASE_BRANCH=main \
-    SOURCE_SHA=0123456789abcdef0123456789abcdef01234567 "$@" \
+    SOURCE_SHA=0123456789abcdef0123456789abcdef01234567 PROJECT_NAME=pkg "$@" \
     bash -euo pipefail "${script}"
 }
 
@@ -87,5 +89,25 @@ MOCK
   run_finalize GITHUB_REF=refs/heads/topic
   [ "${status}" -ne 0 ]
   [[ "${output}" == *'Release must run on main'* ]]
+  run ! grep -q 'release edit' "${GH_CALLS}"
+}
+@test 'refuses publication when the draft is missing an sdist' {
+  run_finalize MOCK_SDIST=missing.txt
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'matching wheel and source distribution'* ]]
+  run ! grep -q 'release edit' "${GH_CALLS}"
+}
+
+@test 'refuses stale distribution versions even when both extensions exist' {
+  run_finalize MOCK_WHEEL=pkg-1.2.2-py3-none-any.whl MOCK_SDIST=pkg-1.2.2.tar.gz
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'matching wheel and source distribution'* ]]
+  run ! grep -q 'release edit' "${GH_CALLS}"
+}
+
+@test 'refuses an invalid project name' {
+  run_finalize PROJECT_NAME=../other
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'Invalid project-name'* ]]
   run ! grep -q 'release edit' "${GH_CALLS}"
 }

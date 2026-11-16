@@ -65,9 +65,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [python-package-format-and-pr.yml](.github/workflows/python-package-format-and-pr.yml)                           | Formatting for Python                                             |
 | [python-package-lint-and-scan.yml](.github/workflows/python-package-lint-and-scan.yml)                           | Lint and security scan for Python                                 |
 | [python-package-mkdocs-gh-deploy.yml](.github/workflows/python-package-mkdocs-gh-deploy.yml)                     | Build and deployment of MkDocs documentation                      |
-| [python-package-release-finalize.yml](.github/workflows/python-package-release-finalize.yml)                     | Finalize a Python package release on GitHub                       |
 | [python-package-release-on-pypi-and-github.yml](.github/workflows/python-package-release-on-pypi-and-github.yml) | Python package release on PyPI and GitHub                         |
-| [python-package-release-prepare.yml](.github/workflows/python-package-release-prepare.yml)                       | Prepare a Python package release                                  |
 | [python-package-test.yml](.github/workflows/python-package-test.yml)                                             | Test for Python Package                                           |
 | [python-pyinstaller.yml](.github/workflows/python-pyinstaller.yml)                                               | Build using PyInstaller                                           |
 | [r-package-format-and-pr.yml](.github/workflows/r-package-format-and-pr.yml)                                     | Formatting for R                                                  |

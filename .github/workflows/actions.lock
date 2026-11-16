@@ -175,11 +175,6 @@ workflows:
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
         - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
         - 'peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453'
-    '.github/workflows/python-package-release-finalize.yml': []
-    '.github/workflows/python-package-release-prepare.yml':
-        - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
-        - 'sigstore/gh-action-sigstore-python@790bc6befb9d733738f18d8f895854b453640ec9'
     '.github/workflows/python-package-test.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
