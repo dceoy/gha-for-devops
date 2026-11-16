@@ -22,12 +22,12 @@ on:
         required: false
         type: string
         description: Prepared release tag required for finalize
-        default: ''
+        default: null
       project-name:
         required: false
         type: string
         description: Prepared project name required for finalize
-        default: ''
+        default: null
       package-path:
         required: false
         type: string

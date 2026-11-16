@@ -77,6 +77,15 @@ MOCK
   [[ "$(yq -r '.jobs."python-release-pypi".if' "${PREPARE_WORKFLOW}")" == *"inputs.mode == 'tag-release'"* ]]
 }
 
+@test 'consolidated release workflow inputs use null and action lock coverage is preserved' {
+  [ "$(yq -r '.on.workflow_call.inputs."release-tag".default | tag' "${PREPARE_WORKFLOW}")" = '!!null' ]
+  [ "$(yq -r '.on.workflow_call.inputs."project-name".default | tag' "${PREPARE_WORKFLOW}")" = '!!null' ]
+  local repo_root
+  repo_root="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
+  ! grep -Fq 'actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml' "${repo_root}/.github/workflows/ci.yml"
+  [ "$(yq -r '.workflows[".github/workflows/python-package-release-on-pypi-and-github.yml"] | length' "${repo_root}/.github/workflows/actions.lock")" = 7 ]
+}
+
 @test 'release plan accepts only a successful push CI and increasing pyproject version' {
   make_fixture
   run bash -euo pipefail "${PLAN_SCRIPT}"
