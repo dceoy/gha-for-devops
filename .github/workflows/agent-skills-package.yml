@@ -12,7 +12,7 @@ on:
         required: false
         type: string
         description: GitHub Release tag to attach skill archives to (defaults to release event tag)
-        default: ''
+        default: null
       artifact-name:
         required: false
         type: string

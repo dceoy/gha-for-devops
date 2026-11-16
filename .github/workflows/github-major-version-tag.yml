@@ -10,7 +10,7 @@ on:
         required: false
         type: string
         description: Published release tag to synchronize; defaults to the latest release
-        default: ''
+        default: null
       minor-version-tag:
         required: false
         type: boolean
@@ -31,7 +31,7 @@ on:
         required: false
         type: string
         description: Published release tag to synchronize; defaults to the latest release
-        default: ''
+        default: null
       minor-version-tag:
         required: false
         type: boolean

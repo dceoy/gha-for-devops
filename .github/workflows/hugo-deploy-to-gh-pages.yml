@@ -29,7 +29,7 @@ on:
         required: false
         type: string
         description: Base URL for the deployed Hugo site
-        default: ''
+        default: null
       destination-dir:
         required: false
         type: string

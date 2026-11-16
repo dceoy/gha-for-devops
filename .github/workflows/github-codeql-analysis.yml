@@ -23,7 +23,7 @@ on:
         required: false
         type: string
         description: Optional CodeQL config file relative to the caller repository
-        default: ''
+        default: null
       runs-on:
         required: false
         type: string
