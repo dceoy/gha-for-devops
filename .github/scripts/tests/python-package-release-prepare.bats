@@ -1,13 +1,13 @@
 #!/usr/bin/env bats
 
 setup() {
-  export PREPARE_WORKFLOW="${BATS_TEST_DIRNAME}/../../workflows/python-package-release-prepare.yml"
+  export PREPARE_WORKFLOW="${BATS_TEST_DIRNAME}/../../workflows/python-package-release-on-pypi-and-github.yml"
   export PLAN_SCRIPT="${BATS_TEST_TMPDIR}/plan.sh"
   export ASSETS_SCRIPT="${BATS_TEST_TMPDIR}/assets.sh"
   export VERIFY_SCRIPT="${BATS_TEST_TMPDIR}/verify.sh"
-  yq -r '.jobs.plan.steps[] | select(.id == "plan") | .run' "${PREPARE_WORKFLOW}" > "${PLAN_SCRIPT}"
-  yq -r '.jobs."verify-source".steps[] | select(.id == "verify") | .run' "${PREPARE_WORKFLOW}" > "${VERIFY_SCRIPT}"
-  yq -r '.jobs."attach-assets".steps[] | select(.name == "Check distribution names and version") | .run' "${PREPARE_WORKFLOW}" > "${ASSETS_SCRIPT}"
+  yq -r '.jobs."prepare-plan".steps[] | select(.id == "plan") | .run' "${PREPARE_WORKFLOW}" > "${PLAN_SCRIPT}"
+  yq -r '.jobs."prepare-verify-source".steps[] | select(.id == "verify") | .run' "${PREPARE_WORKFLOW}" > "${VERIFY_SCRIPT}"
+  yq -r '.jobs."prepare-attach-assets".steps[] | select(.name == "Check distribution names and version") | .run' "${PREPARE_WORKFLOW}" > "${ASSETS_SCRIPT}"
 }
 
 make_fixture() {
@@ -66,15 +66,24 @@ MOCK
   : > "${GITHUB_OUTPUT}"
 }
 
-@test 'reusable workflow exposes prepared artifacts and keeps trusted PyPI publishing outside' {
-  [[ "$(yq -r '.on.workflow_call.outputs."release-tag".value' "${PREPARE_WORKFLOW}")" == *'jobs.draft-release.outputs.release-tag'* ]]
-  [ "$(yq -r '.jobs.build.uses' "${PREPARE_WORKFLOW}")" = '$/.github/workflows/python-package-release-on-pypi-and-github.yml' ]
-  [ "$(yq -r '.jobs.build.with."publish-to-pypi"' "${PREPARE_WORKFLOW}")" = false ]
-  [ "$(yq -r '.jobs.build.with."create-github-release"' "${PREPARE_WORKFLOW}")" = false ]
-  [ "$(yq -r '.jobs."draft-release".with.draft' "${PREPARE_WORKFLOW}")" = true ]
-  [ "$(yq -r '.jobs."draft-release".with."source-branch"' "${PREPARE_WORKFLOW}")" = "\${{ inputs.release-branch }}" ]
-  [ "$(yq -r '.jobs."attach-assets".permissions."id-token"' "${PREPARE_WORKFLOW}")" = write ]
-  [ "$(yq -r '.jobs | has("publish-to-pypi")' "${PREPARE_WORKFLOW}")" = false ]
+@test 'unified workflow exposes prepare outputs and tag-release default' {
+  [ "$(yq -r '.on.workflow_call.inputs.mode.default' "${PREPARE_WORKFLOW}")" = tag-release ]
+  [[ "$(yq -r '.on.workflow_call.outputs."release-tag".value' "${PREPARE_WORKFLOW}")" == *'jobs.prepare-draft-release.outputs.release-tag'* ]]
+  [[ "$(yq -r '.jobs."python-release-build".if' "${PREPARE_WORKFLOW}")" == *"inputs.mode == 'prepare'"* ]]
+  [ "$(yq -r '.jobs."prepare-draft-release".with.draft' "${PREPARE_WORKFLOW}")" = true ]
+  [ "$(yq -r '.jobs."prepare-draft-release".with."source-branch"' "${PREPARE_WORKFLOW}")" = "\${{ inputs.release-branch }}" ]
+  [ "$(yq -r '.jobs."prepare-attach-assets".permissions."id-token"' "${PREPARE_WORKFLOW}")" = write ]
+  [ "$(yq -r '.jobs."prepare-plan".permissions.actions' "${PREPARE_WORKFLOW}")" = read ]
+  [[ "$(yq -r '.jobs."python-release-pypi".if' "${PREPARE_WORKFLOW}")" == *"inputs.mode == 'tag-release'"* ]]
+}
+
+@test 'consolidated release workflow inputs use null and action lock coverage is preserved' {
+  [ "$(yq -r '.on.workflow_call.inputs."release-tag".default | tag' "${PREPARE_WORKFLOW}")" = '!!null' ]
+  [ "$(yq -r '.on.workflow_call.inputs."project-name".default | tag' "${PREPARE_WORKFLOW}")" = '!!null' ]
+  local repo_root
+  repo_root="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
+  run ! grep -Fq 'actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml' "${repo_root}/.github/workflows/ci.yml"
+  [ "$(yq -r '.workflows[".github/workflows/python-package-release-on-pypi-and-github.yml"] | length' "${repo_root}/.github/workflows/actions.lock")" = 7 ]
 }
 
 @test 'release plan accepts only a successful push CI and increasing pyproject version' {
