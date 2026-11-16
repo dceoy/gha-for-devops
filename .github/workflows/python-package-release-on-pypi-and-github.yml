@@ -506,7 +506,7 @@ jobs:
     if: needs.prepare-verify-source.outputs.current == 'true'
     permissions:
       contents: write
-    uses: ./.github/workflows/github-release.yml
+    uses: $/.github/workflows/github-release.yml
     with:
       tag-name: ${{ needs.prepare-plan.outputs.release-tag }}
       create-new-tag: true
