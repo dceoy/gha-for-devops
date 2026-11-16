@@ -62,6 +62,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [markdown-format-and-pr.yml](.github/workflows/markdown-format-and-pr.yml)                                       | Formatting for Markdown                                           |
 | [markdown-lint.yml](.github/workflows/markdown-lint.yml)                                                         | Lint for Markdown                                                 |
 | [mise-lock-update.yml](.github/workflows/mise-lock-update.yml)                                                   | Update mise.lock and create a pull request                        |
+| [python-package-build.yml](.github/workflows/python-package-build.yml)                                           | Build Python package distributions                                |
 | [python-package-format-and-pr.yml](.github/workflows/python-package-format-and-pr.yml)                           | Formatting for Python                                             |
 | [python-package-lint-and-scan.yml](.github/workflows/python-package-lint-and-scan.yml)                           | Lint and security scan for Python                                 |
 | [python-package-mkdocs-gh-deploy.yml](.github/workflows/python-package-mkdocs-gh-deploy.yml)                     | Build and deployment of MkDocs documentation                      |
@@ -91,6 +92,14 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [web-api-monitoring-with-slack.yml](.github/workflows/web-api-monitoring-with-slack.yml)                         | Synthetic web API monitoring with Slack notification              |
 | [web-dast-scan.yml](.github/workflows/web-dast-scan.yml)                                                         | Web DAST scan                                                     |
 | [yaml-lint.yml](.github/workflows/yaml-lint.yml)                                                                 | Lint for YAML                                                     |
+
+### Python package responsibilities
+
+`python-package-format-and-pr.yml`, `python-package-lint-and-scan.yml`, `python-package-test.yml`, `python-package-mkdocs-gh-deploy.yml`, and `python-pyinstaller.yml` independently handle formatting, validation, tests, documentation, and executable packaging.
+
+Use `python-package-build.yml` for a read-only wheel/sdist build and artifact upload. `python-package-release-prepare.yml` adds release-branch, CI, and version checks before creating a signed draft release. `python-package-release-on-pypi-and-github.yml` remains a backward-compatible tag-driven release orchestrator and reuses the build workflow.
+
+For GitHub-hosted PyPI Trusted Publishing, keep the OIDC publication job in the package repository. The separate GitHub Release finalizer is tracked in [#1206](https://github.com/dceoy/gha-for-devops/pull/1206).
 
 ## Security Workflows
 
