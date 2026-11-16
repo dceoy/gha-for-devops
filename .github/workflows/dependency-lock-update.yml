@@ -61,7 +61,6 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     env:
       MISE_SAFE: '1'
-      MISE_GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -99,6 +98,8 @@ jobs:
           fi
       - name: Upgrade mise.lock
         working-directory: ${{ inputs.working-directory }}
+        env:
+          MISE_GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
         run: mise lock --bump
       - name: Set up Node.js for pnpm
         if: steps.targets.outputs.pnpm == 'true'

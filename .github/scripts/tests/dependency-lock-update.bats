@@ -28,6 +28,14 @@ setup() {
   [[ "${output}" == *'mise lock --bump'* ]]
   [[ "${output}" == *'pnpm up --latest --lockfile-only --no-save'* ]]
   [[ "${output}" == *'uv lock --upgrade'* ]]
+  [[ "${output}" != *'\${'* ]]
+  run yq -r '.jobs."dependency-lock-update".steps[] | select(.run != null and (.run | test("pnpm up|uv lock"))) | .if' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"steps.targets.outputs.pnpm == 'true'"* ]]
+  [[ "${output}" == *"steps.targets.outputs.uv == 'true'"* ]]
+  run yq -r '.jobs."dependency-lock-update".env.MISE_GITHUB_TOKEN // "unset"' "${workflow}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = 'unset' ]
   run yq -r '.jobs."dependency-lock-update".steps[] | select(.uses != null and (.uses | test("peter-evans/create-pull-request@"))) | .with.branch' "${workflow}"
   [ "${status}" -eq 0 ]
   [ -n "${output}" ]
