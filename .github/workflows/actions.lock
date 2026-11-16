@@ -357,6 +357,11 @@ dependencies:
         commit: 'sha1-6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
         owner_id: 44036562
         repo_id: 192625525
+    'actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405':
+        ref: 'v6.2.0'
+        commit: 'sha1-a309ff8b426b58ec0e2a45f0f869d46889d02405'
+        owner_id: 44036562
+        repo_id: 192625525
     'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a':
         ref: 'v7.0.1'
         commit: 'sha1-043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
@@ -549,6 +554,13 @@ dependencies:
         commit: 'sha1-fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e'
         owner_id: 21320719
         repo_id: 1235693694
+    'pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086':
+        ref: 'v1.14.3'
+        commit: 'sha1-7245906fb61fa33a13554f9d5fb856fe61758086'
+        owner_id: 647025
+        repo_id: 178055147
+        uses:
+            - 'actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405'
     'quarto-dev/quarto-actions@8a96df13519ee81fd526f2dfca5962811136661b':
         ref: 'v2.2.0'
         commit: 'sha1-8a96df13519ee81fd526f2dfca5962811136661b'
