@@ -68,9 +68,9 @@ MOCK
 
 @test 'reusable workflow exposes prepared artifacts and keeps trusted PyPI publishing outside' {
   [[ "$(yq -r '.on.workflow_call.outputs."release-tag".value' "${PREPARE_WORKFLOW}")" == *'jobs.draft-release.outputs.release-tag'* ]]
-  [ "$(yq -r '.jobs.build.uses' "${PREPARE_WORKFLOW}")" = '$/.github/workflows/python-package-release-on-pypi-and-github.yml' ]
-  [ "$(yq -r '.jobs.build.with."publish-to-pypi"' "${PREPARE_WORKFLOW}")" = false ]
-  [ "$(yq -r '.jobs.build.with."create-github-release"' "${PREPARE_WORKFLOW}")" = false ]
+  [ "$(yq -r '.jobs.build.uses' "${PREPARE_WORKFLOW}")" = '$/.github/workflows/python-package-build.yml' ]
+  [ "$(yq -r '.jobs.build.permissions.contents' "${PREPARE_WORKFLOW}")" = read ]
+  [ "$(yq -r '.jobs.build.permissions."id-token" // "none"' "${PREPARE_WORKFLOW}")" = none ]
   [ "$(yq -r '.jobs."draft-release".with.draft' "${PREPARE_WORKFLOW}")" = true ]
   [ "$(yq -r '.jobs."draft-release".with."source-branch"' "${PREPARE_WORKFLOW}")" = "\${{ inputs.release-branch }}" ]
   [ "$(yq -r '.jobs."attach-assets".permissions."id-token"' "${PREPARE_WORKFLOW}")" = write ]
