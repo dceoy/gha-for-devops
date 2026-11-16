@@ -82,7 +82,7 @@ MOCK
   [ "$(yq -r '.on.workflow_call.inputs."project-name".default | tag' "${PREPARE_WORKFLOW}")" = '!!null' ]
   local repo_root
   repo_root="$(cd "${BATS_TEST_DIRNAME}/../../.." && pwd)"
-  ! grep -Fq 'actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml' "${repo_root}/.github/workflows/ci.yml"
+  run ! grep -Fq 'actions-lock-exclude-workflows: .github/workflows/python-package-release-on-pypi-and-github.yml' "${repo_root}/.github/workflows/ci.yml"
   [ "$(yq -r '.workflows[".github/workflows/python-package-release-on-pypi-and-github.yml"] | length' "${repo_root}/.github/workflows/actions.lock")" = 7 ]
 }
 
