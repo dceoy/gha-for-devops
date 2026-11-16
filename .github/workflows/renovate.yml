@@ -73,7 +73,14 @@ jobs:
         with:
           renovate-version: ${{ inputs.renovate-version }}
           token: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] optional caller token
+          additional-env-list: |
+            GH_TELEMETRY
+            DO_NOT_TRACK
+            OTEL_SDK_DISABLED
         env:
+          GH_TELEMETRY: 'false'
+          DO_NOT_TRACK: '1'
+          OTEL_SDK_DISABLED: 'true'
           RENOVATE_PLATFORM: github
           RENOVATE_ENDPOINT: ${{ github.api_url }}
           RENOVATE_REPOSITORIES: ${{ github.repository }}
