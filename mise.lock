@@ -176,43 +176,50 @@ url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/6
 provenance = "github-attestations"
 
 [[tools.gomplate]]
-version = "5.3.0"
+version = "5.3.1"
 backend = "aqua:hairyhenderson/gomplate"
 
 [tools.gomplate."platforms.linux-arm64"]
-checksum = "sha256:dc551cd9d4b9eb194fc1f24d957fa93498ab7fc0ee85d5f933b54e4021349475"
-url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.0/gomplate_linux-arm64"
-url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/652124962"
+checksum = "sha256:d00242bd08eda5badcea34491b392437237722e7d7e00f8ed05686124a43f61b"
+checksum_source = "mise-versions"
+url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.1/gomplate_linux-arm64"
+url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/665811447"
 
 [tools.gomplate."platforms.linux-arm64-musl"]
-checksum = "sha256:dc551cd9d4b9eb194fc1f24d957fa93498ab7fc0ee85d5f933b54e4021349475"
-url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.0/gomplate_linux-arm64"
-url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/652124962"
+checksum = "sha256:d00242bd08eda5badcea34491b392437237722e7d7e00f8ed05686124a43f61b"
+checksum_source = "mise-versions"
+url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.1/gomplate_linux-arm64"
+url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/665811447"
 
 [tools.gomplate."platforms.linux-x64"]
-checksum = "sha256:4491839aa6b651cfdd3db724a2632fa91f42b9db10aa8247f90ba8d14d7739ed"
-url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.0/gomplate_linux-amd64"
-url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/652124745"
+checksum = "sha256:2a618bfb02a54dd3c76d92ae4375ccc1f33eeb0545d6565ea7c3388359cb93f8"
+checksum_source = "mise-versions"
+url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.1/gomplate_linux-amd64"
+url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/665811362"
 
 [tools.gomplate."platforms.linux-x64-musl"]
-checksum = "sha256:4491839aa6b651cfdd3db724a2632fa91f42b9db10aa8247f90ba8d14d7739ed"
-url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.0/gomplate_linux-amd64"
-url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/652124745"
+checksum = "sha256:2a618bfb02a54dd3c76d92ae4375ccc1f33eeb0545d6565ea7c3388359cb93f8"
+checksum_source = "mise-versions"
+url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.1/gomplate_linux-amd64"
+url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/665811362"
 
 [tools.gomplate."platforms.macos-arm64"]
-checksum = "sha256:c17afbcc42462392d69c09a0de817e45bda59e0a067b75b69a3fad1402c69d7f"
-url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.0/gomplate_darwin-arm64"
-url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/652124729"
+checksum = "sha256:5323cadb7db2c5b14e63e5d5196eaa0bb5d43a53d1fde7a69287f86949870720"
+checksum_source = "mise-versions"
+url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.1/gomplate_darwin-arm64"
+url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/665811273"
 
 [tools.gomplate."platforms.macos-x64"]
-checksum = "sha256:51eaf9949d612316afbf5612918b95af553668e5e476fc3bba8b556436da1532"
-url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.0/gomplate_darwin-amd64"
-url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/652124721"
+checksum = "sha256:d4696f43b04a28ecdd920ad3a90889f979fdade4c437278eac081bf9cbbd52b6"
+checksum_source = "mise-versions"
+url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.1/gomplate_darwin-amd64"
+url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/665811267"
 
 [tools.gomplate."platforms.windows-x64"]
-checksum = "sha256:49ab3cfecaf3e5c5953e8e7e02a16046994f2c40251867455b9cc87c87f23644"
-url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.0/gomplate_windows-amd64.exe"
-url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/652125265"
+checksum = "sha256:120e463152680fb26da7f59fa883f26298abd44ba754b3934c26d4cd8ae9ee7a"
+checksum_source = "mise-versions"
+url = "https://github.com/hairyhenderson/gomplate/releases/download/v5.3.1/gomplate_windows-amd64.exe"
+url_api = "https://api.github.com/repos/hairyhenderson/gomplate/releases/assets/665811671"
 
 [[tools.grype]]
 version = "0.120.1"
