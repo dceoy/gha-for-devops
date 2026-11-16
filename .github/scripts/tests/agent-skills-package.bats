@@ -159,12 +159,12 @@ run_packaging() {
   [[ "${output}" == *"artifact-name must contain"* ]]
 }
 
-@test "release tag defaults to empty and checkout follows the requested release" {
+@test "release tag defaults to null and checkout follows the requested release" {
   local attach_condition
   local release_tag_env
 
   [ "$(yq -r '.on.workflow_call.inputs."release-tag".type' "${WORKFLOW}")" = 'string' ]
-  [ "$(yq -r '.on.workflow_call.inputs."release-tag".default' "${WORKFLOW}")" = '' ]
+  [ "$(yq -r '.on.workflow_call.inputs."release-tag".default' "${WORKFLOW}")" = 'null' ]
   attach_condition="$(yq -r '.jobs."agent-skills-release".if' "${WORKFLOW}")"
   [ "${attach_condition}" = "github.event_name == 'release' || inputs.release-tag != ''" ]
   release_tag_env="$(yq -r '.jobs."agent-skills-release".steps[] | select(.name == "Attach skill to the release") | .env.RELEASE_TAG' "${WORKFLOW}")"
