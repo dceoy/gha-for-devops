@@ -5,7 +5,7 @@ setup() {
 }
 
 @test 'Python release finalization is a callable, least-privilege workflow' {
-  [ "$(yq -r '.on.workflow_call.inputs."release-tag".required' "${RELEASE_FINALIZE_WORKFLOW}")" = true ]
+  [ "$(yq -r '.on.workflow_call.inputs."release-tag".required' "${RELEASE_FINALIZE_WORKFLOW}")" = false ]
   [ "$(yq -r '.on.workflow_call.inputs."release-branch".default' "${RELEASE_FINALIZE_WORKFLOW}")" = main ]
   [ "$(yq -r '.permissions.contents' "${RELEASE_FINALIZE_WORKFLOW}")" = read ]
   [ "$(yq -r '.jobs."release-finalize".permissions.contents' "${RELEASE_FINALIZE_WORKFLOW}")" = write ]
