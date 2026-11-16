@@ -28,7 +28,7 @@ setup() {
 
 @test "Python package release checks the same invalid paths" {
   local script project path
-  script="$(yq -r '.jobs."python-release-build".steps[] | select(.id == "read-project-name") | .run' "${WORKFLOWS}/python-package-release-on-pypi-and-github.yml")"
+  script="$(yq -r '.jobs."python-package-build".steps[] | select(.id == "read-project-name") | .run' "${WORKFLOWS}/python-package-build.yml")"
   project="${BATS_TEST_TMPDIR}/project"
   mkdir -p "${project}"
   printf '[project]\nname = "sample"\n' > "${project}/pyproject.toml"
