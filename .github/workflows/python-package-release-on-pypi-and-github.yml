@@ -6,8 +6,8 @@ on:
       mode:
         required: false
         type: string
-        description: Release mode (legacy, prepare, finalize)
-        default: legacy
+        description: Release mode (tag-release, prepare, finalize)
+        default: tag-release
       release-branch:
         required: false
         type: string
@@ -137,7 +137,7 @@ jobs:
           PROJECT_NAME: ${{ inputs.project-name }}
         run: |
           case "${MODE}" in
-            legacy|prepare) ;;
+            tag-release|prepare) ;;
             finalize)
               if [[ -z "${RELEASE_TAG}" || -z "${PROJECT_NAME}" ]]; then
                 echo '::error::finalize requires release-tag and project-name.'
@@ -154,7 +154,7 @@ jobs:
     if: >-
       !cancelled()
       && needs.validate.result == 'success'
-      && (inputs.mode == 'legacy' || (inputs.mode == 'prepare'
+      && (inputs.mode == 'tag-release' || (inputs.mode == 'prepare'
           && needs.prepare-plan.result == 'success'
           && needs.prepare-plan.outputs.release-tag != ''))
     runs-on: ${{ inputs.runs-on }}
@@ -226,7 +226,7 @@ jobs:
   python-release-testpypi:
     name: Publish the Python 🐍 distribution 📦 to TestPyPI
     if: >
-      inputs.mode == 'legacy'
+      inputs.mode == 'tag-release'
       && startsWith(github.ref, 'refs/tags/')
       && inputs.publish-to-pypi
       && inputs.publish-to-testpypi-before-pypi
@@ -266,7 +266,7 @@ jobs:
   python-release-github:
     name: Sign the Python 🐍 distribution 📦 with Sigstore and upload them to GitHub Release
     if: >
-      inputs.mode == 'legacy'
+      inputs.mode == 'tag-release'
       && startsWith(github.ref, 'refs/tags/')
       && inputs.create-github-release
       && (! (failure() || cancelled()))
@@ -331,7 +331,7 @@ jobs:
     name: Publish the Python 🐍 distribution 📦 to PyPI
     if: >-
       !cancelled()
-      && inputs.mode == 'legacy'
+      && inputs.mode == 'tag-release'
       && startsWith(github.ref, 'refs/tags/')
       && inputs.publish-to-pypi
       && needs.python-release-build.result == 'success'

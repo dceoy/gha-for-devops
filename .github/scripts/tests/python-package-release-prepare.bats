@@ -66,15 +66,15 @@ MOCK
   : > "${GITHUB_OUTPUT}"
 }
 
-@test 'unified workflow exposes prepare outputs and legacy default' {
-  [ "$(yq -r '.on.workflow_call.inputs.mode.default' "${PREPARE_WORKFLOW}")" = legacy ]
+@test 'unified workflow exposes prepare outputs and tag-release default' {
+  [ "$(yq -r '.on.workflow_call.inputs.mode.default' "${PREPARE_WORKFLOW}")" = tag-release ]
   [[ "$(yq -r '.on.workflow_call.outputs."release-tag".value' "${PREPARE_WORKFLOW}")" == *'jobs.prepare-draft-release.outputs.release-tag'* ]]
   [[ "$(yq -r '.jobs."python-release-build".if' "${PREPARE_WORKFLOW}")" == *"inputs.mode == 'prepare'"* ]]
   [ "$(yq -r '.jobs."prepare-draft-release".with.draft' "${PREPARE_WORKFLOW}")" = true ]
   [ "$(yq -r '.jobs."prepare-draft-release".with."source-branch"' "${PREPARE_WORKFLOW}")" = "\${{ inputs.release-branch }}" ]
   [ "$(yq -r '.jobs."prepare-attach-assets".permissions."id-token"' "${PREPARE_WORKFLOW}")" = write ]
   [ "$(yq -r '.jobs."prepare-plan".permissions.actions' "${PREPARE_WORKFLOW}")" = read ]
-  [[ "$(yq -r '.jobs."python-release-pypi".if' "${PREPARE_WORKFLOW}")" == *"inputs.mode == 'legacy'"* ]]
+  [[ "$(yq -r '.jobs."python-release-pypi".if' "${PREPARE_WORKFLOW}")" == *"inputs.mode == 'tag-release'"* ]]
 }
 
 @test 'release plan accepts only a successful push CI and increasing pyproject version' {
