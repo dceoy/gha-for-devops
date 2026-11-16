@@ -6,6 +6,11 @@ on:
   #     - released
   workflow_call:
     inputs:
+      tag-name:
+        required: false
+        type: string
+        description: Published release tag to synchronize; defaults to the latest release
+        default: ''
       minor-version-tag:
         required: false
         type: boolean
@@ -22,6 +27,11 @@ on:
         description: GitHub token
   workflow_dispatch:  # checkov:skip=CKV_GHA_7:workflow_dispatch is used for manual trigger
     inputs:
+      tag-name:
+        required: false
+        type: string
+        description: Published release tag to synchronize; defaults to the latest release
+        default: ''
       minor-version-tag:
         required: false
         type: boolean
@@ -47,15 +57,20 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
       REPO_API: repos/${{ github.repository }}
     steps:
-      - name: Fetch the latest release tag
+      - name: Fetch and verify the release tag
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
+          REQUESTED_TAG: ${{ inputs.tag-name }}
         run: |
-          LATEST_TAG="$(
+          latest_tag="$(
             gh release list --repo "${GITHUB_REPOSITORY}" --json tagName,isLatest \
               --jq '.[] | select(.isLatest) | .tagName'
           )"
-          tee -a "${GITHUB_ENV}" <<< "LATEST_TAG=${LATEST_TAG}"
+          if [[ -n "${REQUESTED_TAG}" && "${REQUESTED_TAG}" != "${latest_tag}" ]]; then
+            echo "::error::Refusing to move floating version tags to non-latest release ${REQUESTED_TAG} (latest: ${latest_tag})."
+            exit 1
+          fi
+          tee -a "${GITHUB_ENV}" <<< "LATEST_TAG=${REQUESTED_TAG:-${latest_tag}}"
       - name: Parse the major and minor version tags
         run: |
           if [[ -z "${LATEST_TAG:-}" ]]; then

@@ -1,0 +1,253 @@
+---
+name: Prepare a Python package release
+on:
+  workflow_call:
+    inputs:
+      package-path:
+        type: string
+        required: false
+        description: Repository-relative directory containing pyproject.toml
+        default: .
+      release-branch:
+        type: string
+        required: false
+        description: Branch whose successful push CI must be released
+        default: main
+      ci-workflow:
+        type: string
+        required: false
+        description: Workflow file that must have a successful push run for the source commit
+        default: ci.yml
+      runs-on:
+        type: string
+        required: false
+        description: Runner used for planning, checking, and attaching release assets
+        default: ubuntu-latest
+    outputs:
+      release-tag:
+        description: Draft release tag; empty when no release is needed
+        value: ${{ jobs.draft-release.outputs.release-tag }}
+      project-name:
+        description: Name from pyproject.toml
+        value: ${{ jobs.build.outputs.project-name }}
+      distribution-artifact-name:
+        description: Artifact containing the built wheel and sdist
+        value: ${{ jobs.build.outputs.distribution-artifact-name }}
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+env:
+  GH_TELEMETRY: 'false'
+jobs:
+  plan:
+    if: github.ref == format('refs/heads/{0}', inputs.release-branch)
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      release-tag: ${{ steps.plan.outputs.tag }}
+      source-sha: ${{ steps.plan.outputs.source-sha }}
+    steps:
+      - name: Checkout the workflow commit and tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Plan release from project.version
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.sha }}
+          PACKAGE_PATH: ${{ inputs.package-path }}
+          RELEASE_BRANCH: ${{ inputs.release-branch }}
+          CI_WORKFLOW: ${{ inputs.ci-workflow }}
+        run: |
+          if [[ "$(git rev-parse HEAD)" != "${SOURCE_SHA}" || "${GITHUB_SHA}" != "${SOURCE_SHA}" ]]; then
+            echo '::notice::Workflow SHA differs from the validated source; skipping.'
+            exit 0
+          fi
+          branch_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${RELEASE_BRANCH}" --jq '.object.sha')"
+          if [[ "${branch_sha}" != "${SOURCE_SHA}" ]]; then
+            echo '::notice::Release branch advanced since validation; skipping stale release.'
+            exit 0
+          fi
+          ci_runs="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow "${CI_WORKFLOW}" --commit "${SOURCE_SHA}" --event push --branch "${RELEASE_BRANCH}" --status success --json databaseId --jq 'length')"
+          if [[ "${ci_runs}" == 0 ]]; then
+            echo "::error::No successful ${CI_WORKFLOW} push run found for ${SOURCE_SHA}."
+            exit 1
+          fi
+          version="$(python3 - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path, PurePosixPath, PureWindowsPath
+
+          package_path = os.environ["PACKAGE_PATH"]
+          path = PurePosixPath(package_path)
+          if (path.is_absolute() or PureWindowsPath(package_path).drive
+                  or ".." in path.parts or "\\" in package_path
+                  or any(char in package_path for char in "*?[]{}!()+@|")):
+              raise SystemExit("Invalid package-path: expected a relative directory")
+          with (Path(package_path) / "pyproject.toml").open("rb") as handle:
+              version = tomllib.load(handle)["project"]["version"]
+          if not isinstance(version, str) or not re.fullmatch(
+                  r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version
+          ):
+              raise SystemExit("project.version must be MAJOR.MINOR.PATCH")
+          print(version)
+          PY
+          )"
+          tag="v${version}"
+          if git rev-parse --verify -q "refs/tags/${tag}^{commit}" > /dev/null; then
+            tagged_sha="$(git rev-parse "refs/tags/${tag}^{commit}")"
+            if [[ "${tagged_sha}" != "${SOURCE_SHA}" ]]; then
+              echo "::error::${tag} already points to another commit."
+              exit 1
+            fi
+            if is_draft="$(gh release view "${tag}" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
+              if [[ "${is_draft}" == false ]]; then
+                echo "::notice::${tag} is already published; skipping."
+                exit 0
+              fi
+            fi
+          fi
+          latest="$(gh release list --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
+          if [[ -n "${latest}" ]]; then
+            if [[ ! "${latest}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Latest release tag is not stable SemVer: ${latest}"
+              exit 1
+            fi
+            if ! python3 - "${version}" "${latest#v}" <<'PY'
+          import sys
+          current, previous = (tuple(map(int, value.split("."))) for value in sys.argv[1:])
+          sys.exit(0 if current > previous else 1)
+          PY
+            then
+              echo "::error::project.version must exceed the latest release (${latest})."
+              exit 1
+            fi
+          fi
+          {
+            echo "tag=${tag}"
+            echo "source-sha=${SOURCE_SHA}"
+          } >> "${GITHUB_OUTPUT}"
+  build:
+    needs: plan
+    if: needs.plan.outputs.release-tag != ''
+    # Nested reusable workflow declares optional publish jobs requesting id-token:write,
+    # even when both publish options are disabled. The caller ceiling must permit them.
+    permissions:
+      contents: write
+      id-token: write
+    uses: $/.github/workflows/python-package-release-on-pypi-and-github.yml
+    with:
+      package-path: ${{ inputs.package-path }}
+      create-github-release: false
+      publish-to-pypi: false
+      runs-on: ${{ inputs.runs-on }}
+  verify-source:
+    needs:
+      - plan
+      - build
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: read
+    outputs:
+      current: ${{ steps.verify.outputs.current }}
+    steps:
+      - name: Verify release branch and Git tag still match validated source
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source-sha }}
+          RELEASE_TAG: ${{ needs.plan.outputs.release-tag }}
+          RELEASE_BRANCH: ${{ inputs.release-branch }}
+        run: |
+          if [[ -z "${SOURCE_SHA}" || ! "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ || ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo '::error::Missing validated source SHA or release tag.'
+            exit 1
+          fi
+          branch_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${RELEASE_BRANCH}" --jq '.object.sha')"
+          if [[ "${branch_sha}" != "${SOURCE_SHA}" ]]; then
+            echo '::notice::Release branch advanced during the build; skipping stale release.'
+            echo 'current=false' >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          tag_ref="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${RELEASE_TAG}" --jq '.[] | select(.ref == "refs/tags/'"${RELEASE_TAG}"'") | [.object.type, .object.sha] | @tsv')"
+          if [[ -n "${tag_ref}" ]]; then
+            read -r object_type tag_sha <<< "${tag_ref}"
+            for ((depth=0; depth<8; depth++)); do
+              [[ "${object_type}" == tag ]] || break
+              read -r object_type tag_sha < <(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_sha}" --jq '[.object.type, .object.sha] | @tsv')
+            done
+            if [[ "${object_type}" != commit || "${tag_sha}" != "${SOURCE_SHA}" ]]; then
+              echo "::error::${RELEASE_TAG} does not resolve to the validated source ${SOURCE_SHA}."
+              exit 1
+            fi
+          fi
+          echo 'current=true' >> "${GITHUB_OUTPUT}"
+  draft-release:
+    needs:
+      - plan
+      - build
+      - verify-source
+    if: needs.verify-source.outputs.current == 'true'
+    permissions:
+      contents: write
+    uses: $/.github/workflows/github-release.yml
+    with:
+      tag-name: ${{ needs.plan.outputs.release-tag }}
+      create-new-tag: true
+      source-branch: ${{ inputs.release-branch }}
+      draft: true
+      runs-on: ${{ inputs.runs-on }}
+  attach-assets:
+    needs:
+      - build
+      - draft-release
+    runs-on: ${{ inputs.runs-on }}
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: ${{ needs.build.outputs.distribution-artifact-name }}
+          path: dist/
+      - name: Check distribution names and version
+        env:
+          RELEASE_TAG: ${{ needs.draft-release.outputs.release-tag }}
+          PROJECT_NAME: ${{ needs.build.outputs.project-name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          name = re.sub(r"[-_.]+", "_", os.environ["PROJECT_NAME"]).lower()
+          if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag) or not name:
+              raise SystemExit("Invalid project or release version")
+          version = tag[1:]
+          dist = Path("dist")
+          if not (dist / f"{name}-{version}.tar.gz").is_file():
+              raise SystemExit(f"Missing source distribution for {name} {version}")
+          if not list(dist.glob(f"{name}-{version}-*.whl")):
+              raise SystemExit(f"Missing wheel for {name} {version}")
+          PY
+      - name: Sign wheels with Sigstore
+        uses: sigstore/gh-action-sigstore-python@790bc6befb9d733738f18d8f895854b453640ec9  # v3.5.0
+        with:
+          inputs: ./dist/*.whl
+      - name: Attach distributions and signatures
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.draft-release.outputs.release-tag }}
+        run: |
+          gh release upload "${RELEASE_TAG}" dist/* --repo "${GITHUB_REPOSITORY}" --clobber

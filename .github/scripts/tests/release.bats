@@ -190,9 +190,23 @@ run_release_publish() {
 printf '%s\n' "$*" >> "${GH_CALLS}"
 case "$1 $2" in
   'release view')
+    if [[ -n "${MOCK_EXISTING_RELEASE:-}" ]]; then
+      exit 0
+    fi
     exit 1
     ;;
-  'api repos/example/test/git/matching-refs/tags/v1.0.0' | 'api repos/example/test/git/refs' | 'release create') ;;
+  'api repos/example/test/git/ref/heads/main')
+    printf '%s\n' "${MOCK_BRANCH_SHA:-0123456789abcdef0123456789abcdef01234567}"
+    ;;
+  'api repos/example/test/git/matching-refs/tags/v1.0.0')
+    if [[ -n "${MOCK_EXISTING_TAG:-}" ]]; then
+      echo refs/tags/v1.0.0
+    fi
+    ;;
+  'api repos/example/test/commits/v1.0.0')
+    printf '%s\n' "${MOCK_TAG_SHA:-0123456789abcdef0123456789abcdef01234567}"
+    ;;
+  'api repos/example/test/git/refs' | 'release create') ;;
   *)
     echo "Unexpected gh invocation: $*" >&2
     exit 99
@@ -208,7 +222,7 @@ MOCK
   base_path="$(printenv PATH)"
   run env PATH="${bin}:${base_path}" GITHUB_OUTPUT="${RELEASE_OUTPUT}" \
     GITHUB_REF=refs/heads/main GITHUB_REF_NAME=main GITHUB_REPOSITORY=example/test REPOSITORY=example/test \
-    TAG_NAME=v1.0.0 PLANNED_TAG='' PREVIOUS_TAG='' RELEASE_BUMP=auto CREATE_NEW_TAG=true \
+    TAG_NAME=v1.0.0 SOURCE_BRANCH='' PLANNED_TAG='' PREVIOUS_TAG='' RELEASE_BUMP=auto CREATE_NEW_TAG=true \
     RELEASE_SHA=0123456789abcdef0123456789abcdef01234567 "$@" \
     bash -euo pipefail "${publish_script}"
 }
@@ -226,5 +240,69 @@ MOCK
   [ "${status}" -eq 0 ]
   [ "$(grep -c 'git/' "${GH_CALLS}")" -eq 0 ]
   grep -Fxq 'release create v1.0.0 --repo example/test --generate-notes' "${GH_CALLS}"
+  grep -Fxq 'tag=v1.0.0' "${RELEASE_OUTPUT}"
+}
+
+@test 'explicit draft tag is created when the source branch tip still matches' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main
+  [ "${status}" -eq 0 ]
+  grep -Fxq 'api repos/example/test/git/ref/heads/main --jq .object.sha' "${GH_CALLS}"
+  grep -Fxq 'api repos/example/test/git/refs --method POST -f ref=refs/tags/v1.0.0 -f sha=0123456789abcdef0123456789abcdef01234567' "${GH_CALLS}"
+  grep -Fxq 'tag=v1.0.0' "${RELEASE_OUTPUT}"
+}
+
+@test 'explicit draft tag is refused when the source branch advanced' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_BRANCH_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'refusing to continue the release for a stale commit'* ]]
+  [ "$(grep -c 'git/refs' "${GH_CALLS}")" -eq 0 ]
+  [ "$(grep -c 'release create' "${GH_CALLS}")" -eq 0 ]
+  [ ! -s "${RELEASE_OUTPUT}" ]
+}
+
+@test 'existing explicit draft tag is refused when the source branch advanced' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_EXISTING_TAG=1 MOCK_BRANCH_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'refusing to continue the release for a stale commit'* ]]
+  [ "$(grep -c 'release create' "${GH_CALLS}")" -eq 0 ]
+  [ ! -s "${RELEASE_OUTPUT}" ]
+}
+
+@test 'existing explicit draft tag is reused when it matches and the source branch is current' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_EXISTING_TAG=1
+  [ "${status}" -eq 0 ]
+  [ "$(grep -c 'git/refs' "${GH_CALLS}")" -eq 0 ]
+  grep -Fxq 'release create v1.0.0 --repo example/test --generate-notes --draft --verify-tag' "${GH_CALLS}"
+  grep -Fxq 'tag=v1.0.0' "${RELEASE_OUTPUT}"
+}
+
+@test 'existing explicit draft tag is refused when it resolves to another commit' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_EXISTING_TAG=1 MOCK_TAG_SHA=cccccccccccccccccccccccccccccccccccccccc
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'refusing to continue the release for another commit'* ]]
+  [ "$(grep -c 'release create' "${GH_CALLS}")" -eq 0 ]
+  [ ! -s "${RELEASE_OUTPUT}" ]
+}
+
+@test 'existing draft release is refused when the source branch advanced' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_EXISTING_TAG=1 MOCK_EXISTING_RELEASE=1 MOCK_BRANCH_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'refusing to continue the release for a stale commit'* ]]
+  [ "$(grep -c 'release create' "${GH_CALLS}")" -eq 0 ]
+  [ ! -s "${RELEASE_OUTPUT}" ]
+}
+
+@test 'existing draft release is refused when its tag resolves to another commit' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_EXISTING_TAG=1 MOCK_EXISTING_RELEASE=1 MOCK_TAG_SHA=cccccccccccccccccccccccccccccccccccccccc
+  [ "${status}" -ne 0 ]
+  [[ "${output}" == *'refusing to continue the release for another commit'* ]]
+  [ ! -s "${RELEASE_OUTPUT}" ]
+}
+
+@test 'existing draft release is reused when the source branch and tag are current' {
+  run_release_publish RELEASE_DRAFT=true SOURCE_BRANCH=main MOCK_EXISTING_TAG=1 MOCK_EXISTING_RELEASE=1
+  [ "${status}" -eq 0 ]
+  [ "$(grep -c 'release create' "${GH_CALLS}")" -eq 0 ]
+  [ "$(grep -c 'git/refs' "${GH_CALLS}")" -eq 0 ]
   grep -Fxq 'tag=v1.0.0' "${RELEASE_OUTPUT}"
 }

@@ -1,0 +1,182 @@
+---
+name: Update GitHub Action release pins
+on:
+  workflow_call:
+    inputs:
+      release-tag:
+        description: Published stable SemVer release to pin (defaults to the release event or latest release)
+        type: string
+        required: false
+        default: ''
+      pr-loop-ref-input:
+        description: action.yml input whose default pins pr-loop
+        type: string
+        required: false
+        default: pr-loop-ref
+      update-reusable-workflow-docs:
+        description: Update two self-referencing workflow SHA pins in docs/reusable-workflows.md
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      GH_TOKEN:
+        required: false
+        description: Optional token for updating refs and creating the pull request
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+    working-directory: .
+jobs:
+  release-pins:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out default branch and tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve the published release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          INPUT_TAG: ${{ inputs.release-tag }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          tag="${INPUT_TAG:-${EVENT_TAG:-}}"
+          if [[ -z "${tag}" ]]; then
+            tag="$(gh release view --repo "${GITHUB_REPOSITORY}" --json tagName --jq '.tagName')"
+          fi
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Expected a stable SemVer release tag, got: ${tag}"
+            exit 1
+          fi
+          if [[ "$(gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq '.isDraft')" != false ]]; then
+            echo "::error::The release ${tag} has not been published."
+            exit 1
+          fi
+          latest="$(gh release list --repo "${GITHUB_REPOSITORY}" --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName')"
+          if [[ "${tag}" != "${latest}" ]]; then
+            echo "::notice::${tag} is not the latest release (${latest}); skipping stale pin updates."
+            exit 0
+          fi
+          sha="$(git rev-parse --verify "refs/tags/${tag}^{commit}")"
+          if [[ ! "${sha}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Cannot resolve release commit for ${tag}."
+            exit 1
+          fi
+          {
+            echo "tag=${tag}"
+            echo "sha=${sha}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Resolve upstream release pins
+        if: steps.release.outputs.tag != ''
+        id: upstream
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+        run: |
+          for repo in actions/checkout dceoy/pr-loop; do
+            tag="$(gh release view --repo "${repo}" --json tagName --jq '.tagName')"
+            if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Expected a stable release tag for ${repo}: ${tag}"
+              exit 1
+            fi
+            sha="$(gh api "repos/${repo}/commits/${tag}" --jq '.sha')"
+            if [[ ! "${sha}" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::Cannot resolve a release commit for ${repo}."
+              exit 1
+            fi
+            case "${repo}" in
+              actions/checkout)
+                echo "checkout-tag=${tag}"
+                echo "checkout-sha=${sha}"
+                ;;
+              dceoy/pr-loop)
+                echo "pr-loop-tag=${tag}"
+                echo "pr-loop-sha=${sha}"
+                ;;
+            esac
+          done >> "${GITHUB_OUTPUT}"
+      - name: Update pinned references
+        if: steps.release.outputs.tag != ''
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          CHECKOUT_TAG: ${{ steps.upstream.outputs.checkout-tag }}
+          CHECKOUT_SHA: ${{ steps.upstream.outputs.checkout-sha }}
+          PR_LOOP_TAG: ${{ steps.upstream.outputs.pr-loop-tag }}
+          PR_LOOP_SHA: ${{ steps.upstream.outputs.pr-loop-sha }}
+          PR_LOOP_REF_INPUT: ${{ inputs.pr-loop-ref-input }}
+          UPDATE_WORKFLOW_DOCS: ${{ inputs.update-reusable-workflow-docs }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          input_name = os.environ["PR_LOOP_REF_INPUT"]
+          if input_name not in {"pr-loop-ref", "pr-review-ref"}:
+              raise SystemExit(f"Unsupported pr-loop ref input: {input_name}")
+
+          def replace(path: str, pattern: str, replacement: str, expected: int) -> None:
+              file = Path(path)
+              original = file.read_text()
+              updated, count = re.subn(pattern, lambda _: replacement, original, flags=re.MULTILINE)
+              if count != expected:
+                  raise SystemExit(f"{path}: expected {expected} matches, got {count}")
+              if updated != original:
+                  file.write_text(updated)
+
+          def action_pattern(target: str) -> str:
+              return rf"(uses: {re.escape(target)}@)[0-9a-f]{{40}}(?:[ \t]+#[^\n]*)?"
+
+          release_tag = os.environ["RELEASE_TAG"]
+          replace("README.md", action_pattern(repo),
+                  rf"uses: {repo}@{os.environ['RELEASE_SHA']}  # {release_tag}", 1)
+          replace("README.md", action_pattern("actions/checkout"),
+                  f"uses: actions/checkout@{os.environ['CHECKOUT_SHA']}  # {os.environ['CHECKOUT_TAG']}", 1)
+          pattern = (rf"(?m)^(  {re.escape(input_name)}:\n    required: false\n"
+                     rf"    description: [^\n]+\n    default: )[0-9a-f]{{40}}"
+                     rf"  # v[0-9]+\.[0-9]+\.[0-9]+$")
+          file = Path("action.yml")
+          source = file.read_text()
+          updated, count = re.subn(
+              pattern, lambda m: f"{m[1]}{os.environ['PR_LOOP_SHA']}  # {os.environ['PR_LOOP_TAG']}",
+              source,
+          )
+          if count != 1:
+              raise SystemExit(f"action.yml: expected one {input_name} pin, got {count}")
+          if updated != source:
+              file.write_text(updated)
+
+          if os.environ["UPDATE_WORKFLOW_DOCS"] == "true":
+              pattern = (rf"(uses: {re.escape(repo)}/\.github/workflows/"
+                         rf"[A-Za-z0-9_-]+\.yml@)[0-9a-f]{{40}}(?:[ \t]+#[^\n]*)?")
+              file = Path("docs/reusable-workflows.md")
+              source = file.read_text()
+              updated, count = re.subn(
+                  pattern, lambda m: f"{m[1]}{os.environ['RELEASE_SHA']}  # {release_tag}", source
+              )
+              if count != 2:
+                  raise SystemExit(f"{file}: expected two self-referencing pins, got {count}")
+              if updated != source:
+                  file.write_text(updated)
+          PY
+      - name: Create release pins pull request
+        if: steps.release.outputs.tag != ''
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8.1.3
+        with:
+          token: ${{ secrets.GH_TOKEN || github.token }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
+          commit-message: Update release pins for ${{ steps.release.outputs.tag }}
+          title: Update release pins for ${{ steps.release.outputs.tag }}
+          branch: github-actions/release-pins
+          base: ${{ github.event.repository.default_branch }}
+          labels: agent:github-actions
+          body: Refresh action, checkout, pr-loop, and optional reusable workflow documentation pins for ${{ steps.release.outputs.tag }}.
+          delete-branch: true
