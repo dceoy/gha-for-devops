@@ -2,7 +2,11 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "minimumReleaseAge": "1 day",
-  "lockFileMaintenance": {"enabled": true},
+  "lockFileMaintenance": {
+    "enabled": true,
+    "groupName": "All dependency lockfiles",
+    "schedule": ["at any time"]
+  },
   "customManagers": [
     {
       "customType": "regex",
@@ -67,9 +71,19 @@
       "enabled": false
     },
     {
-      "description": "npm and uv dependencies are managed by Dependabot",
-      "matchFileNames": ["package.json", "pnpm-lock.yaml", "pyproject.toml", "uv.lock"],
+      "description": "Dependabot handles regular npm and uv dependency updates",
+      "matchManagers": ["npm", "pep621"],
+      "matchUpdateTypes": [
+        "major", "minor", "patch", "pin", "pinDigest", "digest",
+        "lockfileUpdate", "rollback", "bump", "replacement"
+      ],
       "enabled": false
+    },
+    {
+      "description": "Lockfile cooldown is enforced by mise, pnpm, and uv",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "minimumReleaseAge": null,
+      "automerge": false
     }
   ]
 }
