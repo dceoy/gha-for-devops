@@ -26,7 +26,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache for package-manager downloads
+        description: Whether to cache package-manager downloads
         default: true
       cache-dependency-path:
         required: false
@@ -36,7 +36,7 @@ on:
       audit:
         required: false
         type: boolean
-        description: Check of known security issues with the installed packages
+        description: Whether to check known security issues with the installed packages
         default: false
       runs-on:
         required: false

@@ -21,7 +21,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache for package-manager downloads (never project files or PR output)
+        description: Whether to cache package-manager downloads (never project files or PR output)
         default: true
       cache-dependency-path:
         required: false
@@ -31,7 +31,7 @@ on:
       use-biome:
         required: false
         type: boolean
-        description: Use of Biome to format and lint code
+        description: Whether to use Biome to format and lint code
         default: true
       biome-glob:
         required: false
@@ -41,12 +41,12 @@ on:
       use-oxlint:
         required: false
         type: boolean
-        description: Use of Oxlint to lint code
+        description: Whether to use Oxlint to lint code
         default: true
       use-oxfmt:
         required: false
         type: boolean
-        description: Use of Oxfmt to format code
+        description: Whether to use Oxfmt to format code
         default: false
       oxfmt-glob:
         required: false
@@ -56,7 +56,7 @@ on:
       lint-before-pr:
         required: false
         type: boolean
-        description: Pre-pull-request lint execution
+        description: Whether to run lint before creating a pull request
         default: true
       audit:
         required: false
