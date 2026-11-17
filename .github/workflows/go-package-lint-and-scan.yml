@@ -16,22 +16,22 @@ on:
       use-gosec:
         required: false
         type: boolean
-        description: Use gosec for security scanning
+        description: Use of gosec for security scanning
         default: true
       use-govulncheck:
         required: false
         type: boolean
-        description: Use govulncheck for vulnerability scanning
+        description: Use of govulncheck for vulnerability scanning
         default: true
       use-osv-scanner:
         required: false
         type: boolean
-        description: Scan dependencies using OSV-Scanner
+        description: Scan of dependencies using OSV-Scanner
         default: true
       use-trivy:
         required: false
         type: boolean
-        description: Scan dependencies, secrets, and misconfiguration using Trivy
+        description: Scan of dependencies, secrets, and misconfiguration using Trivy
         default: true
       trivy-report-artifact-name:
         required: false
@@ -45,7 +45,7 @@ on:
       use-semgrep:
         required: false
         type: boolean
-        description: Run Semgrep OSS SAST scan using p/default rules
+        description: Semgrep OSS SAST scan using p/default rules
         default: true
       runs-on:
         required: false

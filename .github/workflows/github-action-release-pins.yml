@@ -1,5 +1,5 @@
 ---
-name: Update GitHub Action release pins
+name: Update GitHub action release pins
 on:
   workflow_call:
     inputs:
@@ -14,7 +14,7 @@ on:
         required: false
         default: pr-loop-ref
       update-reusable-workflow-docs:
-        description: Update two self-referencing workflow SHA pins in docs/reusable-workflows.md
+        description: Update of two self-referencing workflow SHA pins in docs/reusable-workflows.md
         type: boolean
         required: false
         default: false

@@ -11,12 +11,12 @@ on:
       create-new-tag:
         required: false
         type: boolean
-        description: Create a new tag if the input tag does not exist
+        description: New tag creation when the input tag does not exist
         default: false
       draft:
         required: false
         type: boolean
-        description: Create a new release as a draft and create its tag first; publish or delete a leftover draft and tag before the next release
+        description: Draft release and tag creation; leftover drafts and tags must be published or deleted before the next release
         default: false
       source-branch:
         required: false
@@ -56,7 +56,7 @@ on:
       create-new-tag:
         required: false
         type: boolean
-        description: Create a new tag if the input tag does not exist
+        description: New tag creation when the input tag does not exist
         default: false
       version-bump:
         required: false

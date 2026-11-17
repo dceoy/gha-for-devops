@@ -1,5 +1,5 @@
 ---
-name: GitHub CodeQL Analysis
+name: GitHub CodeQL analysis
 on:
   workflow_call:
     inputs:

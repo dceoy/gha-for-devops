@@ -16,7 +16,7 @@ on:
       hadolint-recursive:
         required: false
         type: boolean
-        description: Search for Dockerfile recursively from the project root
+        description: Recursive Dockerfile search from the project root
         default: true
       trivy-scan-ref:
         required: false
@@ -26,13 +26,13 @@ on:
       use-trivy:
         required: false
         type: boolean
-        description: Run Trivy source scanning
+        description: Execution of Trivy source scanning
         default: true
       submit-dependencies:
         required: false
         type: boolean
         default: false
-        description: Publish dependency snapshots from the existing source scan on trusted default-branch events
+        description: Publication of dependency snapshots from the existing source scan on trusted default-branch events
       snapshot-correlator:
         required: false
         type: string
@@ -40,7 +40,7 @@ on:
       use-syft-grype:
         type: boolean
         default: false
-        description: Enable optional Syft SBOM generation and Grype scanning
+        description: Enablement of optional Syft SBOM generation and Grype scanning
       grype-fail-on:
         type: string
         default: high
@@ -48,7 +48,7 @@ on:
       grype-only-fixed:
         type: boolean
         default: true
-        description: Report only vulnerabilities with an available fix
+        description: Reporting limited to vulnerabilities with an available fix
       sbom-artifact-name:
         type: string
         default: null
@@ -66,7 +66,7 @@ on:
       trivy-ignore-unfixed:
         required: false
         type: boolean
-        description: Ignore unpatched/unfixed vulnerabilities
+        description: Exclusion of unpatched/unfixed vulnerabilities
         default: true
       trivy-exit-code:
         required: false
@@ -91,7 +91,7 @@ on:
       use-checkov:
         required: false
         type: boolean
-        description: Use Checkov to scan Dockerfiles
+        description: Use of Checkov to scan Dockerfiles
         default: true
       checkov-framework:
         required: false
@@ -131,7 +131,7 @@ on:
       checkov-soft-fail:
         required: false
         type: boolean
-        description: Always return exit code 0 from Checkov
+        description: Unconditional Checkov exit code 0
         default: false
       semgrep-exclude-cooldown-rules:
         type: boolean
@@ -140,7 +140,7 @@ on:
       use-semgrep:
         required: false
         type: boolean
-        description: Run Semgrep OSS SAST scan using p/default rules
+        description: Semgrep OSS SAST scan using p/default rules
         default: true
       runs-on:
         required: false

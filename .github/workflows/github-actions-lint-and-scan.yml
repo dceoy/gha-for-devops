@@ -21,7 +21,7 @@ on:
       actionlint-compatibility-mode:
         required: false
         type: boolean
-        description: Ignore narrowly scoped actionlint false positives for newer GitHub.com syntax
+        description: Exclusion of narrowly scoped actionlint false positives for newer GitHub.com syntax
         default: true
       actionlint-extra-ignore-regex:
         required: false
@@ -36,7 +36,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache pinned linter and Python tool downloads
+        description: Cache for pinned linter and Python tool downloads
         default: true
       cache-salt:
         required: false
@@ -46,17 +46,17 @@ on:
       use-shellcheck:
         required: false
         type: boolean
-        description: Whether to use ShellCheck
+        description: Option to use ShellCheck
         default: true
       use-pyflakes:
         required: false
         type: boolean
-        description: Whether to use pyflakes
+        description: Option to use pyflakes
         default: true
       use-yamllint:
         required: false
         type: boolean
-        description: Whether to use yamllint
+        description: Option to use yamllint
         default: true
       yamllint-search-path:
         required: false
@@ -71,7 +71,7 @@ on:
       use-zizmor:
         required: false
         type: boolean
-        description: Whether to use Zizmor for security auditing
+        description: Option to use Zizmor for security auditing
         default: true
       zizmor-search-path:
         required: false
@@ -81,7 +81,7 @@ on:
       zizmor-online-audits:
         required: false
         type: boolean
-        description: Whether to run Zizmor online audits
+        description: Option to run Zizmor online audits
         default: true
       zizmor-persona:
         required: false
@@ -101,7 +101,7 @@ on:
       zizmor-advanced-security:
         required: false
         type: boolean
-        description: Whether to enable GitHub Advanced Security instead of GitHub annotations for Zizmor's results
+        description: Option to enable GitHub Advanced Security instead of GitHub annotations for Zizmor's results
         default: true
       zizmor-config:
         required: false
@@ -111,7 +111,7 @@ on:
       use-checkov:
         required: false
         type: boolean
-        description: Use Checkov to scan GitHub Actions workflows
+        description: Use of Checkov to scan GitHub Actions workflows
         default: true
       checkov-framework:
         required: false
@@ -151,7 +151,7 @@ on:
       checkov-soft-fail:
         required: false
         type: boolean
-        description: Always return exit code 0 from Checkov
+        description: Unconditional Checkov exit code 0
         default: false
       semgrep-exclude-cooldown-rules:
         type: boolean
@@ -160,7 +160,7 @@ on:
       use-semgrep:
         required: false
         type: boolean
-        description: Run Semgrep OSS SAST scan using p/default rules
+        description: Semgrep OSS SAST scan using p/default rules
         default: true
       runs-on:
         required: false
