@@ -69,6 +69,10 @@ env:
   CHECKPOINT_DISABLE: '1'
 jobs:
   terragrunt-aws-switch-resources:
+    concurrency:
+      group: aws-infrastructure-${{ github.repository }}-${{ inputs.terragrunt-working-directory }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:

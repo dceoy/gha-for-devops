@@ -35,6 +35,10 @@ defaults:
     working-directory: .
 jobs:
   aws-parameter-store-update:
+    concurrency:
+      group: aws-parameter-store-${{ github.repository }}-${{ inputs.aws-region }}-${{ inputs.aws-iam-role-to-assume || 'default' }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: 30
     steps:
