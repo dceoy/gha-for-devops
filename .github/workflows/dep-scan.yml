@@ -33,8 +33,6 @@ jobs:
     env:
       # renovate: datasource=docker depName=ghcr.io/owasp-dep-scan/depscan
       DEPSCAN_IMAGE: ghcr.io/owasp-dep-scan/depscan:master@sha256:085282708983374b216a9d75851898014fe5f6f244a706165b33405bcc3cd7e8
-      REPORT_DIR: ${{ runner.temp }}/dep-scan-reports
-      CACHE_DIR: ${{ runner.temp }}/dep-scan-cache
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -44,41 +42,41 @@ jobs:
         env:
           PACKAGE_PATH: ${{ inputs.package-path }}
         run: |
-          if [[ ! "${{PACKAGE_PATH}" =~ ^(\.|[[:alnum:]_.-]+(/[[:alnum:]_.-]+)*)$ ]] ||
-             [[ "/${{PACKAGE_PATH}/" == *"/../"* ]]; then
+          if [[ ! "${PACKAGE_PATH}" =~ ^(\.|[[:alnum:]_.-]+(/[[:alnum:]_.-]+)*)$ ]] ||
+             [[ "/${PACKAGE_PATH}/" == *"/../"* ]]; then
             echo "::error::package-path must be a repository-relative directory without parent traversal."
             exit 1
           fi
-          if [[ ! "${{DEPSCAN_IMAGE}" =~ ^ghcr\.io/owasp-dep-scan/(dep-scan|depscan):[A-Za-z0-9_.-]+@sha256:[0-9a-f]{64}$ ]]; then
+          if [[ ! "${DEPSCAN_IMAGE}" =~ ^ghcr\.io/owasp-dep-scan/(dep-scan|depscan):[A-Za-z0-9_.-]+@sha256:[0-9a-f]{64}$ ]]; then
             echo "::error::dep-scan image must be pinned to an official GHCR image digest."
             exit 1
           fi
-          scan_dir="$(realpath -e -- "${{GITHUB_WORKSPACE}/${{PACKAGE_PATH}")"
+          scan_dir="$(realpath -e -- "${GITHUB_WORKSPACE}/${PACKAGE_PATH}")"
           if [[ ! -d "${{scan_dir}" ]] ||
-             [[ "${{scan_dir}" != "${{GITHUB_WORKSPACE}" && "${{scan_dir}" != "${{GITHUB_WORKSPACE}/"* ]]; then
+             [[ "${{scan_dir}" != "${GITHUB_WORKSPACE}" && "${{scan_dir}" != "${GITHUB_WORKSPACE}/"* ]]; then
             echo "::error::package-path must resolve to a directory inside the checkout."
             exit 1
           fi
-          echo "SCAN_DIR=${{scan_dir}" >> "${{GITHUB_ENV}"
+          echo "SCAN_DIR=${{scan_dir}" >> "${GITHUB_ENV}"
       - name: Scan dependencies and reachability
         id: scan
         run: |
-          mkdir -p "${{REPORT_DIR}" "${{CACHE_DIR}"
+          mkdir -p "${RUNNER_TEMP}/dep-scan-reports" "${RUNNER_TEMP}/dep-scan-cache"
           docker run --rm \
             --user "$(id -u):$(id -g)" \
             --read-only \
             --cap-drop ALL \
             --security-opt no-new-privileges \
             --tmpfs /tmp:rw,nosuid,nodev,size=2g \
-            --mount "type=bind,source=${{SCAN_DIR},target=/app,readonly" \
-            --mount "type=bind,source=${{REPORT_DIR},target=/reports" \
-            --mount "type=bind,source=${{CACHE_DIR},target=/cache" \
+            --mount "type=bind,source=${SCAN_DIR},target=/app,readonly" \
+            --mount "type=bind,source=${RUNNER_TEMP}/dep-scan-reports,target=/reports" \
+            --mount "type=bind,source=${RUNNER_TEMP}/dep-scan-cache,target=/cache" \
             --env HOME=/cache \
             --env XDG_CACHE_HOME=/cache/.cache \
             --env VDB_HOME=/cache/vdb \
             --env CDXGEN_NO_BANNER=true \
             --workdir /app \
-            "${{DEPSCAN_IMAGE}" depscan \
+            "${DEPSCAN_IMAGE}" depscan \
               --src /app \
               --reports-dir /reports \
               --profile research \
@@ -86,7 +84,7 @@ jobs:
               --cdxgen-args "--no-install-deps" \
               --csaf \
               --fail-on-error
-          if [[ -z "$(find "${{REPORT_DIR}" -type f -print -quit)" ]]; then
+          if [[ -z "$(find "${RUNNER_TEMP}/dep-scan-reports" -type f -print -quit)" ]]; then
             echo "::error::dep-scan produced no reports."
             exit 1
           fi
