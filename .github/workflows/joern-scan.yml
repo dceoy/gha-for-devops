@@ -55,12 +55,10 @@ jobs:
             echo '::error::The Joern query database is empty'
             exit 1
           fi
-      - name: Run joern-scan
+      - name: Prepare scan
         env:
           SCAN_PATH: ${{ inputs.scan-path }}
           SCAN_LANGUAGE: ${{ inputs.language }}
-          JOERN_SCAN_OPTIONS: ${{ inputs.joern-scan-options }}
-          FAIL_ON_FINDINGS: ${{ inputs.fail-on-findings }}
         run: |
           [[ -n "${SCAN_PATH}" ]] || { echo '::error::scan-path must not be empty'; exit 1; }
 
@@ -151,8 +149,14 @@ jobs:
             exit 1
           fi
 
+          # GITHUB_ENV carries only the validated path and allowlisted frontend.
+          printf 'JOERN_SCAN_PATH=%s\nJOERN_LANGUAGE=%s\n' "${SCAN_PATH}" "${lang_key}" >> "${GITHUB_ENV}"
+      - name: Run joern-scan
+        env:
+          JOERN_SCAN_OPTIONS: ${{ inputs.joern-scan-options }}
+        run: |
           # --overwrite prevents reuse of stale CPGs on persistent runners.
-          args=(--overwrite --language "${lang_key}")
+          args=(--overwrite --language "${JOERN_LANGUAGE}")
 
           # Reject multiline options instead of silently parsing only the first line.
           if [[ "${JOERN_SCAN_OPTIONS}" == *$'\n'* || "${JOERN_SCAN_OPTIONS}" == *$'\r'* ]]; then
@@ -203,8 +207,12 @@ jobs:
             args+=("${extra_args[@]}")
           fi
 
+          joern-scan "${args[@]}" -- "${JOERN_SCAN_PATH}" 2>&1 | tee "${RUNNER_TEMP}/joern-scan.log"
+      - name: Evaluate scan results
+        env:
+          FAIL_ON_FINDINGS: ${{ inputs.fail-on-findings }}
+        run: |
           scan_log="${RUNNER_TEMP}/joern-scan.log"
-          joern-scan "${args[@]}" -- "${SCAN_PATH}" 2>&1 | tee "${scan_log}"
           # "Error executing query" is logged via logger.warn (may carry a
           # timestamp/level prefix); match as a substring rather than anchoring to
           # line start.
