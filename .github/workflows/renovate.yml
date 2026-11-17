@@ -13,21 +13,16 @@ on:
         type: string
         description: Docker-capable GitHub Actions runner
         default: ubuntu-latest
-      dry-run:
+      allowed-unsafe-executions:
         required: false
-        type: boolean
-        description: Exercise Renovate against the GitHub API without modifying the repository
-        default: true
-      allow-unsafe-mise-execution:
-        required: false
-        type: boolean
-        description: Allow Renovate to run repository-defined mise commands (trusted repositories only)
-        default: false
+        type: string
+        description: JSON array of Renovate unsafe execution identifiers (trusted repositories only)
+        default: '["muse"]'
     secrets:
       GH_TOKEN:
         required: false
         description: Optional GitHub token to trigger CI on Renovate-created PRs
-  workflow_dispatch:  # checkov:skip=CKV_GHA_7:manual dry-run input selects execution mode
+  workflow_dispatch:  # checkov:skip=CKV_GHA_7:inputs configure Renovate rather than shell commands
     inputs:
       renovate-version:
         required: false
@@ -39,11 +34,11 @@ on:
         type: string
         description: Docker-capable GitHub Actions runner
         default: ubuntu-latest
-      dry-run:
+      allowed-unsafe-executions:
         required: false
-        type: boolean
-        description: Exercise Renovate against the GitHub API without modifying the repository
-        default: true
+        type: string
+        description: JSON array of Renovate unsafe execution identifiers (trusted repositories only)
+        default: '["muse"]'
 permissions:
   contents: write
   issues: write
@@ -56,7 +51,6 @@ defaults:
 jobs:
   renovate:
     if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
-    timeout-minutes: 45
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     steps:
       - name: Checkout repository
@@ -64,10 +58,6 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Enable read-only integration run
-        if: inputs.dry-run
-        run: >
-          printf '%s\n' 'RENOVATE_DRY_RUN=full' >> "${GITHUB_ENV}"
       - name: Run Renovate
         uses: renovatebot/github-action@266fef21329c44765ad42f9dea1f01f5d2d91084  # v46.3.13
         with:
@@ -85,5 +75,4 @@ jobs:
           RENOVATE_ENDPOINT: ${{ github.api_url }}
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           RENOVATE_AUTODISCOVER: 'false'
-          # mise.lock refresh requires explicit opt-in to repository-defined commands.
-          RENOVATE_ALLOWED_UNSAFE_EXECUTIONS: ${{ inputs.allow-unsafe-mise-execution && '["mise"]' || '[]' }}
+          RENOVATE_ALLOWED_UNSAFE_EXECUTIONS: ${{ inputs.allowed-unsafe-executions }}
