@@ -1,5 +1,5 @@
 ---
-name: Generate SBOM and scan with Grype
+name: SBOM generation and Grype scan
 on:
   workflow_call:
     inputs:

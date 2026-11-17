@@ -76,7 +76,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [security-pr.yml](.github/workflows/security-pr.yml)                                                             | Security PR checks                                                |
 | [shell-lint.yml](.github/workflows/shell-lint.yml)                                                               | Shell lint                                                        |
 | [source-security-scan.yml](.github/workflows/source-security-scan.yml)                                           | Source security scan                                              |
-| [syft-grype-scan.yml](.github/workflows/syft-grype-scan.yml)                                                     | Generate SBOM and scan with Grype                                 |
+| [syft-grype-scan.yml](.github/workflows/syft-grype-scan.yml)                                                     | SBOM generation and Grype scan                                    |
 | [terraform-deploy-to-aws.yml](.github/workflows/terraform-deploy-to-aws.yml)                                     | Deployment of AWS resources using Terraform                       |
 | [terraform-format-and-pr.yml](.github/workflows/terraform-format-and-pr.yml)                                     | Formatting for Terraform                                          |
 | [terraform-lint-and-scan.yml](.github/workflows/terraform-lint-and-scan.yml)                                     | Terraform lint and security scan                                  |
