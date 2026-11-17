@@ -31,7 +31,7 @@ on:
       create-pr:
         required: false
         type: boolean
-        description: Create a pull request instead of committing directly
+        description: Pull request creation instead of direct commits
         default: false
       runs-on:
         required: false

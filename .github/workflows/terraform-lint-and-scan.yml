@@ -21,23 +21,23 @@ on:
       terraform-validate:
         required: false
         type: boolean
-        description: Validate Terraform code
+        description: Validation of Terraform code
         default: true
       use-tflint:
         required: false
         type: boolean
-        description: Use TFLint linter
+        description: Use of TFLint linter
         default: true
       use-trivy:
         required: false
         type: boolean
-        description: Use Trivy vulnerability scanner
+        description: Use of Trivy vulnerability scanner
         default: true
       submit-dependencies:
         required: false
         type: boolean
         default: false
-        description: Publish dependency snapshots from the existing Trivy scan on trusted default-branch events
+        description: Publication of dependency snapshots from the existing Trivy scan on trusted default-branch events
       snapshot-correlator:
         required: false
         type: string
@@ -55,7 +55,7 @@ on:
       trivy-ignore-unfixed:
         required: false
         type: boolean
-        description: Ignore unpatched/unfixed vulnerabilities
+        description: Exclusion of unpatched/unfixed vulnerabilities
         default: true
       trivy-exit-code:
         required: false
@@ -80,7 +80,7 @@ on:
       use-checkov:
         required: false
         type: boolean
-        description: Use Checkov to scan Terraform files
+        description: Use of Checkov to scan Terraform files
         default: true
       checkov-framework:
         required: false
@@ -120,7 +120,7 @@ on:
       checkov-soft-fail:
         required: false
         type: boolean
-        description: Always return exit code 0 from Checkov
+        description: Unconditional Checkov exit code 0
         default: false
       semgrep-exclude-cooldown-rules:
         type: boolean
@@ -129,7 +129,7 @@ on:
       use-semgrep:
         required: false
         type: boolean
-        description: Run Semgrep OSS SAST scan using p/default rules
+        description: Semgrep OSS SAST scan using p/default rules
         default: true
       runs-on:
         required: false

@@ -16,7 +16,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache uv downloads
+        description: Cache for uv downloads
         default: true
       cache-salt:
         required: false
