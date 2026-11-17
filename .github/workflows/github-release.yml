@@ -83,6 +83,10 @@ env:
   GH_TELEMETRY: 'false'
 jobs:
   github-release:
+    concurrency:
+      group: github-release-${{ github.repository }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ${{ inputs.runs-on }}
     outputs:
       release-tag: ${{ steps.publish.outputs.tag }}

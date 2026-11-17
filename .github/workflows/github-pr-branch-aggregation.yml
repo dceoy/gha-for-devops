@@ -59,6 +59,10 @@ defaults:
     working-directory: .
 env:
   GH_TELEMETRY: 'false'
+concurrency:
+  group: github-pr-branch-aggregation-${{ github.repository }}
+  cancel-in-progress: false
+  queue: max
 jobs:
   pr-branch-list:
     if: >

@@ -128,6 +128,10 @@ defaults:
     working-directory: .
 jobs:
   gcloud-infra-manager-deployments:
+    concurrency:
+      group: gcloud-infra-manager-${{ github.repository }}-${{ inputs.project-id }}-${{ inputs.location }}-${{ inputs.infra-manager-deployment-name }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ${{ inputs.runs-on }}
     outputs:
       preview-resource-name: ${{ steps.preview-name.outputs.preview-resource-name }}

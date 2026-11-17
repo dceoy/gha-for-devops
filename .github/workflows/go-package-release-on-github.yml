@@ -99,6 +99,10 @@ defaults:
     working-directory: .
 env:
   GH_TELEMETRY: 'false'
+concurrency:
+  group: package-release-${{ github.repository }}
+  cancel-in-progress: false
+  queue: max
 jobs:
   github-release:
     permissions:

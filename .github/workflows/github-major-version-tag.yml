@@ -52,6 +52,10 @@ env:
   GH_TELEMETRY: 'false'
 jobs:
   github-major-version-tag:
+    concurrency:
+      group: github-major-version-tag-${{ github.repository }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ${{ inputs.runs-on || 'ubuntu-slim' }}
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret

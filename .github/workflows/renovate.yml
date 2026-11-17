@@ -50,6 +50,10 @@ defaults:
     working-directory: .
 jobs:
   renovate:
+    concurrency:
+      group: renovate-${{ github.repository }}
+      cancel-in-progress: false
+      queue: max
     if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
     runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
     steps:

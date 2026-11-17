@@ -30,6 +30,10 @@ defaults:
     working-directory: .
 jobs:
   release-pins:
+    concurrency:
+      group: github-release-pins-${{ github.repository }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-latest
     permissions:
       contents: write

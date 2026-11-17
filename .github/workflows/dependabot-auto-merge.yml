@@ -36,6 +36,10 @@ env:
   GH_TELEMETRY: 'false'
 jobs:
   dependabot-auto-merge:
+    concurrency:
+      group: dependabot-auto-merge-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+      queue: max
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ${{ inputs.runs-on }}
     env:

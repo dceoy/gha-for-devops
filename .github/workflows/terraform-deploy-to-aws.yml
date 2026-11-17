@@ -109,6 +109,10 @@ env:
   CHECKPOINT_DISABLE: '1'
 jobs:
   terraform-deploy-to-aws:
+    concurrency:
+      group: aws-infrastructure-${{ github.repository }}-${{ inputs.terraform-or-terragrunt-working-directory }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:
