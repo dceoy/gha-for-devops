@@ -5,14 +5,10 @@ bats_require_minimum_version 1.5.0
 setup() {
   local repo_root
   repo_root="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
-  for stage in prepare execute evaluate; do
-    case "${stage}" in
-      prepare) name='Prepare scan' ;;
-      execute) name='Run joern-scan' ;;
-      evaluate) name='Evaluate scan results' ;;
-    esac
-    printf -v "${stage}_script" '%s' "$(yq -r ".jobs.\"joern-scan\".steps[] | select(.name == \"${name}\") | .run" "${repo_root}/.github/workflows/joern-scan.yml")"
-  done
+  local workflow="${repo_root}/.github/workflows/joern-scan.yml"
+  prepare_script="$(yq -r '.jobs."joern-scan".steps[] | select(.name == "Prepare scan") | .run' "${workflow}")"
+  execute_script="$(yq -r '.jobs."joern-scan".steps[] | select(.name == "Run joern-scan") | .run' "${workflow}")"
+  evaluate_script="$(yq -r '.jobs."joern-scan".steps[] | select(.name == "Evaluate scan results") | .run' "${workflow}")"
   scan_dir="${BATS_TEST_TMPDIR}/checkout"
   bin_dir="${BATS_TEST_TMPDIR}/bin"
   args_log="${BATS_TEST_TMPDIR}/joern-args"
@@ -53,6 +49,7 @@ run_scan() {
     EXECUTE_SCRIPT="${execute_script}" \
     EVALUATE_SCRIPT="${evaluate_script}" \
     PATH="${bin_dir}:${PATH}" \
+    # shellcheck disable=SC2016 # Expanded by the child shell, not the caller.
     bash -euo pipefail -c '
       bash -euo pipefail -c "${PREPARE_SCRIPT}"
       # Emulate the GitHub Actions runner applying validated GITHUB_ENV values
@@ -149,7 +146,6 @@ run_scan() {
   [[ "${image}" =~ ^ghcr\.io/joernio/joern:master@sha256:[a-f0-9]{64}$ ]]
   [[ "$(yq -r '.jobs."joern-scan".steps[] | select(.name == "Verify Joern query database") | .name' "${repo_root}/.github/workflows/joern-scan.yml")" == 'Verify Joern query database' ]]
 }
-
 
 @test "fails if Joern reports an incomplete scan" {
   mock_incomplete=true
