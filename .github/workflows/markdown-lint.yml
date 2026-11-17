@@ -1,5 +1,5 @@
 ---
-name: Lint for Markdown
+name: Markdown lint
 on:
   workflow_call:
     inputs:

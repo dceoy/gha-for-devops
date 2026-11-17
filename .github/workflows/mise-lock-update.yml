@@ -1,5 +1,5 @@
 ---
-name: Update mise.lock and create a pull request
+name: mise.lock update pull request
 on:
   workflow_dispatch:  # checkov:skip=CKV_GHA_7:Maintainer inputs intentionally configure the mise lockfile update
     inputs:

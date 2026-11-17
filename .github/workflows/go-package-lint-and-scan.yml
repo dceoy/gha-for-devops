@@ -1,5 +1,5 @@
 ---
-name: Lint and security scan for Go
+name: Go lint and security scan
 on:
   workflow_call:
     inputs:

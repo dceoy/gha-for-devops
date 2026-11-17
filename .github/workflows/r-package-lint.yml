@@ -1,5 +1,5 @@
 ---
-name: Lint for R
+name: R lint
 on:
   workflow_call:
     inputs:

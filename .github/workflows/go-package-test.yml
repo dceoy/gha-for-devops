@@ -1,5 +1,5 @@
 ---
-name: Test a Go package
+name: Go package tests
 on:
   workflow_call:
     inputs:

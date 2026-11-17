@@ -1,5 +1,5 @@
 ---
-name: Lint and scan for HTML/CSS
+name: HTML/CSS lint and security scan
 on:
   workflow_call:
     inputs:

@@ -1,5 +1,5 @@
 ---
-name: Test for Python package
+name: Python package tests
 on:
   workflow_call:
     inputs:

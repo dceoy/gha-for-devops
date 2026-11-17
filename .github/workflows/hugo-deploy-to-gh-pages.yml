@@ -1,5 +1,5 @@
 ---
-name: Build and deployment of Hugo site to GitHub Pages
+name: Hugo site build and GitHub Pages deployment
 on:
   workflow_call:
     inputs:
