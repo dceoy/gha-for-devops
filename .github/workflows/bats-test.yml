@@ -22,7 +22,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache for uv and pnpm downloads and Bats libraries
+        description: Whether to cache uv and pnpm downloads and Bats libraries
         default: true
       cache-salt:
         required: false

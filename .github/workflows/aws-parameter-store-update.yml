@@ -15,7 +15,7 @@ on:
       dry-run:
         required: false
         type: boolean
-        description: Preview of proposed updates without applying changes
+        description: Whether to show what would be updated without making changes
         default: false
       runs-on:
         required: false

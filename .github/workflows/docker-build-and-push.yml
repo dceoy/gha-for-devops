@@ -11,7 +11,7 @@ on:
       login-dhi:
         required: false
         type: boolean
-        description: Authentication to dhi.io with DOCKER_TOKEN (Docker Hub credentials)
+        description: Whether to authenticate to dhi.io with DOCKER_TOKEN (Docker Hub credentials)
         default: false
       dhi-user:
         required: false
@@ -66,12 +66,12 @@ on:
       push:
         required: false
         type: boolean
-        description: Push of an image to the registry (opt in explicitly)
+        description: Whether to push an image to the registry (opt in explicitly)
         default: false
       provenance:
         required: false
         type: boolean
-        description: Generation of a BuildKit provenance attestation for the build (not by itself SLSA compliance)
+        description: Whether to generate a BuildKit provenance attestation for the build (not by itself SLSA compliance)
         default: false
       cosign:
         required: false
@@ -81,7 +81,7 @@ on:
       submit-dependencies:
         required: false
         type: boolean
-        description: Submission of a digest-pinned image dependency snapshot on trusted default-branch builds
+        description: Whether to submit a digest-pinned image dependency snapshot on trusted default-branch builds
         default: false
       snapshot-artifact-prefix:
         type: string
@@ -90,12 +90,12 @@ on:
       scan-before-build:
         required: false
         type: boolean
-        description: Scan of Dockerfile before build
+        description: Whether to scan Dockerfile before build
         default: true
       scan-after-build:
         required: false
         type: boolean
-        description: Scan of the image after build
+        description: Whether to scan the image after build
         default: true
       hadolint-failure-threshold:
         required: false
@@ -105,12 +105,12 @@ on:
       hadolint-recursive:
         required: false
         type: boolean
-        description: Recursive Dockerfile search from the project root
+        description: Whether to search for Dockerfile recursively from the project root
         default: true
       use-syft-grype:
         type: boolean
         default: false
-        description: Enablement of Syft SBOM and Grype container scanning
+        description: Whether to enable Syft SBOM and Grype container scanning
       grype-fail-on:
         type: string
         default: high
@@ -118,7 +118,7 @@ on:
       grype-only-fixed:
         type: boolean
         default: true
-        description: Reporting limited to vulnerabilities with an available fix
+        description: Whether to report only vulnerabilities with an available fix
       sbom-artifact-name:
         type: string
         default: null
@@ -136,7 +136,7 @@ on:
       trivy-ignore-unfixed:
         required: false
         type: boolean
-        description: Exclusion of unpatched/unfixed vulnerabilities
+        description: Whether to ignore unpatched/unfixed vulnerabilities
         default: true
       trivy-filesystem-exit-code:
         required: false
@@ -191,7 +191,7 @@ on:
       image-artifact-overwrite:
         required: false
         type: boolean
-        description: Replacement of existing artifacts
+        description: Whether to overwrite existing artifacts
         default: true
       build-output-artifact-name:
         required: false

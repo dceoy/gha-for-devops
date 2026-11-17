@@ -61,7 +61,7 @@ on:
       disable-source-override:
         required: false
         type: boolean
-        description: Flag for disabling the source repository override
+        description: Whether to disable the source repository override
         default: false
       source-version-override:
         required: false
@@ -81,12 +81,12 @@ on:
       hide-cloudwatch-logs:
         required: false
         type: boolean
-        description: Flag for disabling CloudWatch log streaming to GitHub
+        description: Whether to prevent CloudWatch log streaming to GitHub
         default: false
       disable-github-env-vars:
         required: false
         type: boolean
-        description: Flag for disabling GitHub environment variables in CodeBuild
+        description: Whether to disable GitHub environment variables in CodeBuild
         default: false
       artifacts-type-override:
         required: false
