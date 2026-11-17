@@ -61,7 +61,6 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [json-schema-validation.yml](.github/workflows/json-schema-validation.yml)                                       | Schema validation for JSON                                        |
 | [markdown-format-and-pr.yml](.github/workflows/markdown-format-and-pr.yml)                                       | Formatting for Markdown                                           |
 | [markdown-lint.yml](.github/workflows/markdown-lint.yml)                                                         | Markdown lint                                                     |
-| [mise-lock-update.yml](.github/workflows/mise-lock-update.yml)                                                   | mise.lock update pull request                                     |
 | [python-package-format-and-pr.yml](.github/workflows/python-package-format-and-pr.yml)                           | Formatting for Python                                             |
 | [python-package-lint-and-scan.yml](.github/workflows/python-package-lint-and-scan.yml)                           | Python lint and security scan                                     |
 | [python-package-mkdocs-gh-deploy.yml](.github/workflows/python-package-mkdocs-gh-deploy.yml)                     | MkDocs documentation build and deployment                         |

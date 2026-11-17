@@ -21,32 +21,18 @@ on:
           - minor-release
           - patch-release
           - scorecard
-          - mise-lock-upgrade
-          - dependencies-upgrade
+          - renovate-pr
 permissions:
   contents: read
 concurrency:
-  group: ${{ github.repository }}-maintenance-${{ github.event_name == 'workflow_dispatch' && (inputs.task == 'mise-lock-upgrade' || inputs.task == 'dependencies-upgrade') && 'dependency-update' || (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard')) && 'release' || 'scorecard' }}
+  group: ${{ github.repository }}-maintenance-${{ github.event_name == 'workflow_dispatch' && inputs.task == 'renovate-pr' && 'dependency-update' || (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard')) && 'release' || 'scorecard' }}
   cancel-in-progress: false
 jobs:
-  mise-lock-update:
+  renovate-pr:
     if: >-
       github.repository == 'dceoy/gha-for-devops'
       && github.event_name == 'workflow_dispatch'
-      && inputs.task == 'mise-lock-upgrade'
-    permissions:
-      contents: write
-      pull-requests: write
-    uses: $/.github/workflows/mise-lock-update.yml
-    with:
-      runs-on: macos-latest
-    secrets:
-      GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-  renovate-dependencies:
-    if: >-
-      github.repository == 'dceoy/gha-for-devops'
-      && github.event_name == 'workflow_dispatch'
-      && inputs.task == 'dependencies-upgrade'
+      && inputs.task == 'renovate-pr'
     permissions:
       contents: write
       issues: write
@@ -69,8 +55,7 @@ jobs:
       && needs.analysis.result == 'success')
       || (github.event_name == 'workflow_dispatch'
       && inputs.task != 'scorecard'
-      && inputs.task != 'mise-lock-upgrade'
-      && inputs.task != 'dependencies-upgrade'))
+      && inputs.task != 'renovate-pr'))
     permissions:
       contents: write
     uses: $/.github/workflows/github-release.yml
