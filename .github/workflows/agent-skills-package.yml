@@ -202,6 +202,10 @@ jobs:
           overwrite: ${{ inputs.artifact-overwrite }}
           archive: false
   agent-skills-release:
+    concurrency:
+      group: agent-skills-release-${{ github.repository }}-${{ inputs.release-tag || github.event.release.tag_name || github.ref_name }}
+      cancel-in-progress: false
+      queue: max
     if: github.event_name == 'release' || inputs.release-tag != ''
     needs:
       - agent-skills-discover
