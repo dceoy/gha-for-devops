@@ -33,6 +33,8 @@ EOF
 run_scan() {
   local github_env="${BATS_TEST_TMPDIR}/github-env"
   : > "${github_env}"
+  # The quoted script is evaluated by the child shell.
+  # shellcheck disable=SC2016
   run env \
     GITHUB_WORKSPACE="${scan_dir}" \
     GITHUB_ENV="${github_env}" \
@@ -49,7 +51,6 @@ run_scan() {
     EXECUTE_SCRIPT="${execute_script}" \
     EVALUATE_SCRIPT="${evaluate_script}" \
     PATH="${bin_dir}:${PATH}" \
-    # shellcheck disable=SC2016 # Expanded by the child shell, not the caller.
     bash -euo pipefail -c '
       bash -euo pipefail -c "${PREPARE_SCRIPT}"
       # Emulate the GitHub Actions runner applying validated GITHUB_ENV values
