@@ -220,7 +220,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   docker-buildx-bake:
     concurrency:
-      group: docker-publish-${{ github.repository }}-${{ inputs.push && 'publish' || format('bake-{0}-{1}-{2}', github.run_id, inputs.bake-source, inputs.bake-files || inputs.bake-set || 'default') }}
+      group: docker-publish-${{ github.repository }}-${{ inputs.push && 'publish' || format('bake-{0}-{1}-{2}', github.run_id, inputs.bake-source, inputs.image-artifact-name) }}
       cancel-in-progress: false
       queue: max
     if: >
