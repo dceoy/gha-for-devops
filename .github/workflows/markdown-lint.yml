@@ -51,7 +51,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache for pnpm downloads for Markdown lint tools
+        description: pnpm download cache for Markdown lint tools
         default: true
       cache-salt:
         required: false

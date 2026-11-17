@@ -23,7 +23,7 @@ on:
       fail-on-findings:
         required: false
         type: boolean
-        description: Failure condition: the job when joern-scan reports findings
+        description: Job failure when joern-scan reports findings
         default: true
       java-version:
         required: false

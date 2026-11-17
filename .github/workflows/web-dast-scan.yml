@@ -58,7 +58,7 @@ on:
       fail-on-risk:
         type: string
         default: high
-        description: Failure condition: when alerts at or above this risk exist (none, low, medium, or high)
+        description: Minimum alert risk level that fails the job (none, low, medium, or high)
       report-artifact-name:
         type: string
         default: web-dast-report

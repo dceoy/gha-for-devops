@@ -196,7 +196,7 @@ on:
       build-output-artifact-name:
         required: false
         type: string
-        description: Build of output JSON artifact name to upload
+        description: Build output JSON artifact name to upload
         default: null
       runs-on:
         required: false
