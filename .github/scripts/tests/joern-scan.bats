@@ -1,0 +1,92 @@
+#!/usr/bin/env bats
+
+bats_require_minimum_version 1.5.0
+
+setup() {
+  local repo_root
+  repo_root="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
+  scan_script="$(yq -r '.jobs."joern-scan".steps[] | select(.name == "Run joern-scan") | .run' "${repo_root}/.github/workflows/joern-scan.yml")"
+  scan_dir="${BATS_TEST_TMPDIR}/checkout"
+  bin_dir="${BATS_TEST_TMPDIR}/bin"
+  args_log="${BATS_TEST_TMPDIR}/joern-args"
+  mkdir -p "${scan_dir}" "${bin_dir}"
+  printf 'print("hello")\n' > "${scan_dir}/source.py"
+  cat > "${bin_dir}/joern-scan" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "${JOERN_ARGS_LOG}"
+echo 'Run Joern to explore interactively'
+EOF
+  chmod +x "${bin_dir}/joern-scan"
+}
+
+run_scan() {
+  run env \
+    GITHUB_WORKSPACE="${scan_dir}" \
+    RUNNER_TEMP="${BATS_TEST_TMPDIR}" \
+    SCAN_PATH="${scan_path:-${scan_dir}}" \
+    SCAN_LANGUAGE="${scan_language:-}" \
+    JOERN_SCAN_OPTIONS="${scan_options:-}" \
+    FAIL_ON_FINDINGS=true \
+    JOERN_ARGS_LOG="${args_log}" \
+    PATH="${bin_dir}:${PATH}" \
+    bash -euo pipefail -c "${scan_script}"
+}
+
+@test "selects a real source frontend and ignores manifests" {
+  printf '{}\n' > "${scan_dir}/package.json"
+  run_scan
+  [ "$status" -eq 0 ]
+  grep -Fxq -- 'python' "${args_log}"
+}
+
+@test "rejects a directory with only manifests" {
+  rm "${scan_dir}/source.py"
+  printf '{}\n' > "${scan_dir}/package.json"
+  run_scan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'no recognized source files'* ]]
+}
+
+@test "rejects a Scala injection attempt in language" {
+  scan_language='python"); println("PWNED") //'
+  run_scan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'not a recognized joern-scan frontend'* ]]
+}
+
+@test "rejects a Scala injection attempt in query filters" {
+  scan_options='--tags all");println("PWNED")'
+  run_scan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'comma-separated identifiers'* ]]
+}
+
+@test "rejects multiline option injection" {
+  scan_options=$'--store\n--dump'
+  run_scan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'must be a single line'* ]]
+}
+
+@test "allows a validated scan options list" {
+  scan_options='--names sql-injection,flow --depth 2 --store'
+  run_scan
+  [ "$status" -eq 0 ]
+  grep -Fxq -- 'sql-injection,flow' "${args_log}"
+}
+
+@test "rejects scan paths outside the checkout" {
+  scan_path="${BATS_TEST_TMPDIR}"
+  run_scan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'inside the workspace'* ]]
+}
+
+@test "supports explicit frontend aliases" {
+  rm "${scan_dir}/source.py"
+  printf 'const x = 1;\n' > "${scan_dir}/source.ts"
+  scan_language=jssrc
+  run_scan
+  [ "$status" -eq 0 ]
+  grep -Fxq -- 'jssrc' "${args_log}"
+}
