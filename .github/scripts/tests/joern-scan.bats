@@ -5,7 +5,14 @@ bats_require_minimum_version 1.5.0
 setup() {
   local repo_root
   repo_root="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
-  scan_script="$(yq -r '.jobs."joern-scan".steps[] | select(.name == "Run joern-scan") | .run' "${repo_root}/.github/workflows/joern-scan.yml")"
+  for stage in prepare execute evaluate; do
+    case "${stage}" in
+      prepare) name='Prepare scan' ;;
+      execute) name='Run joern-scan' ;;
+      evaluate) name='Evaluate scan results' ;;
+    esac
+    printf -v "${stage}_script" '%s' "$(yq -r ".jobs.\"joern-scan\".steps[] | select(.name == \"${name}\") | .run" "${repo_root}/.github/workflows/joern-scan.yml")"
+  done
   scan_dir="${BATS_TEST_TMPDIR}/checkout"
   bin_dir="${BATS_TEST_TMPDIR}/bin"
   args_log="${BATS_TEST_TMPDIR}/joern-args"
@@ -14,22 +21,51 @@ setup() {
   cat > "${bin_dir}/joern-scan" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" > "${JOERN_ARGS_LOG}"
-echo 'Run Joern to explore interactively'
+if [[ "${MOCK_QUERY_ERROR:-}" == true ]]; then
+  echo 'Error executing query'
+fi
+if [[ "${MOCK_FINDING:-}" == true ]]; then
+  echo 'Result: test finding'
+fi
+if [[ "${MOCK_INCOMPLETE:-}" != true ]]; then
+  echo 'Run Joern to explore interactively'
+fi
 EOF
   chmod +x "${bin_dir}/joern-scan"
 }
 
 run_scan() {
+  local github_env="${BATS_TEST_TMPDIR}/github-env"
+  : > "${github_env}"
   run env \
     GITHUB_WORKSPACE="${scan_dir}" \
+    GITHUB_ENV="${github_env}" \
     RUNNER_TEMP="${BATS_TEST_TMPDIR}" \
     SCAN_PATH="${scan_path:-${scan_dir}}" \
     SCAN_LANGUAGE="${scan_language:-}" \
     JOERN_SCAN_OPTIONS="${scan_options:-}" \
-    FAIL_ON_FINDINGS=true \
+    FAIL_ON_FINDINGS="${fail_on_findings:-true}" \
+    MOCK_QUERY_ERROR="${mock_query_error:-false}" \
+    MOCK_FINDING="${mock_finding:-false}" \
+    MOCK_INCOMPLETE="${mock_incomplete:-false}" \
     JOERN_ARGS_LOG="${args_log}" \
+    PREPARE_SCRIPT="${prepare_script}" \
+    EXECUTE_SCRIPT="${execute_script}" \
+    EVALUATE_SCRIPT="${evaluate_script}" \
     PATH="${bin_dir}:${PATH}" \
-    bash -euo pipefail -c "${scan_script}"
+    bash -euo pipefail -c '
+      bash -euo pipefail -c "${PREPARE_SCRIPT}"
+      # Emulate the GitHub Actions runner applying validated GITHUB_ENV values
+      # between steps. Never source this file as executable shell code.
+      while IFS="=" read -r name value; do
+        case "${name}" in
+          JOERN_SCAN_PATH | JOERN_LANGUAGE) export "${name}=${value}" ;;
+          *) exit 1 ;;
+        esac
+      done < "${GITHUB_ENV}"
+      bash -euo pipefail -c "${EXECUTE_SCRIPT}"
+      bash -euo pipefail -c "${EVALUATE_SCRIPT}"
+    '
 }
 
 @test "selects a real source frontend and ignores manifests" {
@@ -91,7 +127,6 @@ run_scan() {
   grep -Fxq -- 'jssrc' "${args_log}"
 }
 
-
 @test "fails closed for an explicitly mismatched frontend" {
   scan_language=rust
   run_scan
@@ -113,4 +148,34 @@ run_scan() {
   image="$(yq -r '.jobs."joern-scan".container.image' "${repo_root}/.github/workflows/joern-scan.yml")"
   [[ "${image}" =~ ^ghcr\.io/joernio/joern:master@sha256:[a-f0-9]{64}$ ]]
   [[ "$(yq -r '.jobs."joern-scan".steps[] | select(.name == "Verify Joern query database") | .name' "${repo_root}/.github/workflows/joern-scan.yml")" == 'Verify Joern query database' ]]
+}
+
+
+@test "fails if Joern reports an incomplete scan" {
+  mock_incomplete=true
+  run_scan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'did not report a completed scan'* ]]
+}
+
+@test "fails if Joern logs a query execution error" {
+  mock_query_error=true
+  run_scan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'did not complete a full analysis'* ]]
+}
+
+@test "fails on findings when enabled" {
+  mock_finding=true
+  run_scan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'reported 1 findings'* ]]
+}
+
+@test "warns on findings when failure is disabled" {
+  mock_finding=true
+  fail_on_findings=false
+  run_scan
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'::warning::joern-scan reported 1 findings'* ]]
 }
