@@ -111,7 +111,7 @@ Language lint workflows share `source-security-scan.yml`. Trivy runs once per ta
 
 OWASP dep-scan is an **experimental, opt-in** depth scan, separate from the standard OSV-Scanner/Trivy/Grype pipelines. It runs the digest-pinned official container with read-only source input, disables cdxgen dependency installation, and uploads raw VDR/CSAF/reachability evidence as a run artifact (7-day retention). dep-scan/cdxgen may still invoke project tooling; **only run it on trusted default-branch pushes, schedules, or manually dispatched refs**, never untrusted PRs. No GitHub Code Scanning upload or paid Advanced Security feature is required.
 
-\`\`\`yaml
+```yaml
 jobs:
   dependency-depth:
     uses: dceoy/gha-for-devops/.github/workflows/dep-scan.yml@<pinned-ref>
@@ -119,7 +119,7 @@ jobs:
       contents: read
     with:
       package-path: .
-\`\`\`
+```
 
 ### Dependency Graph
 
