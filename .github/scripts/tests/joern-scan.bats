@@ -90,3 +90,27 @@ run_scan() {
   [ "$status" -eq 0 ]
   grep -Fxq -- 'jssrc' "${args_log}"
 }
+
+
+@test "fails closed for an explicitly mismatched frontend" {
+  scan_language=rust
+  run_scan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'no source files found for the selected Joern frontend'* ]]
+}
+
+@test "allows the binary-analysis ghidra frontend without a source extension" {
+  rm "${scan_dir}/source.py"
+  scan_language=ghidra
+  run_scan
+  [ "$status" -eq 0 ]
+  grep -Fxq -- 'ghidra' "${args_log}"
+}
+
+@test "runs Joern from a digest-pinned official container" {
+  local repo_root
+  repo_root="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
+  image="$(yq -r '.jobs."joern-scan".container.image' "${repo_root}/.github/workflows/joern-scan.yml")"
+  [[ "${image}" =~ ^ghcr\.io/joernio/joern:master@sha256:[a-f0-9]{64}$ ]]
+  [[ "$(yq -r '.jobs."joern-scan".steps[] | select(.name == "Verify Joern query database") | .name' "${repo_root}/.github/workflows/joern-scan.yml")" == 'Verify Joern query database' ]]
+}
