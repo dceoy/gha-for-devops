@@ -1,5 +1,5 @@
 ---
-name: Test for Python Package
+name: Test for Python package
 on:
   workflow_call:
     inputs:
@@ -21,7 +21,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache Python dependency downloads
+        description: Cache for Python dependency downloads
         default: true
       cache-dependency-path:
         required: false

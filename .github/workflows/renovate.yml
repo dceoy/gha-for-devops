@@ -1,5 +1,5 @@
 ---
-name: Renovate OSS
+name: Renovate pull request
 on:
   workflow_call:
     inputs:

@@ -26,7 +26,7 @@ on:
       lint-package:
         required: false
         type: boolean
-        description: Run package lint
+        description: Package lint
         default: true
 permissions:
   contents: read

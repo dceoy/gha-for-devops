@@ -36,17 +36,17 @@ on:
       create-github-release:
         required: false
         type: boolean
-        description: Create a GitHub release
+        description: GitHub release creation
         default: true
       publish-to-pypi:
         required: false
         type: boolean
-        description: Publish the distribution to PyPI
+        description: Distribution publication to PyPI
         default: true
       publish-to-testpypi-before-pypi:
         required: false
         type: boolean
-        description: Publish to TestPyPI before PyPI when PyPI publishing is enabled
+        description: TestPyPI publication before PyPI when PyPI publishing is enabled
         default: false
       python-version:
         required: false
@@ -61,7 +61,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache dependency downloads (never distributions or credentials)
+        description: Cache for dependency downloads (never distributions or credentials)
         default: true
       cache-dependency-path:
         required: false
@@ -91,7 +91,7 @@ on:
       artifact-overwrite:
         required: false
         type: boolean
-        description: Overwrite existing artifacts
+        description: Replacement of existing artifacts
         default: true
       runs-on:
         required: false
@@ -264,7 +264,7 @@ jobs:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}  # zizmor: ignore[use-trusted-publishing] Optional API-token authentication.
           repository-url: https://test.pypi.org/legacy/
   python-release-github:
-    name: Sign the Python 🐍 distribution 📦 with Sigstore and upload them to GitHub Release
+    name: Sign the Python 🐍 distribution 📦 with Sigstore and upload them to GitHub release
     if: >
       inputs.mode == 'tag-release'
       && startsWith(github.ref, 'refs/tags/')
