@@ -75,7 +75,7 @@ setup() {
   [ "$(yq -r '.on.workflow_call.inputs | has("dry-run")' "${renovation}")" = false ]
   [ "$(yq -r '.on.workflow_dispatch.inputs | has("dry-run")' "${renovation}")" = false ]
   [ "$(yq -r '.jobs.renovate | has("timeout-minutes")' "${renovation}")" = false ]
-  [ "$(yq -r '.jobs.renovate.steps[] | select(.name == "Run Renovate") | .env.RENOVATE_ALLOWED_UNSAFE_EXECUTIONS' "${renovation}")" = '${{ inputs.allowed-unsafe-executions }}' ]
+  [ "$(yq -r '.jobs.renovate.steps[] | select(.name == "Run Renovate") | .env.RENOVATE_ALLOWED_UNSAFE_EXECUTIONS' "${renovation}")" = "\${{ inputs.allowed-unsafe-executions }}" ]
   config="${BATS_TEST_DIRNAME}/../../../.github/renovate.json"
   [ "$(jq -r '.extends | index("group:all") != null' "${config}")" = true ]
   [ "$(jq -r '.lockFileMaintenance.groupName' "${config}")" = 'All dependency lockfiles' ]
