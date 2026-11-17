@@ -21,7 +21,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache for dependency downloads (never formatted files or PR credentials)
+        description: Whether to cache dependency downloads (never formatted files or PR credentials)
         default: true
       cache-dependency-path:
         required: false
@@ -36,7 +36,7 @@ on:
       lint-before-pr:
         required: false
         type: boolean
-        description: Pre-pull-request lint execution
+        description: Whether to run lint before creating a pull request
         default: true
       requirements-txt:
         required: false

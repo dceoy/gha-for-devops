@@ -21,7 +21,7 @@ on:
       use-oxfmt:
         required: false
         type: boolean
-        description: Use of Oxfmt to format Markdown files
+        description: Whether to use Oxfmt to format Markdown files
         default: true
       oxfmt-glob:
         required: false
@@ -31,7 +31,7 @@ on:
       use-biome:
         required: false
         type: boolean
-        description: Use of Biome to format Markdown files when supported
+        description: Whether to use Biome to format Markdown files when supported
         default: false
       biome-glob:
         required: false

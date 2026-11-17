@@ -21,7 +21,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache for Python dependency downloads
+        description: Whether to cache Python dependency downloads
         default: true
       cache-dependency-path:
         required: false
@@ -36,22 +36,22 @@ on:
       use-pyright:
         required: false
         type: boolean
-        description: Use of pyright to check types
+        description: Whether to use pyright to check types
         default: true
       use-ty:
         required: false
         type: boolean
-        description: Use of ty to check types
+        description: Whether to use ty to check types
         default: false
       use-ruff-format:
         required: false
         type: boolean
-        description: Use of ruff format to check code
+        description: Whether to use ruff format to check code
         default: true
       audit:
         required: false
         type: boolean
-        description: Execution of security audit on locked dependencies (applicable only if uv.lock is present)
+        description: Whether to run security audit on locked dependencies (applicable only if uv.lock is present)
         default: true
       additional-python-packages:
         required: false
@@ -66,12 +66,12 @@ on:
       use-osv-scanner:
         required: false
         type: boolean
-        description: Scan of dependencies using OSV-Scanner
+        description: Whether to scan dependencies using OSV-Scanner
         default: true
       use-trivy:
         required: false
         type: boolean
-        description: Scan of dependencies, secrets, and misconfiguration using Trivy
+        description: Whether to scan dependencies, secrets, and misconfiguration using Trivy
         default: true
       trivy-report-artifact-name:
         required: false
@@ -85,7 +85,7 @@ on:
       use-semgrep:
         required: false
         type: boolean
-        description: Semgrep OSS SAST scan using p/default rules
+        description: Whether to run Semgrep OSS SAST scan using p/default rules
         default: true
       runs-on:
         required: false

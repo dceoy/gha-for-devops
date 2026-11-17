@@ -16,7 +16,7 @@ on:
       hugo-extended:
         required: false
         type: boolean
-        description: Installation of Hugo extended edition
+        description: Whether to install Hugo extended edition
         default: true
       go-version:
         required: false
@@ -53,12 +53,12 @@ on:
       clean-destination-dir:
         required: false
         type: boolean
-        description: Removal of files from the destination directory before building
+        description: Whether to remove files from the destination directory before building
         default: true
       gc:
         required: false
         type: boolean
-        description: Execution of Hugo garbage collection after the build
+        description: Whether to run Hugo garbage collection after the build
         default: true
       minify:
         required: false

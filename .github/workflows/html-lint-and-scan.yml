@@ -21,7 +21,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache for package-manager downloads
+        description: Whether to cache package-manager downloads
         default: true
       cache-dependency-path:
         required: false
@@ -31,22 +31,22 @@ on:
       use-oxfmt:
         required: false
         type: boolean
-        description: Formatting check with Oxfmt
+        description: Whether to check formatting with Oxfmt
         default: true
       use-htmlhint:
         required: false
         type: boolean
-        description: Linting of HTML files with HTMLHint
+        description: Whether to lint HTML files with HTMLHint
         default: true
       use-stylelint:
         required: false
         type: boolean
-        description: Linting of CSS (and related) files with stylelint
+        description: Whether to lint CSS (and related) files with stylelint
         default: true
       lint-html-embedded-css:
         required: false
         type: boolean
-        description: Linting of CSS inside HTML style tags with stylelint
+        description: Whether to lint CSS inside HTML style tags with stylelint
         default: true
       htmlhint-config:
         required: false
@@ -81,12 +81,12 @@ on:
       use-osv-scanner:
         required: false
         type: boolean
-        description: Scan of dependencies using OSV-Scanner
+        description: Whether to scan dependencies using OSV-Scanner
         default: true
       use-trivy:
         required: false
         type: boolean
-        description: Scan of dependencies, secrets, and misconfiguration using Trivy
+        description: Whether to scan dependencies, secrets, and misconfiguration using Trivy
         default: true
       trivy-report-artifact-name:
         required: false
@@ -100,7 +100,7 @@ on:
       use-semgrep:
         required: false
         type: boolean
-        description: Semgrep OSS SAST scan using p/default rules
+        description: Whether to run Semgrep OSS SAST scan using p/default rules
         default: true
       runs-on:
         required: false

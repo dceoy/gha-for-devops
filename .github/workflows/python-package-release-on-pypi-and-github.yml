@@ -36,17 +36,17 @@ on:
       create-github-release:
         required: false
         type: boolean
-        description: GitHub release creation
+        description: Whether to create a GitHub release
         default: true
       publish-to-pypi:
         required: false
         type: boolean
-        description: Distribution publication to PyPI
+        description: Whether to publish the distribution to PyPI
         default: true
       publish-to-testpypi-before-pypi:
         required: false
         type: boolean
-        description: TestPyPI publication before PyPI when PyPI publishing is enabled
+        description: Whether to publish to TestPyPI before PyPI when PyPI publishing is enabled
         default: false
       python-version:
         required: false
@@ -61,7 +61,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache for dependency downloads (never distributions or credentials)
+        description: Whether to cache dependency downloads (never distributions or credentials)
         default: true
       cache-dependency-path:
         required: false
@@ -91,7 +91,7 @@ on:
       artifact-overwrite:
         required: false
         type: boolean
-        description: Replacement of existing artifacts
+        description: Whether to overwrite existing artifacts
         default: true
       runs-on:
         required: false
