@@ -81,7 +81,7 @@ jobs:
               --reports-dir /reports \
               --profile research \
               --lifecycle pre-build \
-              --cdxgen-args "--no-install-deps" \
+              --cdxgen-args=--no-install-deps \
               --csaf \
               --fail-on-error
           if [[ -z "$(find "${RUNNER_TEMP}/dep-scan-reports" -type f -print -quit)" ]]; then
