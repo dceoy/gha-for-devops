@@ -71,15 +71,6 @@
       "enabled": false
     },
     {
-      "description": "Dependabot handles regular npm and uv dependency updates",
-      "matchManagers": ["npm", "pep621"],
-      "matchUpdateTypes": [
-        "major", "minor", "patch", "pin", "pinDigest", "digest",
-        "lockfileUpdate", "rollback", "bump", "replacement"
-      ],
-      "enabled": false
-    },
-    {
       "description": "Lockfile cooldown is enforced by mise, pnpm, and uv",
       "matchUpdateTypes": ["lockFileMaintenance"],
       "minimumReleaseAge": null,
