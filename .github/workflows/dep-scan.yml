@@ -38,7 +38,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - name: Validate scan path and pinned image
+      - name: Scan dependencies and reachability
+        id: scan
         env:
           PACKAGE_PATH: ${{ inputs.package-path }}
         run: |
@@ -57,10 +58,6 @@ jobs:
             echo "::error::package-path must resolve to a directory inside the checkout."
             exit 1
           fi
-          echo "SCAN_DIR=${scan_dir}" >> "${GITHUB_ENV}"
-      - name: Scan dependencies and reachability
-        id: scan
-        run: |
           mkdir -p "${RUNNER_TEMP}/dep-scan-reports" "${RUNNER_TEMP}/dep-scan-cache"
           docker run --rm \
             --user "$(id -u):$(id -g)" \
@@ -68,7 +65,7 @@ jobs:
             --cap-drop ALL \
             --security-opt no-new-privileges \
             --tmpfs /tmp:rw,nosuid,nodev,size=2g \
-            --mount "type=bind,source=${SCAN_DIR},target=/app,readonly" \
+            --mount "type=bind,source=${scan_dir},target=/app,readonly" \
             --mount "type=bind,source=${RUNNER_TEMP}/dep-scan-reports,target=/reports" \
             --mount "type=bind,source=${RUNNER_TEMP}/dep-scan-cache,target=/cache" \
             --env HOME=/cache \
