@@ -25,27 +25,10 @@ on:
         type: boolean
         description: Whether to fail the job when joern-scan reports findings
         default: true
-      java-version:
-        required: false
-        type: string
-        description: Java version to use
-        default: '21'
-      enable-cache:
-        required: false
-        type: boolean
-        description: Whether to cache the pinned Joern download
-        default: true
-      cache-salt:
-        required: false
-        type: string
-        description: Optional value used to bust the Joern cache
-        default: null
       runs-on:
         required: false
         type: string
-        description: >-
-          Linux runner to use (macOS/Windows runners ship Bash 3.2, which lacks
-          the associative arrays and lowercase expansion this workflow needs)
+        description: Linux runner with Docker support
         default: ubuntu-latest
 permissions:
   contents: read
@@ -56,83 +39,26 @@ defaults:
 jobs:
   joern-scan:
     runs-on: ${{ inputs.runs-on }}
-    env:
-      # renovate: datasource=github-releases depName=joernio/joern
-      JOERN_VERSION: v4.0.602
+    container:
+      # renovate: datasource=docker depName=ghcr.io/joernio/joern
+      image: ghcr.io/joernio/joern:master@sha256:c09cf0b6d03c140e79343398d45f9de04abfc7e5af86950ee4b523a5df556d2c
     steps:
-      - name: Verify Linux runner
-        run: |
-          if [[ "${{ runner.os }}" != "Linux" ]]; then
-            echo "::error::joern-scan requires a Linux runner (Bash 4+ associative arrays and lowercase expansion); runner.os is '${{ runner.os }}'"
-            exit 1
-          fi
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Setup Java
-        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78  # v6.2.0
-        with:
-          distribution: temurin
-          java-version: ${{ inputs.java-version }}
-      - name: Compute Joern install directory
-        env:
-          JOERN_VERSION: ${{ env.JOERN_VERSION }}
-          CACHE_SALT: ${{ inputs.cache-salt }}
+      - name: Verify Joern query database
         run: |
-          # shellcheck disable=SC2153
-          [[ "${JOERN_VERSION}" =~ ^v[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid JOERN_VERSION"; exit 1; }
-          joern_home="${HOME}/.local/share/joern/${JOERN_VERSION}"
-          if [[ -n "${CACHE_SALT}" ]]; then
-            # Folds the salt into the install directory itself (not just the cache
-            # key) so that on a persistent self-hosted runner, bumping cache-salt to
-            # recover from a corrupted/stale install starts from a clean directory
-            # instead of reusing the untouched local install on a cache miss.
-            salt_hash="$(printf '%s' "${CACHE_SALT}" | sha256sum | cut -c1-16)"
-            joern_home="${joern_home}-${salt_hash}"
+          queries="$(joern-scan --list-query-names)"
+          if [[ -z "${queries}" ]]; then
+            echo '::error::The Joern query database is empty'
+            exit 1
           fi
-          echo "JOERN_HOME=${joern_home}" >> "${GITHUB_ENV}"
-      - name: Restore Joern cache
-        if: inputs.enable-cache
-        id: joern-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ${{ env.JOERN_HOME }}
-          key: joern-${{ runner.os }}-${{ runner.arch }}-${{ env.JOERN_VERSION }}-${{ inputs.cache-salt }}
-      - name: Install Joern and the default query database
-        run: |
-          # shellcheck disable=SC2153
-          joern_home="${JOERN_HOME}"
-          # Only the CLI extraction and query-database update together make a usable
-          # install; a marker written after both succeed keeps a partial install
-          # (e.g. a failed --updatedb) from being treated as complete on the next run.
-          install_marker="${joern_home}/.install-complete"
-          if [[ ! -f "${install_marker}" ]]; then
-            curl --fail --location --silent --show-error \
-              --connect-timeout 30 --speed-limit 51200 --speed-time 60 \
-              "https://github.com/joernio/joern/releases/download/${JOERN_VERSION}/joern-cli.zip" \
-              -o "${RUNNER_TEMP}/joern-cli.zip"
-            mkdir -p "${joern_home}"
-            rm -rf "${joern_home}/joern-cli"
-            unzip -qo "${RUNNER_TEMP}/joern-cli.zip" -d "${joern_home}"
-            # joern-scan prepends "v" to the version passed to --dbversion
-            "${joern_home}/joern-cli/joern-scan" --updatedb --dbversion "${JOERN_VERSION#v}"
-            touch "${install_marker}"
-          fi
-          echo "${joern_home}/joern-cli" >> "${GITHUB_PATH}"
-      - name: Save Joern cache
-        if: inputs.enable-cache && steps.joern-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ${{ env.JOERN_HOME }}
-          key: ${{ steps.joern-cache.outputs.cache-primary-key }}
-      - name: Run joern-scan
+      - name: Prepare scan
         env:
           SCAN_PATH: ${{ inputs.scan-path }}
           SCAN_LANGUAGE: ${{ inputs.language }}
-          JOERN_SCAN_OPTIONS: ${{ inputs.joern-scan-options }}
-          FAIL_ON_FINDINGS: ${{ inputs.fail-on-findings }}
         run: |
           [[ -n "${SCAN_PATH}" ]] || { echo '::error::scan-path must not be empty'; exit 1; }
 
@@ -150,123 +76,93 @@ jobs:
               exit 1
               ;;
           esac
+          if [[ ! -d "${scan_path_abs}" || "${scan_path_abs}" == *$'\n'* || "${scan_path_abs}" == *$'\r'* ]]; then
+            echo '::error::scan-path must be a directory without newlines'
+            exit 1
+          fi
           SCAN_PATH="${scan_path_abs}"
 
-          # File-name patterns per Joern frontend, keyed by the frontend names joern-scan's
-          # --language flag actually accepts, i.e. the `importCode.<name>` accessors in
-          # joernio/joern's console/cpgcreation/ImportCode.scala (also this workflow's
-          # allow-list for the language input; see the validation below). These differ
-          # from the internal `Languages.*` identifiers used by auto-detection: the Java
-          # source frontend is invoked as `java` (not `javasrc`), JVM bytecode as `jvm`
-          # (not `java`), and there are no `newc`, `pythonsrc`, or `rubysrc` frontends
-          # ("python"/"ruby" are the real names). "ghidra" has no extension heuristic
-          # upstream either (it targets arbitrary compiled binaries), so it's allowed as
-          # a language value but left out of source-presence validation below.
-          # Manifest/lockfiles (package.json, go.mod, go.sum, cargo.toml, cargo.lock,
-          # gopkg.*, .csproj, ...) are deliberately excluded: a directory holding only
-          # one of these can still build an empty CPG, so they must not count as proof
-          # that real source exists for that frontend, whether the frontend was passed
-          # in explicitly or chosen by the auto-detection below.
-          declare -A LANGUAGE_PATTERNS=(
-            [c]='*.c *.cc *.cpp *.cxx *.cp *.h *.hpp *.hh *.hxx *.h++ *.tcc'
-            [cpp]='*.c *.cc *.cpp *.cxx *.cp *.h *.hpp *.hh *.hxx *.h++ *.tcc'
-            [java]='*.java'
-            [jvm]='*.jar *.war *.ear *.apk *.class'
-            [jssrc]='*.js *.ts *.jsx *.tsx *.cjs *.mjs *.vue *.ejs'
-            [javascript]='*.js *.ts *.jsx *.tsx *.cjs *.mjs *.vue *.ejs'
-            [kotlin]='*.kt'
-            [php]='*.php'
-            [python]='*.py'
-            [ruby]='*.rb'
-            [swiftsrc]='*.swift'
-            [golang]='*.go'
-            [csharp]='*.cs'
-            [csharpsrc]='*.cs'
-            [llvm]='*.bc *.ll'
-            [rust]='*.rs'
-            [abap]='*.abap'
-          )
-
-          # Builds the `find -iname` alternation args for the space-separated glob
-          # patterns in $1 into the name_args array. Parses into an array first:
-          # unquoted `for pattern in $1` would let the shell pathname-expand a
-          # pattern like "*.py" against files in the current directory instead of
-          # treating it as a literal glob for find.
-          build_name_args() {
-            local -a patterns=()
-            local pattern
-            read -r -a patterns <<< "$1"
-            name_args=()
-            for pattern in "${patterns[@]}"; do
-              name_args+=(-o -iname "${pattern}")
-            done
-          }
-
-          # Checks whether scan-path contains a file matching any of the space-separated
-          # glob patterns in $1.
-          has_source_match() {
-            local -a name_args=()
-            build_name_args "$1"
-            [[ -n "$(find "${SCAN_PATH}" -type f \( "${name_args[@]:1}" \) -print -quit)" ]]
-          }
-
-          # Counts files under scan-path matching any of the space-separated glob
-          # patterns in $1.
-          count_source_match() {
-            local -a name_args=()
-            build_name_args "$1"
-            find "${SCAN_PATH}" -type f \( "${name_args[@]:1}" \) -print 2>/dev/null | wc -l
-          }
-
-          # --overwrite forces a fresh CPG for every run; joern-scan otherwise reuses
-          # any existing workspace project keyed by the checkout path, which on a
-          # persistent self-hosted runner would silently re-analyze a stale CPG.
-          args=(--overwrite)
-          if [[ -z "${SCAN_LANGUAGE}" ]]; then
-            # Joern's own auto-detection counts *all* recognized files (including
-            # manifests like package.json/.csproj) and can select a frontend with no
-            # real source behind it, silently building an empty CPG. Instead of
-            # relying on that, pick the frontend with the most real-source matches
-            # ourselves and pass it explicitly via --language below, so the frontend
-            # this workflow selects always has verified source to analyze. One
-            # canonical key per alias group (cpp/jssrc/csharpsrc share patterns with
-            # c/javascript/csharp) avoids counting the same files twice.
-            best_lang=""
-            best_count=0
-            for candidate in c java jvm javascript kotlin php python ruby swiftsrc golang csharp llvm rust abap; do
-              count="$(count_source_match "${LANGUAGE_PATTERNS[${candidate}]}")"
-              if [[ "${count}" -gt "${best_count}" ]]; then
-                best_lang="${candidate}"
-                best_count="${count}"
-              fi
-            done
-            if [[ -z "${best_lang}" ]]; then
-              echo '::error::no source files matched by a known Joern frontend were found under scan-path; set the language input explicitly or verify scan-path'
-              exit 1
-            fi
-            SCAN_LANGUAGE="${best_lang}"
+          # Count actual source files once. Manifests and lockfiles are intentionally
+          # excluded because they can produce a successful but empty CPG.
+          declare -A source_counts=()
+          source_list="$(mktemp "${RUNNER_TEMP}/joern-sources.XXXXXX")"
+          trap 'rm -f -- "${source_list}"' EXIT
+          if ! find "${SCAN_PATH}" -type f -print0 > "${source_list}"; then
+            echo '::error::failed to enumerate source files'
+            exit 1
           fi
+          while IFS= read -r -d '' source_file; do
+            case "${source_file,,}" in
+              *.c | *.cc | *.cpp | *.cxx | *.cp | *.h | *.hpp | *.hh | *.hxx | *.h++ | *.tcc)
+                source_lang=c ;;
+              *.java) source_lang=java ;;
+              *.jar | *.war | *.ear | *.apk | *.class) source_lang=jvm ;;
+              *.js | *.ts | *.jsx | *.tsx | *.cjs | *.mjs | *.vue | *.ejs)
+                source_lang=javascript ;;
+              *.kt) source_lang=kotlin ;;
+              *.php) source_lang=php ;;
+              *.py) source_lang=python ;;
+              *.rb) source_lang=ruby ;;
+              *.swift) source_lang=swiftsrc ;;
+              *.go) source_lang=golang ;;
+              *.cs) source_lang=csharp ;;
+              *.bc | *.ll) source_lang=llvm ;;
+              *.rs) source_lang=rust ;;
+              *.abap) source_lang=abap ;;
+              *) continue ;;
+            esac
+            source_counts["${source_lang}"]=$(( ${source_counts["${source_lang}"]:-0} + 1 ))
+          done < "${source_list}"
 
+          # Joern interpolates --language, --names and --tags into generated Scala.
+          # Preserve the accepted frontend aliases while validating source presence.
           lang_key="${SCAN_LANGUAGE,,}"
-          # joern-scan interpolates --language, unescaped, into a generated Scala
-          # script as `importCode.$language(...)`. Rejecting anything outside this
-          # allow-list (a fixed set of frontend names) -- and forwarding only the
-          # matched key below, never the raw input -- keeps an unrecognized or
-          # crafted value from reaching that script.
-          if [[ "${lang_key}" != "ghidra" && -z "${LANGUAGE_PATTERNS[${lang_key}]:-}" ]]; then
-            echo "::error::language '${SCAN_LANGUAGE}' is not a recognized joern-scan frontend"
-            exit 1
-          fi
-          args+=(--language "${lang_key}")
-          lang_patterns="${LANGUAGE_PATTERNS[${lang_key}]:-}"
-          # Joern accepts an explicit --language without checking that scan-path
-          # actually contains matching source, so an unrelated or empty scan-path
-          # can still build an empty CPG and report a false-clean scan.
-          if [[ -n "${lang_patterns}" ]] && ! has_source_match "${lang_patterns}"; then
-            echo "::error::no source files matched by the '${SCAN_LANGUAGE}' frontend were found under scan-path"
+          case "${lang_key}" in
+            '')
+              best_count=0
+              for candidate in c java jvm javascript kotlin php python ruby swiftsrc golang csharp llvm rust abap; do
+                count="${source_counts["${candidate}"]:-0}"
+                if (( count > best_count )); then
+                  lang_key="${candidate}"
+                  best_count="${count}"
+                fi
+              done
+              [[ -n "${lang_key}" ]] || {
+                echo '::error::no recognized source files found under scan-path'
+                exit 1
+              }
+              source_lang="${lang_key}"
+              ;;
+            c | cpp) source_lang=c ;;
+            jssrc | javascript) source_lang=javascript ;;
+            csharp | csharpsrc) source_lang=csharp ;;
+            ghidra) source_lang='' ;;
+            java | jvm | kotlin | php | python | ruby | swiftsrc | golang | llvm | rust | abap)
+              source_lang="${lang_key}" ;;
+            *)
+              echo '::error::language is not a recognized joern-scan frontend'
+              exit 1
+              ;;
+          esac
+          if [[ -n "${source_lang}" && "${source_counts["${source_lang}"]:-0}" -eq 0 ]]; then
+            echo '::error::no source files found for the selected Joern frontend'
             exit 1
           fi
 
+          # GITHUB_ENV carries only the validated path and allowlisted frontend.
+          printf 'JOERN_SCAN_PATH=%s\nJOERN_LANGUAGE=%s\n' "${SCAN_PATH}" "${lang_key}" >> "${GITHUB_ENV}"
+      - name: Run joern-scan
+        env:
+          JOERN_SCAN_OPTIONS: ${{ inputs.joern-scan-options }}
+        run: |
+          # --overwrite prevents reuse of stale CPGs on persistent runners.
+          args=(--overwrite --language "${JOERN_LANGUAGE}")
+
+          # Reject multiline options instead of silently parsing only the first line.
+          if [[ "${JOERN_SCAN_OPTIONS}" == *$'\n'* || "${JOERN_SCAN_OPTIONS}" == *$'\r'* ]]; then
+            echo '::error::joern-scan-options must be a single line'
+            exit 1
+          fi
           if [[ -n "${JOERN_SCAN_OPTIONS}" ]]; then
             read -r -a extra_args <<< "${JOERN_SCAN_OPTIONS}"
             # Allow-list only scan-tuning flags. Anything else -- non-scan modes such as
@@ -286,7 +182,7 @@ jobs:
                 if [[ "${expect_flag}" == "--depth" ]]; then
                   [[ "${extra_arg}" =~ ^[0-9]+$ ]] || { echo "::error::joern-scan-options --depth value must be a non-negative integer"; exit 1; }
                 else
-                  [[ "${extra_arg}" =~ ^[A-Za-z0-9_.,-]+$ ]] || { echo "::error::joern-scan-options ${expect_flag} value contains unsupported characters"; exit 1; }
+                  [[ "${extra_arg}" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*(,[A-Za-z0-9_][A-Za-z0-9_.-]*)*$ ]] || { echo '::error::joern-scan-options --names/--tags must be comma-separated identifiers'; exit 1; }
                 fi
                 expect_value=0
                 continue
@@ -299,7 +195,7 @@ jobs:
                 --store)
                   ;;
                 *)
-                  echo "::error::joern-scan-options contains an unsupported option '${extra_arg}'; only --names, --tags, --depth, and --store are allowed"
+                  echo '::error::joern-scan-options supports only --names, --tags, --depth, and --store'
                   exit 1
                   ;;
               esac
@@ -311,8 +207,12 @@ jobs:
             args+=("${extra_args[@]}")
           fi
 
+          joern-scan "${args[@]}" -- "${JOERN_SCAN_PATH}" 2>&1 | tee "${RUNNER_TEMP}/joern-scan.log"
+      - name: Evaluate scan results
+        env:
+          FAIL_ON_FINDINGS: ${{ inputs.fail-on-findings }}
+        run: |
           scan_log="${RUNNER_TEMP}/joern-scan.log"
-          joern-scan "${args[@]}" -- "${SCAN_PATH}" 2>&1 | tee "${scan_log}"
           # "Error executing query" is logged via logger.warn (may carry a
           # timestamp/level prefix); match as a substring rather than anchoring to
           # line start.
