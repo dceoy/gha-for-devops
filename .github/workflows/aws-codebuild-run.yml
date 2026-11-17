@@ -1,5 +1,5 @@
 ---
-name: Build using an AWS CodeBuild project
+name: build using an AWS CodeBuild project
 on:
   workflow_call:
     inputs:
@@ -16,12 +16,12 @@ on:
       aws-codebuild-project-name:
         required: false
         type: string
-        description: AWS CodeBuild Project Name
+        description: AWS CodeBuild project name
         default: null
       buildspec-override:
         required: false
         type: string
-        description: Buildspec Override
+        description: Buildspec override
         default: null
       compute-type-override:
         required: false
@@ -61,7 +61,7 @@ on:
       disable-source-override:
         required: false
         type: boolean
-        description: Set to `true` if you want do disable source repo override
+        description: Flag for disabling the source repository override
         default: false
       source-version-override:
         required: false
@@ -81,12 +81,12 @@ on:
       hide-cloudwatch-logs:
         required: false
         type: boolean
-        description: Set to `true` to prevent the CloudWatch logs from streaming the output to GitHub
+        description: Flag for disabling CloudWatch log streaming to GitHub
         default: false
       disable-github-env-vars:
         required: false
         type: boolean
-        description: Set to `true` if you want do disable github environment variables in codebuild
+        description: Flag for disabling GitHub environment variables in CodeBuild
         default: false
       artifacts-type-override:
         required: false

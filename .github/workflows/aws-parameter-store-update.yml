@@ -1,5 +1,5 @@
 ---
-name: Update AWS Parameter Store values
+name: update AWS Parameter Store values
 on:
   workflow_call:
     inputs:
@@ -15,7 +15,7 @@ on:
       dry-run:
         required: false
         type: boolean
-        description: Show what would be updated without making changes
+        description: Preview of proposed updates without applying changes
         default: false
       runs-on:
         required: false

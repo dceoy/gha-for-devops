@@ -6,12 +6,12 @@ on:
       unconditional:
         required: false
         type: boolean
-        description: Whether to unconditionally approve PRs without checking the update type
+        description: Option to unconditionally approve PRs without checking the update type
         default: false
       auto-merge-after-requirements:
         required: false
         type: boolean
-        description: Whether to enable auto-merge after branch protection requirements are met
+        description: Option to enable auto-merge after branch protection requirements are met
         default: true
       runs-on:
         required: false
