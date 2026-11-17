@@ -69,9 +69,9 @@ setup() {
   renovation="${BATS_TEST_DIRNAME}/../../workflows/renovate.yml"
   [ "$(yq -r '.on.workflow_call.secrets.GH_TOKEN.required' "${renovation}")" = false ]
   [ "$(yq -r '.on.workflow_call.inputs."allowed-unsafe-executions".type' "${renovation}")" = string ]
-  [ "$(yq -r '.on.workflow_call.inputs."allowed-unsafe-executions".default' "${renovation}")" = '["muse"]' ]
+  [ "$(yq -r '.on.workflow_call.inputs."allowed-unsafe-executions".default' "${renovation}")" = '[]' ]
   [ "$(yq -r '.on.workflow_dispatch.inputs."allowed-unsafe-executions".type' "${renovation}")" = string ]
-  [ "$(yq -r '.on.workflow_dispatch.inputs."allowed-unsafe-executions".default' "${renovation}")" = '["muse"]' ]
+  [ "$(yq -r '.on.workflow_dispatch.inputs."allowed-unsafe-executions".default' "${renovation}")" = '[]' ]
   [ "$(yq -r '.on.workflow_call.inputs | has("dry-run")' "${renovation}")" = false ]
   [ "$(yq -r '.on.workflow_dispatch.inputs | has("dry-run")' "${renovation}")" = false ]
   [ "$(yq -r '.jobs.renovate | has("timeout-minutes")' "${renovation}")" = false ]
