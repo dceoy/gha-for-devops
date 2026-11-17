@@ -19,7 +19,7 @@ on:
       use-shfmt:
         required: false
         type: boolean
-        description: Formatting check with shfmt
+        description: Whether to check formatting with shfmt
         default: false
       shfmt-options:
         required: false
@@ -29,7 +29,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache for pinned ShellCheck and shfmt downloads when they are not preinstalled
+        description: Whether to cache pinned ShellCheck and shfmt downloads when they are not preinstalled
         default: true
       cache-salt:
         required: false
@@ -43,7 +43,7 @@ on:
       use-semgrep:
         required: false
         type: boolean
-        description: Semgrep OSS SAST scan using p/default rules
+        description: Whether to run Semgrep OSS SAST scan using p/default rules
         default: true
       runs-on:
         required: false

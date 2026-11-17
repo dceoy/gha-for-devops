@@ -14,22 +14,22 @@ on:
       use-osv-scanner:
         type: boolean
         default: true
-        description: Scan of dependency lockfiles with OSV-Scanner
+        description: Whether to scan dependency lockfiles with OSV-Scanner
       use-trivy:
         type: boolean
         default: true
-        description: Scan of the filesystem with Trivy
+        description: Whether to scan the filesystem with Trivy
       submit-dependencies:
         type: boolean
         default: false
-        description: Publication of the existing Trivy dependency snapshot on trusted default-branch events
+        description: Whether to publish the existing Trivy dependency snapshot on trusted default-branch events
       snapshot-correlator:
         type: string
         default: source-root
       use-syft-grype:
         type: boolean
         default: false
-        description: Enablement of optional Syft SBOM generation and Grype scanning
+        description: Whether to enable optional Syft SBOM generation and Grype scanning
       grype-fail-on:
         type: string
         default: high
@@ -37,7 +37,7 @@ on:
       grype-only-fixed:
         type: boolean
         default: true
-        description: Reporting limited to vulnerabilities with an available fix
+        description: Whether to report only vulnerabilities with an available fix
       sbom-artifact-name:
         type: string
         default: null
@@ -53,7 +53,7 @@ on:
       trivy-ignore-unfixed:
         type: boolean
         default: true
-        description: Exclusion of unpatched vulnerabilities in Trivy
+        description: Whether to ignore unpatched vulnerabilities in Trivy
       trivy-timeout:
         type: string
         default: 5m0s
@@ -61,7 +61,7 @@ on:
       use-semgrep:
         type: boolean
         default: false
-        description: Execution of Semgrep OSS SAST
+        description: Whether to run Semgrep OSS SAST
       semgrep-exclude-cooldown-rules:
         type: boolean
         default: false

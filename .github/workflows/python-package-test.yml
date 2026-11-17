@@ -21,7 +21,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache for Python dependency downloads
+        description: Whether to cache Python dependency downloads
         default: true
       cache-dependency-path:
         required: false

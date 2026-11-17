@@ -34,7 +34,7 @@ on:
       grype-only-fixed:
         type: boolean
         default: true
-        description: Reporting limited to vulnerabilities with an available fix
+        description: Whether to report only vulnerabilities with an available fix
       sbom-artifact-name:
         type: string
         default: null
