@@ -17,12 +17,12 @@ on:
         required: false
         type: string
         description: JSON array of Renovate unsafe execution identifiers (trusted repositories only)
-        default: '["muse"]'
+        default: '[]'
     secrets:
       GH_TOKEN:
         required: false
         description: Optional GitHub token to trigger CI on Renovate-created PRs
-  workflow_dispatch:  # checkov:skip=CKV_GHA_7:inputs configure Renovate rather than shell commands
+  workflow_dispatch:  # checkov:skip=CKV_GHA_7:inputs configure Renovate; no input is interpolated into workflow shell scripts
     inputs:
       renovate-version:
         required: false
@@ -38,7 +38,7 @@ on:
         required: false
         type: string
         description: JSON array of Renovate unsafe execution identifiers (trusted repositories only)
-        default: '["muse"]'
+        default: '[]'
 permissions:
   contents: write
   issues: write
