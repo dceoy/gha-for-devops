@@ -434,37 +434,3 @@ jobs:
           advanced-security: ${{ inputs.zizmor-advanced-security }}
           annotations: ${{ ! inputs.zizmor-advanced-security }}
           config: ${{ inputs.zizmor-config }}
-
-            )
-
-            # Match only actionlint's known job-context shape so same-named runner errors stay visible.
-            job_context_type='\{check_run_id: number; container: \{id: string; network: string\}; services: .*; status: string\}'
-            actionlint_args+=(
-              -ignore "^property \"workflow_file_path\" is not defined in object type ${job_context_type}$"
-              -ignore "^property \"workflow_ref\" is not defined in object type ${job_context_type}$"
-              -ignore "^property \"workflow_repository\" is not defined in object type ${job_context_type}$"
-              -ignore "^property \"workflow_sha\" is not defined in object type ${job_context_type}$"
-            )
-          elif [[ "${ACTIONLINT_COMPATIBILITY_MODE}" == "true" ]]; then
-            echo "actionlint compatibility ignores are disabled outside GitHub.com (${GITHUB_SERVER_URL:-unknown})."
-          fi
-
-          while IFS= read -r pattern; do
-            [[ -z "${pattern}" ]] && continue
-            actionlint_args+=(-ignore "${pattern}")
-          done <<< "${ACTIONLINT_EXTRA_IGNORE_REGEX}"
-
-          actionlint "${actionlint_args[@]}" "${files[@]}"
-      - name: Run zizmor
-        if: inputs.use-zizmor
-        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd  # v0.8.1
-        with:
-          inputs: ${{ inputs.zizmor-search-path || inputs.search-path }}
-          online-audits: ${{ inputs.zizmor-online-audits }}
-          persona: ${{ inputs.zizmor-persona }}
-          min-severity: ${{ inputs.zizmor-min-severity }}
-          min-confidence: ${{ inputs.zizmor-min-confidence }}
-          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}  # zizmor: ignore[secrets-outside-env] caller-provided secret
-          advanced-security: ${{ inputs.zizmor-advanced-security }}
-          annotations: ${{ ! inputs.zizmor-advanced-security }}
-          config: ${{ inputs.zizmor-config }}
