@@ -32,7 +32,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [aws-codebuild-run.yml](.github/workflows/aws-codebuild-run.yml)                                                 | AWS CodeBuild project execution                                   |
 | [aws-parameter-store-update.yml](.github/workflows/aws-parameter-store-update.yml)                               | AWS Parameter Store value updates                                 |
 | [bats-test.yml](.github/workflows/bats-test.yml)                                                                 | Bats tests                                                        |
-| [claude-code-bot.yml](.github/workflows/claude-code-bot.yml)                                                     | Mention bot using Claude Code                                     |
+| [claude-code-bot.yml](.github/workflows/claude-code-bot.yml)                                                     | Claude Code mention bot                                           |
 | [claude-code-review.yml](.github/workflows/claude-code-review.yml)                                               | Pull request review using Claude Code                             |
 | [container-security.yml](.github/workflows/container-security.yml)                                               | Container security scan and signature verification                |
 | [dependabot-auto-merge.yml](.github/workflows/dependabot-auto-merge.yml)                                         | Dependabot auto-merge                                             |
