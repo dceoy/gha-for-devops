@@ -102,7 +102,7 @@ on:
         required: false
         type: boolean
         description: Whether to upload Zizmor results to GitHub Code Scanning instead of using annotations (requires Code Security for private repositories)
-        default: false
+        default: true
       zizmor-config:
         required: false
         type: string
