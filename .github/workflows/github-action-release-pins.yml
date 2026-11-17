@@ -1,5 +1,5 @@
 ---
-name: Update GitHub action release pins
+name: GitHub Actions release pin updates
 on:
   workflow_call:
     inputs:

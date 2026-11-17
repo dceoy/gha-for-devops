@@ -1,5 +1,5 @@
 ---
-name: Update AWS Parameter Store values
+name: AWS Parameter Store value updates
 on:
   workflow_call:
     inputs:

@@ -1,5 +1,5 @@
 ---
-name: Lint and security scan for GitHub Actions workflows and actions
+name: GitHub Actions workflow and action lint and security scan
 on:
   workflow_call:
     inputs:
@@ -46,17 +46,17 @@ on:
       use-shellcheck:
         required: false
         type: boolean
-        description: Option to use ShellCheck
+        description: Whether to use ShellCheck
         default: true
       use-pyflakes:
         required: false
         type: boolean
-        description: Option to use pyflakes
+        description: Whether to use pyflakes
         default: true
       use-yamllint:
         required: false
         type: boolean
-        description: Option to use yamllint
+        description: Whether to use yamllint
         default: true
       yamllint-search-path:
         required: false
@@ -71,7 +71,7 @@ on:
       use-zizmor:
         required: false
         type: boolean
-        description: Option to use Zizmor for security auditing
+        description: Whether to use Zizmor for security auditing
         default: true
       zizmor-search-path:
         required: false
@@ -81,7 +81,7 @@ on:
       zizmor-online-audits:
         required: false
         type: boolean
-        description: Option to run Zizmor online audits
+        description: Whether to run Zizmor online audits
         default: true
       zizmor-persona:
         required: false
@@ -101,7 +101,7 @@ on:
       zizmor-advanced-security:
         required: false
         type: boolean
-        description: Option to enable GitHub Advanced Security instead of GitHub annotations for Zizmor's results
+        description: Whether to enable GitHub Advanced Security instead of GitHub annotations for Zizmor's results
         default: true
       zizmor-config:
         required: false

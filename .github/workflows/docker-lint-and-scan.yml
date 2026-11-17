@@ -1,5 +1,5 @@
 ---
-name: Lint and security scan for Dockerfile
+name: Dockerfile lint and security scan
 on:
   workflow_call:
     inputs:

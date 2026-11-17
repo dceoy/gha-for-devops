@@ -1,5 +1,5 @@
 ---
-name: Build using an AWS CodeBuild project
+name: AWS CodeBuild project execution
 on:
   workflow_call:
     inputs:

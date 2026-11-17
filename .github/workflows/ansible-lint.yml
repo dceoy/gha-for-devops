@@ -1,5 +1,5 @@
 ---
-name: Lint for Ansible
+name: Ansible lint
 on:
   workflow_call:
     inputs:
@@ -26,7 +26,7 @@ on:
       use-yamllint:
         required: false
         type: boolean
-        description: Option to use yamllint
+        description: Whether to use yamllint
         default: true
       yamllint-config-data:
         required: false
