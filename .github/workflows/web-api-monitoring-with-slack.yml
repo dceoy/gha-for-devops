@@ -37,12 +37,12 @@ on:
       fail-on-unexpected:
         required: false
         type: boolean
-        description: Option to fail the job on unexpected status
+        description: Whether to fail the job on unexpected status
         default: false
       notify-on-expected:
         required: false
         type: boolean
-        description: Option to send a Slack notification even on expected status
+        description: Whether to send a Slack notification even on expected status
         default: false
       message-title:
         required: false
@@ -52,7 +52,7 @@ on:
       mask-response-body:
         required: false
         type: boolean
-        description: Option to mask the response body in the Slack message
+        description: Whether to mask the response body in the Slack message
         default: false
       runs-on:
         required: false

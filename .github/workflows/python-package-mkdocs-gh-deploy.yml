@@ -1,5 +1,5 @@
 ---
-name: Build and deployment of MkDocs documentation
+name: MkDocs documentation build and deployment
 on:
   workflow_call:
     inputs:

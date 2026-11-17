@@ -1,5 +1,5 @@
 ---
-name: Lint and security scan for TypeScript
+name: TypeScript lint and security scan
 on:
   workflow_call:
     inputs:
