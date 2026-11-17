@@ -25,27 +25,10 @@ on:
         type: boolean
         description: Whether to fail the job when joern-scan reports findings
         default: true
-      java-version:
-        required: false
-        type: string
-        description: Java version to use
-        default: '21'
-      enable-cache:
-        required: false
-        type: boolean
-        description: Whether to cache the pinned Joern download
-        default: true
-      cache-salt:
-        required: false
-        type: string
-        description: Optional value used to bust the Joern cache
-        default: null
       runs-on:
         required: false
         type: string
-        description: >-
-          Linux runner to use (macOS/Windows runners ship Bash 3.2, which lacks
-          the associative arrays and lowercase expansion this workflow needs)
+        description: Linux runner with Docker support
         default: ubuntu-latest
 permissions:
   contents: read
@@ -56,77 +39,22 @@ defaults:
 jobs:
   joern-scan:
     runs-on: ${{ inputs.runs-on }}
-    env:
-      # renovate: datasource=github-releases depName=joernio/joern
-      JOERN_VERSION: v4.0.602
+    container:
+      # renovate: datasource=docker depName=ghcr.io/joernio/joern
+      image: ghcr.io/joernio/joern:master@sha256:c09cf0b6d03c140e79343398d45f9de04abfc7e5af86950ee4b523a5df556d2c
     steps:
-      - name: Verify Linux runner
-        run: |
-          if [[ "${{ runner.os }}" != "Linux" ]]; then
-            echo "::error::joern-scan requires a Linux runner (Bash 4+ associative arrays and lowercase expansion); runner.os is '${{ runner.os }}'"
-            exit 1
-          fi
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
-      - name: Setup Java
-        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78  # v6.2.0
-        with:
-          distribution: temurin
-          java-version: ${{ inputs.java-version }}
-      - name: Compute Joern install directory
-        env:
-          JOERN_VERSION: ${{ env.JOERN_VERSION }}
-          CACHE_SALT: ${{ inputs.cache-salt }}
+      - name: Verify Joern query database
         run: |
-          # shellcheck disable=SC2153
-          [[ "${JOERN_VERSION}" =~ ^v[0-9]+(\.[0-9]+)*([._+-][A-Za-z0-9]+)*$ ]] || { echo "invalid JOERN_VERSION"; exit 1; }
-          joern_home="${HOME}/.local/share/joern/${JOERN_VERSION}"
-          if [[ -n "${CACHE_SALT}" ]]; then
-            # Folds the salt into the install directory itself (not just the cache
-            # key) so that on a persistent self-hosted runner, bumping cache-salt to
-            # recover from a corrupted/stale install starts from a clean directory
-            # instead of reusing the untouched local install on a cache miss.
-            salt_hash="$(printf '%s' "${CACHE_SALT}" | sha256sum | cut -c1-16)"
-            joern_home="${joern_home}-${salt_hash}"
+          queries="$(joern-scan --list-query-names)"
+          if [[ -z "${queries}" ]]; then
+            echo '::error::The Joern query database is empty'
+            exit 1
           fi
-          echo "JOERN_HOME=${joern_home}" >> "${GITHUB_ENV}"
-      - name: Restore Joern cache
-        if: inputs.enable-cache
-        id: joern-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ${{ env.JOERN_HOME }}
-          key: joern-${{ runner.os }}-${{ runner.arch }}-${{ env.JOERN_VERSION }}-${{ inputs.cache-salt }}
-      - name: Install Joern and the default query database
-        run: |
-          # shellcheck disable=SC2153
-          joern_home="${JOERN_HOME}"
-          # Only the CLI extraction and query-database update together make a usable
-          # install; a marker written after both succeed keeps a partial install
-          # (e.g. a failed --updatedb) from being treated as complete on the next run.
-          install_marker="${joern_home}/.install-complete"
-          if [[ ! -f "${install_marker}" ]]; then
-            curl --fail --location --silent --show-error \
-              --connect-timeout 30 --speed-limit 51200 --speed-time 60 \
-              "https://github.com/joernio/joern/releases/download/${JOERN_VERSION}/joern-cli.zip" \
-              -o "${RUNNER_TEMP}/joern-cli.zip"
-            mkdir -p "${joern_home}"
-            rm -rf "${joern_home}/joern-cli"
-            unzip -qo "${RUNNER_TEMP}/joern-cli.zip" -d "${joern_home}"
-            # joern-scan prepends "v" to the version passed to --dbversion
-            "${joern_home}/joern-cli/joern-scan" --updatedb --dbversion "${JOERN_VERSION#v}"
-            touch "${install_marker}"
-          fi
-          echo "${joern_home}/joern-cli" >> "${GITHUB_PATH}"
-      - name: Save Joern cache
-        if: inputs.enable-cache && steps.joern-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
-        with:
-          path: ${{ env.JOERN_HOME }}
-          key: ${{ steps.joern-cache.outputs.cache-primary-key }}
       - name: Run joern-scan
         env:
           SCAN_PATH: ${{ inputs.scan-path }}
@@ -161,7 +89,10 @@ jobs:
           declare -A source_counts=()
           source_list="$(mktemp "${RUNNER_TEMP}/joern-sources.XXXXXX")"
           trap 'rm -f -- "${source_list}"' EXIT
-          find "${SCAN_PATH}" -type f -print0 > "${source_list}"
+          if ! find "${SCAN_PATH}" -type f -print0 > "${source_list}"; then
+            echo '::error::failed to enumerate source files'
+            exit 1
+          fi
           while IFS= read -r -d '' source_file; do
             case "${source_file,,}" in
               *.c | *.cc | *.cpp | *.cxx | *.cp | *.h | *.hpp | *.hh | *.hxx | *.h++ | *.tcc)
