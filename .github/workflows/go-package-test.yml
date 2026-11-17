@@ -21,12 +21,12 @@ on:
       race-enabled:
         required: false
         type: boolean
-        description: Enable the race detector during tests
+        description: Enablement of the race detector during tests
         default: true
       coverage-enabled:
         required: false
         type: boolean
-        description: Generate a coverage profile during tests
+        description: Generation of a coverage profile during tests
         default: true
       coverage-profile:
         required: false
@@ -36,7 +36,7 @@ on:
       upload-coverage:
         required: false
         type: boolean
-        description: Upload the generated coverage profile
+        description: Upload of the generated coverage profile
         default: false
       coverage-artifact-name:
         required: false
@@ -51,7 +51,7 @@ on:
       build-enabled:
         required: false
         type: boolean
-        description: Run go build after tests
+        description: Post-test go build execution
         default: true
       build-package-pattern:
         required: false
