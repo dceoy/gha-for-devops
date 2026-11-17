@@ -28,7 +28,7 @@ on:
       use-syft-grype:
         type: boolean
         default: false
-        description: Enable optional Syft SBOM generation and Grype scanning
+        description: Whether to enable optional Syft SBOM generation and Grype scanning
       grype-fail-on:
         type: string
         default: high
@@ -51,7 +51,7 @@ on:
       trivy-ignore-unfixed:
         required: false
         type: boolean
-        description: Ignore unpatched/unfixed vulnerabilities
+        description: Whether to ignore unpatched/unfixed vulnerabilities
         default: true
       trivy-exit-code:
         required: false
@@ -80,7 +80,7 @@ on:
       verify-signatures:
         type: boolean
         default: true
-        description: Fail releases unless images have valid Cosign signatures
+        description: Whether to fail releases unless images have valid Cosign signatures
       certificate-identity:
         type: string
         default: null

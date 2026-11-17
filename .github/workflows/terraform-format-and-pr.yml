@@ -16,7 +16,7 @@ on:
       lint-before-pr:
         required: false
         type: boolean
-        description: Run lint before creating a pull request
+        description: Whether to run lint before creating a pull request
         default: true
       terragrunt-version:
         required: false

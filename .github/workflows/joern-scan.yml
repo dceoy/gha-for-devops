@@ -23,7 +23,7 @@ on:
       fail-on-findings:
         required: false
         type: boolean
-        description: Fail the job when joern-scan reports findings
+        description: Whether to fail the job when joern-scan reports findings
         default: true
       java-version:
         required: false
@@ -33,7 +33,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache the pinned Joern download
+        description: Whether to cache the pinned Joern download
         default: true
       cache-salt:
         required: false

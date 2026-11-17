@@ -1,5 +1,5 @@
 ---
-name: Build and deployment of MkDocs documentation
+name: MkDocs documentation build and deployment
 on:
   workflow_call:
     inputs:
@@ -21,7 +21,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache dependency downloads (never site output or credentials)
+        description: Whether to cache dependency downloads (never site output or credentials)
         default: true
       cache-dependency-path:
         required: false
@@ -41,7 +41,7 @@ on:
       mkdocs-strict:
         required: false
         type: boolean
-        description: Enable strict mode for MkDocs build
+        description: Whether to enable strict mode for MkDocs build
         default: true
       mkdocs-theme:
         required: false
@@ -77,7 +77,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache dependency downloads (never site output or credentials)
+        description: Whether to cache dependency downloads (never site output or credentials)
         default: true
       cache-dependency-path:
         required: false
@@ -97,7 +97,7 @@ on:
       mkdocs-strict:
         required: false
         type: boolean
-        description: Enable strict mode for MkDocs build
+        description: Whether to enable strict mode for MkDocs build
         default: true
       mkdocs-theme:
         required: false

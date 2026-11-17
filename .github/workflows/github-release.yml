@@ -1,5 +1,5 @@
 ---
-name: Release on GitHub
+name: GitHub release
 on:
   workflow_call:
     inputs:
@@ -11,12 +11,12 @@ on:
       create-new-tag:
         required: false
         type: boolean
-        description: Create a new tag if the input tag does not exist
+        description: Whether to create a new tag if the input tag does not exist
         default: false
       draft:
         required: false
         type: boolean
-        description: Create a new release as a draft and create its tag first; publish or delete a leftover draft and tag before the next release
+        description: Whether to create a new release as a draft and create its tag first; publish or delete a leftover draft and tag before the next release
         default: false
       source-branch:
         required: false
@@ -56,7 +56,7 @@ on:
       create-new-tag:
         required: false
         type: boolean
-        description: Create a new tag if the input tag does not exist
+        description: Whether to create a new tag if the input tag does not exist
         default: false
       version-bump:
         required: false

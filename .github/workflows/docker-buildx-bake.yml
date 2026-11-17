@@ -36,12 +36,12 @@ on:
       push:
         required: false
         type: boolean
-        description: Push images to the registry
+        description: Whether to push images to the registry
         default: true
       provenance:
         required: false
         type: boolean
-        description: Generate provenance attestation for the build
+        description: Whether to generate provenance attestation for the build
         default: false
       environment-variables:
         required: false
@@ -61,7 +61,7 @@ on:
       submit-dependencies:
         required: false
         type: boolean
-        description: Submit digest-pinned dependency snapshots for pushed Bake targets on trusted default-branch runs
+        description: Whether to submit digest-pinned dependency snapshots for pushed Bake targets on trusted default-branch runs
         default: false
       snapshot-artifact-prefix:
         type: string
@@ -70,12 +70,12 @@ on:
       scan-before-build:
         required: false
         type: boolean
-        description: Scan Dockerfile before build
+        description: Whether to scan Dockerfile before build
         default: true
       scan-after-build:
         required: false
         type: boolean
-        description: Scan images after build
+        description: Whether to scan images after build
         default: true
       hadolint-dockerfile:
         required: false
@@ -90,7 +90,7 @@ on:
       hadolint-recursive:
         required: false
         type: boolean
-        description: Search for Dockerfile recursively from the project root
+        description: Whether to search for Dockerfile recursively from the project root
         default: true
       trivy-scan-ref:
         required: false
@@ -100,7 +100,7 @@ on:
       use-syft-grype:
         type: boolean
         default: false
-        description: Enable Syft SBOM and Grype container scanning
+        description: Whether to enable Syft SBOM and Grype container scanning
       grype-fail-on:
         type: string
         default: high
@@ -108,7 +108,7 @@ on:
       grype-only-fixed:
         type: boolean
         default: true
-        description: Report only vulnerabilities with an available fix
+        description: Whether to report only vulnerabilities with an available fix
       sbom-artifact-name:
         type: string
         default: null
@@ -126,7 +126,7 @@ on:
       trivy-ignore-unfixed:
         required: false
         type: boolean
-        description: Ignore unpatched/unfixed vulnerabilities
+        description: Whether to ignore unpatched/unfixed vulnerabilities
         default: true
       trivy-filesystem-exit-code:
         required: false
@@ -166,7 +166,7 @@ on:
       image-artifact-overwrite:
         required: false
         type: boolean
-        description: Overwrite existing artifacts
+        description: Whether to overwrite existing artifacts
         default: true
       runs-on:
         required: false

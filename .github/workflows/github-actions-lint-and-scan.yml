@@ -1,5 +1,5 @@
 ---
-name: Lint and security scan for GitHub Actions workflows and actions
+name: GitHub Actions workflow and action lint and security scan
 on:
   workflow_call:
     inputs:
@@ -21,7 +21,7 @@ on:
       actionlint-compatibility-mode:
         required: false
         type: boolean
-        description: Ignore narrowly scoped actionlint false positives for newer GitHub.com syntax
+        description: Whether to ignore narrowly scoped actionlint false positives for newer GitHub.com syntax
         default: true
       actionlint-extra-ignore-regex:
         required: false
@@ -36,7 +36,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache pinned linter and Python tool downloads
+        description: Whether to cache pinned linter and Python tool downloads
         default: true
       cache-salt:
         required: false
@@ -111,7 +111,7 @@ on:
       use-checkov:
         required: false
         type: boolean
-        description: Use Checkov to scan GitHub Actions workflows
+        description: Whether to use Checkov to scan GitHub Actions workflows
         default: true
       checkov-framework:
         required: false
@@ -151,7 +151,7 @@ on:
       checkov-soft-fail:
         required: false
         type: boolean
-        description: Always return exit code 0 from Checkov
+        description: Whether to always return exit code 0 from Checkov
         default: false
       semgrep-exclude-cooldown-rules:
         type: boolean
@@ -160,7 +160,7 @@ on:
       use-semgrep:
         required: false
         type: boolean
-        description: Run Semgrep OSS SAST scan using p/default rules
+        description: Whether to run Semgrep OSS SAST scan using p/default rules
         default: true
       runs-on:
         required: false

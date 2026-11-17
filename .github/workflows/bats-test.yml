@@ -1,5 +1,5 @@
 ---
-name: Test for Bats
+name: Bats tests
 on:
   workflow_call:
     inputs:
@@ -22,7 +22,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache uv and pnpm downloads and Bats libraries
+        description: Whether to cache uv and pnpm downloads and Bats libraries
         default: true
       cache-salt:
         required: false

@@ -1,5 +1,5 @@
 ---
-name: Lint for JSON
+name: JSON lint
 on:
   workflow_call:
     inputs:

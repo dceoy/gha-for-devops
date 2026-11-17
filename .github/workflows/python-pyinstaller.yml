@@ -1,5 +1,5 @@
 ---
-name: Build using PyInstaller
+name: PyInstaller build
 on:
   workflow_call:
     inputs:
@@ -20,7 +20,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache dependency downloads (never built executables)
+        description: Whether to cache dependency downloads (never built executables)
         default: true
       cache-dependency-path:
         required: false
@@ -55,7 +55,7 @@ on:
       artifact-overwrite:
         required: false
         type: boolean
-        description: Overwrite existing artifacts
+        description: Whether to overwrite existing artifacts
         default: true
       runs-on:
         required: false

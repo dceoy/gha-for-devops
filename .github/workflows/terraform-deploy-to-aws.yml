@@ -21,7 +21,7 @@ on:
       apply:
         required: false
         type: boolean
-        description: Create or update infrastructure
+        description: Whether to create or update infrastructure
         default: false
       destroy:
         required: false
@@ -51,7 +51,7 @@ on:
       use-docker:
         required: false
         type: boolean
-        description: Use Docker
+        description: Whether to use Docker
         default: false
       docker-metadata-action-images:
         required: false

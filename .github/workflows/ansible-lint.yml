@@ -1,5 +1,5 @@
 ---
-name: Lint for Ansible
+name: Ansible lint
 on:
   workflow_call:
     inputs:
@@ -16,7 +16,7 @@ on:
       enable-cache:
         required: false
         type: boolean
-        description: Cache uv downloads
+        description: Whether to cache uv downloads
         default: true
       cache-salt:
         required: false

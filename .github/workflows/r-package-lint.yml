@@ -1,5 +1,5 @@
 ---
-name: Lint for R
+name: R lint
 on:
   workflow_call:
     inputs:
@@ -26,7 +26,7 @@ on:
       lint-package:
         required: false
         type: boolean
-        description: Run package lint
+        description: Whether to run package lint
         default: true
 permissions:
   contents: read

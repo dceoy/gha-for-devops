@@ -26,12 +26,12 @@ on:
       format-package:
         required: false
         type: boolean
-        description: Run package formatting
+        description: Whether to run package formatting
         default: true
       lint-before-pr:
         required: false
         type: boolean
-        description: Run lint before creating a pull request
+        description: Whether to run lint before creating a pull request
         default: true
     secrets:
       GH_TOKEN:

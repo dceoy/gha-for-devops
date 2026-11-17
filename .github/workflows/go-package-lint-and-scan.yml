@@ -1,5 +1,5 @@
 ---
-name: Lint and security scan for Go
+name: Go lint and security scan
 on:
   workflow_call:
     inputs:
@@ -16,22 +16,22 @@ on:
       use-gosec:
         required: false
         type: boolean
-        description: Use gosec for security scanning
+        description: Whether to use gosec for security scanning
         default: true
       use-govulncheck:
         required: false
         type: boolean
-        description: Use govulncheck for vulnerability scanning
+        description: Whether to use govulncheck for vulnerability scanning
         default: true
       use-osv-scanner:
         required: false
         type: boolean
-        description: Scan dependencies using OSV-Scanner
+        description: Whether to scan dependencies using OSV-Scanner
         default: true
       use-trivy:
         required: false
         type: boolean
-        description: Scan dependencies, secrets, and misconfiguration using Trivy
+        description: Whether to scan dependencies, secrets, and misconfiguration using Trivy
         default: true
       trivy-report-artifact-name:
         required: false
@@ -45,7 +45,7 @@ on:
       use-semgrep:
         required: false
         type: boolean
-        description: Run Semgrep OSS SAST scan using p/default rules
+        description: Whether to run Semgrep OSS SAST scan using p/default rules
         default: true
       runs-on:
         required: false

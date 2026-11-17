@@ -1,5 +1,5 @@
 ---
-name: Deploy an artifact to GitHub Pages
+name: GitHub Pages artifact deployment
 on:
   workflow_call:
     inputs:

@@ -36,17 +36,17 @@ on:
       image-artifact-overwrite:
         required: false
         type: boolean
-        description: Overwrite existing artifacts
+        description: Whether to overwrite existing artifacts
         default: true
       scan-after-pull:
         required: false
         type: boolean
-        description: Scan the image after pull
+        description: Whether to scan the image after pull
         default: true
       use-syft-grype:
         type: boolean
         default: false
-        description: Enable Syft SBOM and Grype vulnerability scan
+        description: Whether to enable Syft SBOM and Grype vulnerability scan
       grype-fail-on:
         type: string
         default: high
@@ -54,7 +54,7 @@ on:
       grype-only-fixed:
         type: boolean
         default: true
-        description: Report only vulnerabilities with an available fix
+        description: Whether to report only vulnerabilities with an available fix
       sbom-artifact-name:
         type: string
         default: null
@@ -72,7 +72,7 @@ on:
       trivy-ignore-unfixed:
         required: false
         type: boolean
-        description: Ignore unpatched/unfixed vulnerabilities
+        description: Whether to ignore unpatched/unfixed vulnerabilities
         default: true
       trivy-exit-code:
         required: false

@@ -1,5 +1,5 @@
 ---
-name: Mention bot using Claude Code
+name: Claude Code mention bot
 on:
   # pull_request_review_comment:
   #   types:

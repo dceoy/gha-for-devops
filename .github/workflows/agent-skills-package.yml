@@ -1,5 +1,5 @@
 ---
-name: Package agent skills
+name: Agent skills packaging
 on:
   workflow_call:
     inputs:
@@ -11,7 +11,7 @@ on:
       release-tag:
         required: false
         type: string
-        description: GitHub Release tag to attach skill archives to (defaults to release event tag)
+        description: GitHub release tag to attach skill archives to (defaults to release event tag)
         default: null
       artifact-name:
         required: false
@@ -26,7 +26,7 @@ on:
       artifact-overwrite:
         required: false
         type: boolean
-        description: Overwrite existing per-skill artifacts with the same names
+        description: Whether to overwrite existing per-skill artifacts with the same names
         default: true
       runs-on:
         required: false

@@ -11,7 +11,7 @@ on:
       create-new-tag:
         required: false
         type: boolean
-        description: Create a new tag if the input tag does not exist
+        description: Whether to create a new tag if the input tag does not exist
         default: false
       version-bump:
         required: false
@@ -51,7 +51,7 @@ on:
       cgo-enabled:
         required: false
         type: boolean
-        description: Build with CGO_ENABLED=1 (only targets matching the runner's own GOOS/GOARCH are allowed; use a native runner per target)
+        description: Whether to build with CGO_ENABLED=1 (only targets matching the runner's own GOOS/GOARCH are allowed; use a native runner per target)
         default: false
       ldflags:
         required: false
