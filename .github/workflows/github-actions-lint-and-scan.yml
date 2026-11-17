@@ -398,9 +398,11 @@ jobs:
             )
 
             # GitHub.com supports concurrency.queue, but actionlint v1.7.12 does not (rhysd/actionlint#657).
-            # Ignore only this unsupported-key diagnostic, not other concurrency errors.
+            # Ignore only the unsupported-key diagnostic, not other concurrency errors.
             actionlint_args+=(
-              -ignore '^unexpected key "queue" for "concurrency" section\\. expected one of "cancel-in-progress", "group"
+              -ignore 'unexpected key "queue" for "concurrency" section'
+            )
+
             # Match only actionlint's known job-context shape so same-named runner errors stay visible.
             job_context_type='\{check_run_id: number; container: \{id: string; network: string\}; services: .*; status: string\}'
             actionlint_args+=(
