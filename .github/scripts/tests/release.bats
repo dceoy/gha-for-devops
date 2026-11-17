@@ -8,11 +8,11 @@ setup() {
 @test 'maintenance retains scheduled and manual tasks' {
   [ "$(yq -r '.on.schedule[0].cron' "${WORKFLOW_FILE}")" = '15 0 * * 1' ]
   [ "$(yq -r '.on.workflow_dispatch.inputs.task.default' "${WORKFLOW_FILE}")" = patch-release ]
-  [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = major-release,minor-release,patch-release,scorecard,mise-lock-upgrade,dependencies-upgrade ]
+  [ "$(yq -r '.on.workflow_dispatch.inputs.task.options | join(",")' "${WORKFLOW_FILE}")" = major-release,minor-release,patch-release,scorecard,renovate-pr ]
 }
 
 @test 'maintenance retains the Bats regression job alongside release and Scorecard' {
-  [ "$(yq -r '.jobs | keys | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,bats-tests,github-release,major-version-tag,mise-lock-update,renovate-dependencies ]
+  [ "$(yq -r '.jobs | keys | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,bats-tests,github-release,major-version-tag,renovate-pr ]
 }
 
 @test 'scheduled maintenance runs full scanner E2E without release gating' {
@@ -34,38 +34,25 @@ setup() {
   [[ "${condition}" == *"needs.analysis.result == 'success'"* ]]
   [[ "${condition}" == *"github.event_name == 'workflow_dispatch'"* ]]
   [[ "${condition}" == *"inputs.task != 'scorecard'"* ]]
-  [[ "${condition}" == *"inputs.task != 'mise-lock-upgrade'"* ]]
-  [[ "${condition}" == *"inputs.task != 'dependencies-upgrade'"* ]]
+  [[ "${condition}" == *"inputs.task != 'renovate-pr'"* ]]
   [ "$(yq -r '.jobs."github-release".needs | sort | join(",")' "${WORKFLOW_FILE}")" = analysis,bats-tests ]
   [ "$(yq -r '.jobs."github-release".permissions.contents' "${WORKFLOW_FILE}")" = write ]
   [ "$(yq -r '.jobs."github-release".uses' "${WORKFLOW_FILE}")" = '$/.github/workflows/github-release.yml' ]
   [ "$(yq -r '.jobs | has("github-release-manual")' "${WORKFLOW_FILE}")" = false ]
 }
 
-@test 'mise.lock update is manual-only and independent of release' {
-  local condition
-  condition="$(yq -r '.jobs."mise-lock-update".if' "${WORKFLOW_FILE}")"
-  [[ "${condition}" == *"github.repository == 'dceoy/gha-for-devops'"* ]]
+@test 'Renovate updates mise pnpm and uv without release' {
+  local condition renovation config group
+  condition="$(yq -r '.jobs."renovate-pr".if' "${WORKFLOW_FILE}")"
+  [[ "${condition}" == *"inputs.task == 'renovate-pr'"* ]]
   [[ "${condition}" == *"github.event_name == 'workflow_dispatch'"* ]]
-  [[ "${condition}" == *"inputs.task == 'mise-lock-upgrade'"* ]]
   [[ "${condition}" != *"github.event_name == 'schedule'"* ]]
-  [ "$(yq -r '.jobs."mise-lock-update" | has("needs")' "${WORKFLOW_FILE}")" = false ]
-  [ "$(yq -r '.jobs."mise-lock-update".permissions."pull-requests"' "${WORKFLOW_FILE}")" = write ]
-  [ "$(yq -r '.jobs."mise-lock-update".uses' "${WORKFLOW_FILE}")" = '$/.github/workflows/mise-lock-update.yml' ]
-  local group
+  [ "$(yq -r '.jobs."renovate-pr".uses' "${WORKFLOW_FILE}")" = '$/.github/workflows/renovate.yml' ]
+  [ "$(yq -r '.jobs."renovate-pr".permissions."pull-requests"' "${WORKFLOW_FILE}")" = write ]
+  [ "$(yq -r '.jobs | has("mise-lock-update") or has("renovate-dependencies")' "${WORKFLOW_FILE}")" = false ]
   group="$(yq -r '.concurrency.group' "${WORKFLOW_FILE}")"
-  [[ "${group}" == *"inputs.task == 'mise-lock-upgrade'"* ]]
-}
-
-@test 'Renovate lockfile maintenance is manual-only and independent of release' {
-  local condition renovation config
-  condition="$(yq -r '.jobs."renovate-dependencies".if' "${WORKFLOW_FILE}")"
-  [[ "${condition}" == *"inputs.task == 'dependencies-upgrade'"* ]]
-  [[ "${condition}" == *"github.event_name == 'workflow_dispatch'"* ]]
-  [[ "${condition}" != *"github.event_name == 'schedule'"* ]]
-  [ "$(yq -r '.jobs."renovate-dependencies".uses' "${WORKFLOW_FILE}")" = '$/.github/workflows/renovate.yml' ]
-  [ "$(yq -r '.jobs."renovate-dependencies".permissions."pull-requests"' "${WORKFLOW_FILE}")" = write ]
-  [ "$(yq -r '.jobs."renovate-dependencies".with."allowed-unsafe-executions"' "${WORKFLOW_FILE}")" = '["mise"]' ]
+  [[ "${group}" == *"inputs.task == 'renovate-pr'"* ]]
+  [ "$(yq -r '.jobs."renovate-pr".with."allowed-unsafe-executions"' "${WORKFLOW_FILE}")" = '["mise"]' ]
   renovation="${BATS_TEST_DIRNAME}/../../workflows/renovate.yml"
   [ "$(yq -r '.on.workflow_call.secrets.GH_TOKEN.required' "${renovation}")" = false ]
   [ "$(yq -r '.on.workflow_call.inputs."allowed-unsafe-executions".type' "${renovation}")" = string ]
@@ -81,7 +68,7 @@ setup() {
   [ "$(jq -r '.lockFileMaintenance.groupName' "${config}")" = 'All dependency lockfiles' ]
   [ "$(jq -r '.lockFileMaintenance.schedule | join(",")' "${config}")" = 'at any time' ]
   jq -e '.packageRules | any(.[]; .matchUpdateTypes == ["lockFileMaintenance"] and .automerge == false and .minimumReleaseAge == null)' "${config}" > /dev/null
-  jq -e '.packageRules | any(.[]; .matchManagers == ["npm","pep621"] and .enabled == false and (.matchUpdateTypes | index("lockFileMaintenance") | not))' "${config}" > /dev/null
+  jq -e '[.packageRules[] | select(.enabled == false and ((.matchManagers // []) | any(. == "npm" or . == "pep621" or . == "mise")))] | length == 0' "${config}" > /dev/null
 }
 
 @test 'automatic and manual releases use a shared job with the appropriate bump' {
