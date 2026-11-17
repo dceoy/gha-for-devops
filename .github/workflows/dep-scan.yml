@@ -52,12 +52,12 @@ jobs:
             exit 1
           fi
           scan_dir="$(realpath -e -- "${GITHUB_WORKSPACE}/${PACKAGE_PATH}")"
-          if [[ ! -d "${{scan_dir}" ]] ||
-             [[ "${{scan_dir}" != "${GITHUB_WORKSPACE}" && "${{scan_dir}" != "${GITHUB_WORKSPACE}/"* ]]; then
+          if [[ ! -d "${scan_dir}" ]] ||
+             [[ "${scan_dir}" != "${GITHUB_WORKSPACE}" && "${scan_dir}" != "${GITHUB_WORKSPACE}/"* ]]; then
             echo "::error::package-path must resolve to a directory inside the checkout."
             exit 1
           fi
-          echo "SCAN_DIR=${{scan_dir}" >> "${GITHUB_ENV}"
+          echo "SCAN_DIR=${scan_dir}" >> "${GITHUB_ENV}"
       - name: Scan dependencies and reachability
         id: scan
         run: |
