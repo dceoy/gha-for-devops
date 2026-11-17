@@ -51,27 +51,27 @@ on:
       docker-build-provenance:
         required: false
         type: boolean
-        description: Generation of provenance attestation for the build
+        description: Whether to generate provenance attestation for the build
         default: false
       cosign:
         required: false
         type: boolean
-        description: Signing of the image with cosign
+        description: Whether to sign the image with cosign
         default: false
       scan-before-build:
         required: false
         type: boolean
-        description: Scan of Dockerfile before build
+        description: Whether to scan Dockerfile before build
         default: true
       scan-after-build:
         required: false
         type: boolean
-        description: Scan of Docker image after build
+        description: Whether to scan Docker image after build
         default: true
       scan-after-pull:
         required: false
         type: boolean
-        description: Scan of the image after pull
+        description: Whether to scan the image after pull
         default: true
       hadolint-failure-threshold:
         required: false
@@ -81,12 +81,12 @@ on:
       hadolint-recursive:
         required: false
         type: boolean
-        description: Recursive Dockerfile search from the project root
+        description: Whether to search for Dockerfile recursively from the project root
         default: true
       use-syft-grype:
         type: boolean
         default: false
-        description: Enablement of Syft SBOM and Grype vulnerability scan
+        description: Whether to enable Syft SBOM and Grype vulnerability scan
       grype-fail-on:
         type: string
         default: high
@@ -94,7 +94,7 @@ on:
       grype-only-fixed:
         type: boolean
         default: true
-        description: Reporting limited to vulnerabilities with an available fix
+        description: Whether to report only vulnerabilities with an available fix
       sbom-artifact-name:
         type: string
         default: null
@@ -112,7 +112,7 @@ on:
       trivy-ignore-unfixed:
         required: false
         type: boolean
-        description: Exclusion of unpatched/unfixed vulnerabilities
+        description: Whether to ignore unpatched/unfixed vulnerabilities
         default: true
       trivy-filesystem-exit-code:
         required: false
@@ -172,7 +172,7 @@ on:
       apply:
         required: false
         type: boolean
-        description: Infrastructure creation or update
+        description: Whether to create or update infrastructure
         default: false
       terraform-version:
         required: false
@@ -217,7 +217,7 @@ on:
       docker-image-artifact-overwrite:
         required: false
         type: boolean
-        description: Replacement of existing artifacts
+        description: Whether to overwrite existing artifacts
         default: true
       runs-on:
         required: false

@@ -83,12 +83,12 @@ on:
       infra-manager-async:
         required: false
         type: boolean
-        description: Asynchronous Infrastructure Manager operations
+        description: Whether to run Infrastructure Manager operations asynchronously
         default: false
       apply:
         required: false
         type: boolean
-        description: Infrastructure creation or update
+        description: Whether to create or update infrastructure
         default: false
       destroy:
         required: false

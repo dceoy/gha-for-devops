@@ -14,7 +14,7 @@ on:
       minor-version-tag:
         required: false
         type: boolean
-        description: Minor version tag creation (e.g., v1.1) alongside the major version tag
+        description: Whether to create a minor version tag (e.g., v1.1) in addition to the major version tag
         default: false
       runs-on:
         required: false
@@ -35,7 +35,7 @@ on:
       minor-version-tag:
         required: false
         type: boolean
-        description: Minor version tag creation (e.g., v1.1) alongside the major version tag
+        description: Whether to create a minor version tag (e.g., v1.1) in addition to the major version tag
         default: false
       runs-on:
         required: false
