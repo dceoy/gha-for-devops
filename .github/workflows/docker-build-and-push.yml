@@ -259,7 +259,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   docker-build-and-push:
     concurrency:
-      group: docker-push-${{ github.repository }}-${{ inputs.registry }}-${{ inputs.image-name }}-${{ inputs.push && 'publish' || format('{0}-{1}-{2}', github.run_id, inputs.target, inputs.image-artifact-name) }}
+      group: docker-publish-${{ github.repository }}-${{ inputs.push && 'publish' || format('build-{0}-{1}-{2}', github.run_id, inputs.target, inputs.image-artifact-name) }}
       cancel-in-progress: false
       queue: max
     if: >
