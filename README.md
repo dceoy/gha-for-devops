@@ -35,6 +35,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | [claude-code-bot.yml](.github/workflows/claude-code-bot.yml)                                                     | Claude Code mention bot                                           |
 | [claude-code-review.yml](.github/workflows/claude-code-review.yml)                                               | Pull request review using Claude Code                             |
 | [container-security.yml](.github/workflows/container-security.yml)                                               | Container security scan and signature verification                |
+| [dep-scan.yml](.github/workflows/dep-scan.yml)                                                                   | OWASP dep-scan                                                    |
 | [dependabot-auto-merge.yml](.github/workflows/dependabot-auto-merge.yml)                                         | Dependabot auto-merge                                             |
 | [docker-build-and-push.yml](.github/workflows/docker-build-and-push.yml)                                         | Docker image build and push                                       |
 | [docker-build-with-multi-targets.yml](.github/workflows/docker-build-with-multi-targets.yml)                     | Docker image build and save for multiple build targets            |
@@ -97,6 +98,7 @@ See each workflow for inputs, secrets, permissions, and defaults.
 | Pull requests                  | `security-pr.yml`        | OSV-Scanner, Trivy, Semgrep, TruffleHog commit range        |
 | Scheduled/manual audits        | `security-audit.yml`     | Source scan, Git history, CodeQL, Scorecard; optional Joern |
 | Container releases             | `container-security.yml` | Trivy, optional Syft + Grype, then Cosign verification      |
+| Trusted source depth scan      | `dep-scan.yml`           | OWASP dep-scan reachability and VDR/CSAF (opt-in)           |
 | Authorized staging/API testing | `web-dast-scan.yml`      | OWASP ZAP                                                   |
 
 PR checks need `contents: read`. Audits skip PR events; set `codeql-languages` and grant `contents: read`, `actions: read`, and `security-events: write` for the default jobs. Enable Joern with `use-joern: true`.
@@ -106,6 +108,18 @@ Container verification needs digest-pinned `image-refs-json` and either `certifi
 Language lint workflows share `source-security-scan.yml`. Trivy runs once per target and converts its JSON into reports and optional dependency snapshots. Summaries omit secret values; full reports may contain sensitive matches, so upload them only when needed with `trivy-report-artifact-name`.
 
 `docker-lint-and-scan.yml`, `terraform-lint-and-scan.yml`, and `source-security-scan.yml` run their scans with read-only `contents` permission at both the workflow and job level. To publish dependencies, call `trivy-scan.yml` directly and grant `contents: write` to that caller job. Set `use-trivy: false` on `docker-lint-and-scan.yml` when invoking `trivy-scan.yml` separately to avoid duplicate scans.
+
+OWASP dep-scan is an **experimental, opt-in** depth scan, separate from the standard OSV-Scanner/Trivy/Grype pipelines. It runs the digest-pinned official container with read-only source input, disables cdxgen dependency installation, and uploads raw VDR/CSAF/reachability evidence as a run artifact (7-day retention). dep-scan/cdxgen may still invoke project tooling; **only run it on trusted default-branch pushes, schedules, or manually dispatched refs**, never untrusted PRs. No GitHub Code Scanning upload or paid Advanced Security feature is required.
+
+\`\`\`yaml
+jobs:
+  dependency-depth:
+    uses: dceoy/gha-for-devops/.github/workflows/dep-scan.yml@<pinned-ref>
+    permissions:
+      contents: read
+    with:
+      package-path: .
+\`\`\`
 
 ### Dependency Graph
 
