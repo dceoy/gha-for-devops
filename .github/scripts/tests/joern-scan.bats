@@ -14,7 +14,7 @@ setup() {
   args_log="${BATS_TEST_TMPDIR}/joern-args"
   mkdir -p "${scan_dir}" "${bin_dir}"
   printf 'print("hello")\n' > "${scan_dir}/source.py"
-  cat > "${bin_dir}/joern-scan" <<'EOF'
+  cat > "${bin_dir}/joern-scan" << 'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" > "${JOERN_ARGS_LOG}"
 if [[ "${MOCK_QUERY_ERROR:-}" == true ]]; then
