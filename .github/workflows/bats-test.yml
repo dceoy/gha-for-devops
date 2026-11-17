@@ -1,5 +1,5 @@
 ---
-name: test for Bats
+name: Test for Bats
 on:
   workflow_call:
     inputs:

@@ -11,7 +11,7 @@ on:
       login-dhi:
         required: false
         type: boolean
-        description: Authentication to to dhi.io with DOCKER_TOKEN (Docker Hub credentials)
+        description: Authentication to dhi.io with DOCKER_TOKEN (Docker Hub credentials)
         default: false
       dhi-user:
         required: false

@@ -1,5 +1,5 @@
 ---
-name: package agent skills
+name: Package agent skills
 on:
   workflow_call:
     inputs:

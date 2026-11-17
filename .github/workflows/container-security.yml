@@ -80,7 +80,7 @@ on:
       verify-signatures:
         type: boolean
         default: true
-        description: Failure condition: releases unless images have valid Cosign signatures
+        description: Release failure when images lack valid Cosign signatures
       certificate-identity:
         type: string
         default: null
