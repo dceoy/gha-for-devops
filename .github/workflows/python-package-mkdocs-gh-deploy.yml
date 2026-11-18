@@ -109,14 +109,15 @@ on:
         type: string
         description: GitHub Actions runner to use
         default: ubuntu-latest
-permissions:
-  contents: write
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   python-package-mkdocs-gh-deploy:
+    permissions:
+      contents: write
     concurrency:
       group: mkdocs-deploy-${{ github.repository }}
       cancel-in-progress: false

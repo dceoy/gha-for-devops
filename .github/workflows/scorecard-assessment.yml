@@ -31,15 +31,16 @@ on:
       SCORECARD_TOKEN:
         required: false
         description: Optional token with read access for checks the default token cannot evaluate
-permissions:
-  contents: read
-  actions: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   scorecard-assessment:
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-latest
     steps:
       - name: Validate inputs

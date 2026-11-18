@@ -231,14 +231,15 @@ on:
       image-ref:
         description: Primary Docker image reference
         value: ${{ jobs.docker-build-and-push.outputs.image-ref }}
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   docker-prebuild-lint:
+    permissions:
+      contents: read
     if: >
       inputs.scan-before-build
     uses: $/.github/workflows/docker-lint-and-scan.yml

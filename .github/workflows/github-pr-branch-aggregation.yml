@@ -50,9 +50,7 @@ on:
       GH_TOKEN:
         required: false
         description: GitHub token
-permissions:
-  contents: read
-  pull-requests: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -65,6 +63,9 @@ concurrency:
   queue: max
 jobs:
   pr-branch-list:
+    permissions:
+      contents: read
+      pull-requests: read
     if: >
       github.event_name == 'pull_request'
       && inputs.branch-prefix != null

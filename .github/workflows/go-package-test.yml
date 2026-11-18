@@ -68,14 +68,15 @@ on:
         type: number
         description: Maximum duration of the test job
         default: 30
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   go-package-test:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:

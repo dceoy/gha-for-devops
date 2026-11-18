@@ -163,8 +163,7 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
-permissions:
-  contents: read
+permissions: {}
 jobs:
   docker-security-scan:
     permissions:

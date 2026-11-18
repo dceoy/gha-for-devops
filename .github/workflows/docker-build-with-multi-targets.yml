@@ -201,14 +201,14 @@ on:
       image-artifact-names-json:
         description: JSON array of image tarball artifact names
         value: ${{ jobs.docker-multitarget-collect.outputs.image-artifact-names-json }}
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   docker-multitarget-matrix:
+    permissions: {}
     if: inputs.image-name-to-target-stage-json != null
     runs-on: ubuntu-slim
     outputs:
@@ -227,6 +227,8 @@ jobs:
             echo "${delimiter}"
           } | tee -a "${GITHUB_OUTPUT}"
   docker-multitarget-prebuild:
+    permissions:
+      contents: read
     if: inputs.scan-before-build
     uses: $/.github/workflows/docker-lint-and-scan.yml
     with:
@@ -301,6 +303,8 @@ jobs:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
   docker-multitarget-collect:
+    permissions:
+      contents: read
     needs:
       - docker-multitarget-build
     runs-on: ubuntu-slim

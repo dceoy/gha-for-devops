@@ -26,15 +26,16 @@ on:
       PARAMETERS_JSON:
         required: true
         description: JSON array of parameters to update (including SecureString values); masked via workflow_call secrets
-permissions:
-  contents: read
-  id-token: write
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   aws-parameter-store-update:
+    permissions:
+      contents: read
+      id-token: write
     concurrency:
       group: aws-parameter-store-${{ github.repository }}-${{ inputs.aws-region }}-${{ inputs.aws-iam-role-to-assume || 'default' }}
       cancel-in-progress: false

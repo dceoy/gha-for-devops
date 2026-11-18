@@ -38,17 +38,18 @@ on:
       GH_TOKEN:
         required: false
         description: Optional GitHub token for checkout
-permissions:
-  contents: read
-  pull-requests: write
-  id-token: write
-  actions: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   claude-code-review:
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+      actions: read
     if: >
       github.event_name == 'pull_request'
     runs-on: ${{ inputs.runs-on }}

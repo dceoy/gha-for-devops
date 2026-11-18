@@ -73,8 +73,7 @@ on:
         type: string
         description: Newline-delimited release path patterns; prefix ! to exclude
         default: .
-permissions:
-  contents: write  # IMPORTANT: mandatory for making GitHub Releases
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -83,6 +82,8 @@ env:
   GH_TELEMETRY: 'false'
 jobs:
   github-release:
+    permissions:
+      contents: write  # IMPORTANT: mandatory for making GitHub Releases
     concurrency:
       group: github-release-${{ github.repository }}
       cancel-in-progress: false

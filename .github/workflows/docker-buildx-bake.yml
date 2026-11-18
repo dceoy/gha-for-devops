@@ -192,14 +192,15 @@ on:
       image-refs-json:
         description: JSON array of Docker image references from Bake
         value: ${{ jobs.docker-buildx-bake.outputs.image-refs-json }}
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   docker-bake-prebuild-lint:
+    permissions:
+      contents: read
     if: >
       inputs.scan-before-build
     uses: $/.github/workflows/docker-lint-and-scan.yml

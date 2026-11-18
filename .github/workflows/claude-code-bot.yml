@@ -78,8 +78,7 @@ on:
         type: string
         description: Runner to use
         default: ubuntu-latest
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}

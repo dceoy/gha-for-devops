@@ -55,14 +55,15 @@ on:
         type: string
         description: Runner for Docker-free source security scans (Trivy and Semgrep)
         default: ubuntu-slim
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   shell-security-scan:
+    permissions:
+      contents: read
     if: inputs.use-semgrep
     uses: $/.github/workflows/source-security-scan.yml
     with:
@@ -79,6 +80,8 @@ jobs:
         *.bash
         *.bats
   shell-lint:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 1 day

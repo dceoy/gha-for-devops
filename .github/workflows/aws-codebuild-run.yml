@@ -112,15 +112,16 @@ on:
       aws-build-id:
         description: The AWS CodeBuild Build ID for this build
         value: ${{ jobs.aws-codebuild-run-build.outputs.aws-build-id }}
-permissions:
-  contents: read    # This is required for actions/checkout
-  id-token: write   # This is required for requesting the JWT
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   aws-codebuild-run-build:
+    permissions:
+      contents: read    # This is required for actions/checkout
+      id-token: write   # This is required for requesting the JWT
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     outputs:

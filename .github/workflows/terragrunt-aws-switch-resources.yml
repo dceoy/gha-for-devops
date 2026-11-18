@@ -58,9 +58,7 @@ on:
         type: number
         description: Timeout in minutes for the job
         default: 360
-permissions:
-  contents: read    # This is required for actions/checkout
-  id-token: write   # This is required for requesting the JWT
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -69,6 +67,9 @@ env:
   CHECKPOINT_DISABLE: '1'
 jobs:
   terragrunt-aws-switch-resources:
+    permissions:
+      contents: read    # This is required for actions/checkout
+      id-token: write   # This is required for requesting the JWT
     concurrency:
       group: aws-infrastructure-${{ github.repository }}-${{ inputs.terragrunt-working-directory }}
       cancel-in-progress: false

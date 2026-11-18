@@ -22,12 +22,7 @@ on:
       GH_TOKEN:
         required: false
         description: GitHub token
-permissions:
-  contents: write
-  pull-requests: write
-  actions: read
-  checks: read
-  statuses: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -36,6 +31,12 @@ env:
   GH_TELEMETRY: 'false'
 jobs:
   dependabot-auto-merge:
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+      checks: read
+      statuses: read
     concurrency:
       group: dependabot-auto-merge-${{ github.repository }}-${{ github.event.pull_request.number }}
       cancel-in-progress: false

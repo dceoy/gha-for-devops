@@ -112,8 +112,7 @@ on:
       image-refs-json:
         description: JSON array of pulled Docker image references
         value: ${{ jobs.docker-aws-pull-and-save.outputs.image-refs-json }}
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -199,6 +198,8 @@ jobs:
           retention-days: ${{ inputs.image-artifact-retention-days }}
           overwrite: ${{ inputs.image-artifact-overwrite }}
   docker-aws-postpull-scan:
+    permissions:
+      contents: read
     if: >
       inputs.scan-after-pull
     needs:

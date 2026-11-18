@@ -101,8 +101,7 @@ on:
       DOCKER_TOKEN:
         required: false
         description: Registry token
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
