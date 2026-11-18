@@ -71,8 +71,6 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
-permissions: {}
-
 jobs:
   trivy-prepare:
     runs-on: ubuntu-slim
@@ -237,8 +235,6 @@ jobs:
           RAW_REPORT: ${{ runner.temp }}/trivy.json
         run: trivy convert --scanners "${TRIVY_SCANNERS}" --format table --severity "${TRIVY_SEVERITY}" --output /dev/null --exit-code "${EXIT_CODE}" "${RAW_REPORT}"
   trivy-submit:
-    permissions:
-      contents: write
     if: >-
       always()
       && needs.trivy-prepare.result == 'success'
@@ -248,6 +244,8 @@ jobs:
       && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     needs: [trivy-prepare, trivy-scan]
     runs-on: ubuntu-latest
+    # Inherit caller permissions: read-only security scans cannot grant write access.
+    # For submissions, the caller must grant contents: write explicitly.
     strategy:
       fail-fast: false
       matrix:
