@@ -31,13 +31,17 @@ jobs:
     permissions:
       contents: read
     env:
-      # renovate: datasource=docker depName=ghcr.io/owasp-dep-scan/depscan
-      DEPSCAN_IMAGE: ghcr.io/owasp-dep-scan/depscan:master@sha256:085282708983374b216a9d75851898014fe5f6f244a706165b33405bcc3cd7e8
+      # v6 CLI; digest-only to prevent automatic upgrades to incompatible v7.
+      DEPSCAN_IMAGE: ghcr.io/owasp-dep-scan/depscan@sha256:085282708983374b216a9d75851898014fe5f6f244a706165b33405bcc3cd7e8
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+      - name: Verify pinned dep-scan CLI
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            "${DEPSCAN_IMAGE}" depscan --src /app --help > /dev/null
       - name: Scan dependencies and reachability
         id: scan
         env:
@@ -48,7 +52,7 @@ jobs:
             echo "::error::package-path must be a repository-relative directory without parent traversal."
             exit 1
           fi
-          if [[ ! "${DEPSCAN_IMAGE}" =~ ^ghcr\.io/owasp-dep-scan/(dep-scan|depscan):[A-Za-z0-9_.-]+@sha256:[0-9a-f]{64}$ ]]; then
+          if [[ ! "${DEPSCAN_IMAGE}" =~ ^ghcr\.io/owasp-dep-scan/depscan@sha256:[0-9a-f]{64}$ ]]; then
             echo "::error::dep-scan image must be pinned to an official GHCR image digest."
             exit 1
           fi
