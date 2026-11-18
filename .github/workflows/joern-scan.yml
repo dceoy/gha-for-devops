@@ -13,13 +13,6 @@ on:
         type: string
         description: Source language for joern-scan (auto-detected if not set)
         default: null
-      joern-scan-options:
-        required: false
-        type: string
-        description: >-
-          Additional space-separated command-line options for joern-scan.
-          Limited to --names, --tags, --depth, and --store.
-        default: null
       fail-on-findings:
         required: false
         type: boolean
@@ -152,62 +145,10 @@ jobs:
           # GITHUB_ENV carries only the validated path and allowlisted frontend.
           printf 'JOERN_SCAN_PATH=%s\nJOERN_LANGUAGE=%s\n' "${SCAN_PATH}" "${lang_key}" >> "${GITHUB_ENV}"
       - name: Run joern-scan
-        env:
-          JOERN_SCAN_OPTIONS: ${{ inputs.joern-scan-options }}
         run: |
           # --overwrite prevents reuse of stale CPGs on persistent runners.
-          args=(--overwrite --language "${JOERN_LANGUAGE}")
-
-          # Reject multiline options instead of silently parsing only the first line.
-          if [[ "${JOERN_SCAN_OPTIONS}" == *$'\n'* || "${JOERN_SCAN_OPTIONS}" == *$'\r'* ]]; then
-            echo '::error::joern-scan-options must be a single line'
-            exit 1
-          fi
-          if [[ -n "${JOERN_SCAN_OPTIONS}" ]]; then
-            read -r -a extra_args <<< "${JOERN_SCAN_OPTIONS}"
-            # Allow-list only scan-tuning flags. Anything else -- non-scan modes such as
-            # --dump/--list-query-names/--list-languages/--updatedb, --language (has its
-            # own input), --frontend-args, --help, or a bare positional path -- can make
-            # joern-scan exit 0 without analyzing scan-path at all, which the findings
-            # check below cannot detect.
-            expect_value=0
-            expect_flag=""
-            for extra_arg in "${extra_args[@]}"; do
-              if [[ "${expect_value}" -eq 1 ]]; then
-                # joern-scan quotes --names/--tags values as-is into the same
-                # generated Scala script as --language (`Array("$value", ...)`), so a
-                # quote or backslash in a value would break out of that string
-                # literal. Restrict to the characters a comma-separated list of query
-                # names/tags actually needs.
-                if [[ "${expect_flag}" == "--depth" ]]; then
-                  [[ "${extra_arg}" =~ ^[0-9]+$ ]] || { echo "::error::joern-scan-options --depth value must be a non-negative integer"; exit 1; }
-                else
-                  [[ "${extra_arg}" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]*(,[A-Za-z0-9_][A-Za-z0-9_.-]*)*$ ]] || { echo '::error::joern-scan-options --names/--tags must be comma-separated identifiers'; exit 1; }
-                fi
-                expect_value=0
-                continue
-              fi
-              case "${extra_arg}" in
-                --names | --tags | --depth)
-                  expect_value=1
-                  expect_flag="${extra_arg}"
-                  ;;
-                --store)
-                  ;;
-                *)
-                  echo '::error::joern-scan-options supports only --names, --tags, --depth, and --store'
-                  exit 1
-                  ;;
-              esac
-            done
-            if [[ "${expect_value}" -eq 1 ]]; then
-              echo '::error::joern-scan-options ends with an option that requires a value'
-              exit 1
-            fi
-            args+=("${extra_args[@]}")
-          fi
-
-          joern-scan "${args[@]}" -- "${JOERN_SCAN_PATH}" 2>&1 | tee "${RUNNER_TEMP}/joern-scan.log"
+          joern-scan --overwrite --language "${JOERN_LANGUAGE}" \
+            -- "${JOERN_SCAN_PATH}" 2>&1 | tee "${RUNNER_TEMP}/joern-scan.log"
       - name: Evaluate scan results
         env:
           FAIL_ON_FINDINGS: ${{ inputs.fail-on-findings }}

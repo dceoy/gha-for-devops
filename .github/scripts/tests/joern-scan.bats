@@ -41,7 +41,6 @@ run_scan() {
     RUNNER_TEMP="${BATS_TEST_TMPDIR}" \
     SCAN_PATH="${scan_path:-${scan_dir}}" \
     SCAN_LANGUAGE="${scan_language:-}" \
-    JOERN_SCAN_OPTIONS="${scan_options:-}" \
     FAIL_ON_FINDINGS="${fail_on_findings:-true}" \
     MOCK_QUERY_ERROR="${mock_query_error:-false}" \
     MOCK_FINDING="${mock_finding:-false}" \
@@ -70,7 +69,15 @@ run_scan() {
   printf '{}\n' > "${scan_dir}/package.json"
   run_scan
   [ "$status" -eq 0 ]
-  grep -Fxq -- 'python' "${args_log}"
+  # Scan options use Joern defaults; only overwrite and the validated frontend remain.
+  diff -u <(printf '%s\n' --overwrite --language python -- "${scan_dir}") "${args_log}"
+}
+
+@test "does not expose extra Joern scan options" {
+  local repo_root workflow
+  repo_root="$(git -C "${BATS_TEST_DIRNAME}" rev-parse --show-toplevel)"
+  workflow="${repo_root}/.github/workflows/joern-scan.yml"
+  [[ "$(yq -r '.on.workflow_call.inputs | has("joern-scan-options")' "${workflow}")" == false ]]
 }
 
 @test "rejects a directory with only manifests" {
@@ -86,27 +93,6 @@ run_scan() {
   run_scan
   [ "$status" -ne 0 ]
   [[ "$output" == *'not a recognized joern-scan frontend'* ]]
-}
-
-@test "rejects a Scala injection attempt in query filters" {
-  scan_options='--tags all");println("PWNED")'
-  run_scan
-  [ "$status" -ne 0 ]
-  [[ "$output" == *'comma-separated identifiers'* ]]
-}
-
-@test "rejects multiline option injection" {
-  scan_options=$'--store\n--dump'
-  run_scan
-  [ "$status" -ne 0 ]
-  [[ "$output" == *'must be a single line'* ]]
-}
-
-@test "allows a validated scan options list" {
-  scan_options='--names sql-injection,flow --depth 2 --store'
-  run_scan
-  [ "$status" -eq 0 ]
-  grep -Fxq -- 'sql-injection,flow' "${args_log}"
 }
 
 @test "rejects scan paths outside the checkout" {
