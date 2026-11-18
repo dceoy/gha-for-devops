@@ -79,8 +79,7 @@ on:
       page-url:
         description: URL of the deployed GitHub Pages site
         value: ${{ jobs.hugo-deploy.outputs.page-url }}
-permissions:
-  contents: read
+permissions: {}
 concurrency:
   group: hugo-pages
   cancel-in-progress: false

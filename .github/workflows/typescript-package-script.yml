@@ -43,14 +43,15 @@ on:
         type: string
         description: GitHub Actions runner to use
         default: ubuntu-slim
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   typescript-package-script:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     env:
       npm_config_min_release_age: '1'

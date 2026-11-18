@@ -71,14 +71,15 @@ on:
         type: number
         default: 30
         description: Job timeout in minutes
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   web-dast-scan:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}
     environment: ${{ inputs.environment != '' && inputs.environment || null }}

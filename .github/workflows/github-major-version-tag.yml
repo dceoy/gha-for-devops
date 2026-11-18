@@ -42,8 +42,7 @@ on:
         type: string
         description: Runner to use
         default: ubuntu-slim
-permissions:
-  contents: write
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -52,6 +51,8 @@ env:
   GH_TELEMETRY: 'false'
 jobs:
   github-major-version-tag:
+    permissions:
+      contents: write
     concurrency:
       group: github-major-version-tag-${{ github.repository }}
       cancel-in-progress: false

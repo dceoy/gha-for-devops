@@ -63,14 +63,15 @@ on:
         type: string
         description: Runner to use
         default: ubuntu-slim
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   markdown-lint:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     env:
       PNPM_CONFIG_MINIMUM_RELEASE_AGE: '1440'

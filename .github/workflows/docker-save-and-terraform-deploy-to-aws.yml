@@ -239,8 +239,7 @@ on:
       GH_TOKEN:
         required: false
         description: GitHub token
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}

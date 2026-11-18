@@ -42,9 +42,7 @@ on:
       GH_TOKEN:
         required: false
         description: GitHub token
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -53,6 +51,9 @@ env:
   CHECKPOINT_DISABLE: '1'
 jobs:
   terraform-lock-files-upgrade:
+    permissions:
+      contents: write
+      pull-requests: write
     concurrency:
       group: terraform-lock-upgrade-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
       cancel-in-progress: false

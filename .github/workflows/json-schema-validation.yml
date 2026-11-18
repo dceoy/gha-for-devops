@@ -33,19 +33,22 @@ on:
         type: string
         description: Runner to use
         default: ubuntu-slim
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   json-schema-lint:
+    permissions:
+      contents: read
     if: inputs.lint-before-validation
     uses: $/.github/workflows/json-lint.yml
     with:
       search-path: ${{ inputs.search-path }}
   json-schema-validation:
+    permissions:
+      contents: read
     if: (! (failure() || cancelled()))
     needs:
       - json-schema-lint

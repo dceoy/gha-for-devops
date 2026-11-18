@@ -24,8 +24,9 @@ run_summary() {
 }
 
 @test "Reusable Scorecard is internal-only with explicit read permissions" {
-  [ "$(yq -r '.permissions.contents' "${REUSABLE}")" = read ]
-  [ "$(yq -r '.permissions.actions' "${REUSABLE}")" = read ]
+  [ "$(yq -r '.permissions | length' "${REUSABLE}")" = 0 ]
+  [ "$(yq -r '.jobs."scorecard-assessment".permissions.contents' "${REUSABLE}")" = read ]
+  [ "$(yq -r '.jobs."scorecard-assessment".permissions.actions' "${REUSABLE}")" = read ]
   [ "$(yq -r '.on.workflow_call.inputs | has("publish-results")' "${REUSABLE}")" = false ]
   [ "$(yq -r '.jobs | has("analysis")' "${REUSABLE}")" = false ]
   [ "$(yq -r '.jobs."scorecard-assessment".steps[] | select(.uses == "ossf/scorecard-action*") | .with.publish_results' "${REUSABLE}")" = false ]
@@ -47,7 +48,7 @@ run_summary() {
 }
 
 @test "Maintenance runs independent public Scorecard job under publishing restrictions" {
-  [ "$(yq -r '.permissions.contents' "${DEDICATED}")" = read ]
+  [ "$(yq -r '.permissions | length' "${DEDICATED}")" = 0 ]
   [ "$(yq -r '. | has("env") or has("defaults")' "${DEDICATED}")" = false ]
   [ "$(yq -r '.on | has("workflow_call")' "${DEDICATED}")" = false ]
   [ "$(yq -r '.on | has("schedule")' "${DEDICATED}")" = true ]

@@ -26,8 +26,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ inputs.workflow || github.event.pull_request.number || github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || '' }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
-permissions:
-  contents: read
+permissions: {}
 env:
   GH_TELEMETRY: 'false'
   MISE_USE_VERSIONS_HOST_TRACK: 'false'

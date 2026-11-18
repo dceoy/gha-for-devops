@@ -47,13 +47,14 @@ run_diagnosis() {
 }
 
 @test "workflow and Claude App keep contents read-only while allowing PR reviews" {
-  run yq -r '.permissions.contents' "${WORKFLOW}"
+  [ "$(yq -r '.permissions | length' "${WORKFLOW}")" = 0 ]
+  run yq -r '.jobs."claude-code-review".permissions.contents' "${WORKFLOW}"
   [ "${output}" = read ]
 
-  run yq -r '.permissions."pull-requests"' "${WORKFLOW}"
+  run yq -r '.jobs."claude-code-review".permissions."pull-requests"' "${WORKFLOW}"
   [ "${output}" = write ]
 
-  run yq -r '.permissions."id-token"' "${WORKFLOW}"
+  run yq -r '.jobs."claude-code-review".permissions."id-token"' "${WORKFLOW}"
   [ "${output}" = write ]
 
   run yq -r '.defaults.run."working-directory"' "${WORKFLOW}"

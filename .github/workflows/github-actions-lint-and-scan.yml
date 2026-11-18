@@ -179,8 +179,7 @@ on:
       BC_API_KEY:
         required: false
         description: Bridgecrew or Prisma Cloud API key
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -189,6 +188,8 @@ env:
   GH_TELEMETRY: 'false'
 jobs:
   actions-security-scan:
+    permissions:
+      contents: read
     if: inputs.use-semgrep || inputs.use-checkov
     uses: $/.github/workflows/source-security-scan.yml
     with:

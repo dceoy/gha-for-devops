@@ -25,10 +25,11 @@ on:
       trivy-report-artifact-name:
         type: string
         default: ""
-permissions:
-  contents: read
+permissions: {}
 jobs:
   security-pr-source:
+    permissions:
+      contents: read
     if: inputs.use-osv-scanner || inputs.use-trivy || inputs.use-semgrep
     uses: $/.github/workflows/source-security-scan.yml
     with:
@@ -40,6 +41,8 @@ jobs:
       semgrep-exclude-cooldown-rules: ${{ inputs.semgrep-exclude-cooldown-rules }}
       trivy-report-artifact-name: ${{ inputs.trivy-report-artifact-name }}
   security-pr-history:
+    permissions:
+      contents: read
     if: inputs.use-git-history && (github.event_name == 'pull_request' || github.event_name == 'push')
     uses: $/.github/workflows/git-secret-scan.yml
     with:

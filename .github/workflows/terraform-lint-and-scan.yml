@@ -154,8 +154,7 @@ defaults:
     working-directory: .
 env:
   CHECKPOINT_DISABLE: '1'
-permissions:
-  contents: read
+permissions: {}
 jobs:
   terraform-security-scan:
     permissions:

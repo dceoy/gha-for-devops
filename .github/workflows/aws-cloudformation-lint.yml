@@ -77,14 +77,15 @@ on:
       BC_API_KEY:
         required: false
         description: Bridgecrew or Prisma Cloud API key
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   aws-cloudformation-lint:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     env:
       UV_EXCLUDE_NEWER: 1 day

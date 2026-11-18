@@ -119,15 +119,16 @@ on:
       preview-resource-name:
         description: Full preview resource name (empty for apply); callers must delete previews after polling/review to avoid exhausting the project quota
         value: ${{ jobs.gcloud-infra-manager-deployments.outputs.preview-resource-name }}
-permissions:
-  contents: read
-  id-token: write
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   gcloud-infra-manager-deployments:
+    permissions:
+      contents: read
+      id-token: write
     concurrency:
       group: gcloud-infra-manager-${{ github.repository }}-${{ inputs.project-id }}-${{ inputs.location }}-${{ inputs.infra-manager-deployment-name }}
       cancel-in-progress: false

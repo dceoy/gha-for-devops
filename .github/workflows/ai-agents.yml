@@ -9,8 +9,7 @@ on:
       - ready_for_review
     paths-ignore:
       - .github/workflows/ai-agents.yml
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}

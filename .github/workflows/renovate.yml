@@ -39,17 +39,18 @@ on:
         type: string
         description: JSON array of Renovate unsafe execution identifiers (trusted repositories only)
         default: '[]'
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  statuses: write
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   renovate:
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      statuses: write
     concurrency:
       group: renovate-${{ github.repository }}
       cancel-in-progress: false

@@ -23,14 +23,15 @@ on:
         type: string
         description: Linux runner with Docker support
         default: ubuntu-latest
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
     working-directory: .
 jobs:
   joern-scan:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     container:
       # renovate: datasource=docker depName=ghcr.io/joernio/joern

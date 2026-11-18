@@ -34,8 +34,7 @@ on:
         type: string
         description: Runner to use
         default: ubuntu-slim
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -46,6 +45,8 @@ env:
   PNPM_CONFIG_MINIMUM_RELEASE_AGE: '1440'
 jobs:
   bats-test:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Checkout repository

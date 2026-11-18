@@ -32,9 +32,7 @@ on:
       page-url:
         description: URL of the deployed GitHub Pages site
         value: ${{ jobs.github-pages-deploy.outputs.page-url }}
-permissions:
-  id-token: write
-  pages: write
+permissions: {}
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -44,6 +42,9 @@ defaults:
     working-directory: .
 jobs:
   github-pages-deploy:
+    permissions:
+      id-token: write
+      pages: write
     runs-on: ${{ inputs.runs-on }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     environment:

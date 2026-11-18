@@ -40,7 +40,7 @@ use_conversion_config() {
   [ "$(yq -r '.jobs."trivy-scan".permissions.contents' "$TRIVY")" = read ]
   [ "$(yq -r '.jobs."trivy-submit".permissions.contents' "$TRIVY")" = null ]
   [ "$(yq -r '.jobs."trivy-scan".permissions.contents' "$TRIVY")" = read ]
-  [ "$(yq -r '.permissions.contents' "$SOURCE")" = read ]
+  [ "$(yq -r '.permissions | length' "$SOURCE")" = 0 ]
   for job in source-osv-scan source-security-scan source-checkov; do
     [ "$(JOB="${job}" yq -r '.jobs[strenv(JOB)].permissions.contents' "$SOURCE")" = read ]
   done
@@ -51,12 +51,12 @@ use_conversion_config() {
   [ "$(yq -r '.jobs."docker-security-scan".with."use-trivy"' "$docker_workflow")" = '${{ inputs.use-trivy }}' ]
   for workflow in docker-lint-and-scan terraform-lint-and-scan; do
     file="$REPO_ROOT/.github/workflows/${workflow}.yml"
-    [ "$(yq -r '.permissions.contents' "$file")" = read ]
+    [ "$(yq -r '.permissions | length' "$file")" = 0 ]
     [ "$(yq -r '.jobs.* | select(has("runs-on")).permissions.contents' "$file")" = read ]
     [ "$(yq -r '.jobs.* | select(has("uses")).permissions.contents' "$file")" = read ]
     [ "$(yq -r '.jobs.* | select(has("uses")).with."submit-dependencies"' "$file")" = '${{ inputs.submit-dependencies }}' ]
   done
-  [ "$(yq -r '.permissions.contents' "$CONTAINER")" = read ]
+  [ "$(yq -r '.permissions | length' "$CONTAINER")" = 0 ]
   [ "$(yq -r '.jobs."container-scan".permissions | keys | join(",")' "$CONTAINER")" = contents ]
   [ "$(yq -r '.jobs."source-trivy-scan".uses' "$SOURCE")" = '$/.github/workflows/trivy-scan.yml' ]
   [ "$(yq -r '.jobs."container-scan".uses' "$CONTAINER")" = '$/.github/workflows/trivy-scan.yml' ]

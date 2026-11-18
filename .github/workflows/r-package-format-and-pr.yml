@@ -37,9 +37,7 @@ on:
       GH_TOKEN:
         required: false
         description: Optional PAT or GitHub App token; PRs created with the default GITHUB_TOKEN generally do not trigger caller CI workflows
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 concurrency:
   group: formatter-r-${{ github.repository }}-${{ inputs.package-path }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: false
@@ -50,6 +48,9 @@ defaults:
     working-directory: .
 jobs:
   r-package-format-and-pr:
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ${{ inputs.runs-on }}
     env:
       R_LIBS_USER: ${{ inputs.r-libs-user }}

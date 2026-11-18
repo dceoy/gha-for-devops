@@ -37,8 +37,7 @@ on:
       artifact-names:
         description: JSON array of the per-skill Actions artifact names
         value: ${{ jobs.agent-skills-discover.outputs.artifact-names }}
-permissions:
-  contents: read
+permissions: {}
 defaults:
   run:
     shell: bash -euo pipefail {0}
@@ -47,6 +46,8 @@ env:
   GH_TELEMETRY: 'false'
 jobs:
   agent-skills-discover:
+    permissions:
+      contents: read
     runs-on: ${{ inputs.runs-on }}
     outputs:
       skills: ${{ steps.list.outputs.skills }}
@@ -110,6 +111,8 @@ jobs:
           printf 'skills=%s\n' "${skills_json}" >> "${GITHUB_OUTPUT}"
           printf 'artifact-names=%s\n' "${artifact_names_json}" >> "${GITHUB_OUTPUT}"
   agent-skills-package:
+    permissions:
+      contents: read
     needs: agent-skills-discover
     runs-on: ${{ inputs.runs-on }}
     strategy:

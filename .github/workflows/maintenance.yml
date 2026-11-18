@@ -22,8 +22,7 @@ on:
           - patch-release
           - scorecard
           - renovate-pr
-permissions:
-  contents: read
+permissions: {}
 concurrency:
   group: ${{ github.repository }}-maintenance-${{ github.event_name == 'workflow_dispatch' && inputs.task == 'renovate-pr' && 'dependency-update' || (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.task != 'scorecard')) && 'release' || 'scorecard' }}
   cancel-in-progress: false
@@ -77,6 +76,8 @@ jobs:
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   bats-tests:
+    permissions:
+      contents: read
     if: github.repository == 'dceoy/gha-for-devops' && github.event_name == 'schedule'
     runs-on: ubuntu-slim
     defaults:

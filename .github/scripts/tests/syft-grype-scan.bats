@@ -9,7 +9,7 @@ setup() {
 }
 
 @test "Syft and Grype use one inventory with read-only permissions" {
-  [ "$(yq -r '.permissions.contents' "$SCAN")" = read ]
+  [ "$(yq -r '.permissions | length' "$SCAN")" = 0 ]
   [ "$(yq -r '.jobs."syft-grype-scan".permissions.contents' "$SCAN")" = read ]
   [ "$(yq -r '.jobs."syft-grype-scan".strategy."fail-fast"' "$SCAN")" = false ]
   [ "$(yq -r '.on.workflow_call.inputs."grype-fail-on".default' "$SCAN")" = high ]
