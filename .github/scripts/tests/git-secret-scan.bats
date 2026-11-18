@@ -44,8 +44,8 @@ step_output() {
 }
 
 @test "Git secret scan is read-only, pinned, and never uploads results" {
-  [ "$(yq -r '.permissions | keys | join(",")' "${WORKFLOW}")" = contents ]
-  [ "$(yq -r '.permissions.contents' "${WORKFLOW}")" = read ]
+  [ "$(yq -r '.permissions | length' "${WORKFLOW}")" = 0 ]
+  [ "$(yq -r '.jobs."git-secret-scan".permissions.contents' "${WORKFLOW}")" = read ]
   [ "$(yq -r '.on.workflow_call.inputs."scan-mode".default' "${WORKFLOW}")" = range ]
   [ "$(yq -r '.on.workflow_call.inputs.verify.default' "${WORKFLOW}")" = true ]
   [ "$(yq -r '.on.workflow_call.inputs."fail-on-findings".default' "${WORKFLOW}")" = true ]
@@ -63,7 +63,7 @@ step_output() {
 @test "Source security scan stays limited to OSV-Scanner, Trivy, and Semgrep" {
   local src="${REPO_ROOT}/.github/workflows/source-security-scan.yml"
   run ! grep -Eqi 'trufflehog|scorecard|zaproxy|zap-|cosign' "${src}"
-  [ "$(yq -r '.permissions | keys | join(",")' "${src}")" = contents ]
+  [ "$(yq -r '.permissions | length' "${src}")" = 0 ]
   for job in source-osv-scan source-security-scan source-checkov; do
     [ "$(JOB="${job}" yq -r '.jobs[strenv(JOB)].permissions.contents' "${src}")" = read ]
   done

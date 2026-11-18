@@ -37,7 +37,8 @@ validate() {
 }
 
 @test "Web DAST workflow is read-only, pinned, passive by default, and creates no issues" {
-  [ "$(yq -r '.permissions | keys | join(",")' "${WORKFLOW}")" = contents ]
+  [ "$(yq -r '.jobs."web-dast-scan".permissions.contents' "${WORKFLOW}")" = read ]
+  [ "$(yq -r '.permissions | length' "${WORKFLOW}")" = 0 ]
   [ "$(yq -r '.on.workflow_call.inputs."scan-mode".default' "${WORKFLOW}")" = baseline ]
   [ "$(yq -r '.on.workflow_call.inputs."active-scan".default' "${WORKFLOW}")" = false ]
   [ "$(yq -r '.on.workflow_call.inputs."confirm-authorized".default' "${WORKFLOW}")" = false ]

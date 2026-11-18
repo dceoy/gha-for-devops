@@ -40,7 +40,7 @@ EOF
 @test 'reusable workflow keeps least-privilege PR permissions and latest-release guard' {
   [ "$(yq -r '.jobs."release-pins".permissions.contents' "${PIN_WORKFLOW}")" = write ]
   [ "$(yq -r '.jobs."release-pins".permissions."pull-requests"' "${PIN_WORKFLOW}")" = write ]
-  [ "$(yq -r '.permissions.contents' "${PIN_WORKFLOW}")" = read ]
+  [ "$(yq -r '.permissions | length' "${PIN_WORKFLOW}")" = 0 ]
   [ "$(yq -r '.on.workflow_call.inputs."update-reusable-workflow-docs".default' "${PIN_WORKFLOW}")" = false ]
   yq -r '.jobs."release-pins".steps[] | select(.id == "release") | .run' "${PIN_WORKFLOW}" \
     | grep -Fq 'skipping stale pin updates'
