@@ -16,7 +16,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
         - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
-        - 'bridgecrewio/checkov-action@a32f8b5c5c7c958bc38947c65dfe139debaf0607'
+        - 'bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3'
     '.github/workflows/aws-codebuild-run.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'aws-actions/aws-codebuild-run-build@7e46c3fa1c1f217e26a73712796b1f78938b534b'
@@ -213,7 +213,7 @@ workflows:
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
-        - 'bridgecrewio/checkov-action@a32f8b5c5c7c958bc38947c65dfe139debaf0607'
+        - 'bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3'
         - 'jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b'
     '.github/workflows/syft-grype-scan.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
@@ -339,11 +339,6 @@ dependencies:
         commit: 'sha1-b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
         owner_id: 44036562
         repo_id: 192624594
-    'actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78':
-        ref: 'v6.2.0'
-        commit: 'sha1-77dd5b2ce225ea11469928ac317850245a74ae78'
-        owner_id: 44036562
-        repo_id: 196057608
     'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1':
         ref: 'v7.1.0'
         commit: 'sha1-949feb2413d6458794dcd2491c4babbbce0c15c1'
@@ -431,9 +426,9 @@ dependencies:
         repo_id: 735298439
         uses:
             - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
-    'bridgecrewio/checkov-action@a32f8b5c5c7c958bc38947c65dfe139debaf0607':
-        ref: 'v12.3140.0'
-        commit: 'sha1-a32f8b5c5c7c958bc38947c65dfe139debaf0607'
+    'bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3':
+        ref: 'v12.3141.0'
+        commit: 'sha1-3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3'
         owner_id: 48174253
         repo_id: 256738016
     'dceoy/setup-terragrunt@1cbef4029fa29d03260e3572cd1df1d45fd3f290':
