@@ -56,6 +56,7 @@ MOCK
   export PACKAGE_PATH=pkg
   export RELEASE_BRANCH=main
   export CI_WORKFLOW=ci.yml
+  export SKIP_CI_CHECK=false
   export GITHUB_REPOSITORY=example/test
   export RELEASE_TAG=v1.2.3
   export GH_TOKEN=test
@@ -94,6 +95,15 @@ MOCK
   [ "${status}" -eq 0 ]
   grep -qx 'tag=v1.2.3' "${GITHUB_OUTPUT}"
   grep -qx "source-sha=${SOURCE_SHA}" "${GITHUB_OUTPUT}"
+}
+
+@test 'release plan allows an explicit opt-out of the successful CI requirement' {
+  make_fixture
+  [ "$(yq -r '.on.workflow_call.inputs."skip-ci-check".default' "${PREPARE_WORKFLOW}")" = false ]
+  [ "$(yq -r '.jobs."prepare-plan".steps[] | select(.id == "plan") | .env.SKIP_CI_CHECK' "${PREPARE_WORKFLOW}")" = "\${{ inputs.skip-ci-check }}" ]
+  run env MOCK_CI_RUNS=0 SKIP_CI_CHECK=true bash -euo pipefail "${PLAN_SCRIPT}"
+  [ "${status}" -eq 0 ]
+  grep -qx 'tag=v1.2.3' "${GITHUB_OUTPUT}"
 }
 
 @test 'release plan rejects missing CI and non-increasing versions' {
