@@ -16,7 +16,7 @@ on:
       ci-workflow:
         required: false
         type: string
-        description: Successful push CI required for prepare
+        description: Empty string skips the external CI check when callers run prerequisite CI inside their own release workflow
         default: ci.yml
       release-tag:
         required: false
@@ -404,10 +404,14 @@ jobs:
             echo '::notice::Release branch advanced since validation; skipping stale release.'
             exit 0
           fi
-          ci_runs="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow "${CI_WORKFLOW}" --commit "${SOURCE_SHA}" --event push --branch "${RELEASE_BRANCH}" --status success --json databaseId --jq 'length')"
-          if [[ "${ci_runs}" == 0 ]]; then
-            echo "::error::No successful ${CI_WORKFLOW} push run found for ${SOURCE_SHA}."
-            exit 1
+          if [[ -n "${CI_WORKFLOW}" ]]; then
+            ci_runs="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow "${CI_WORKFLOW}" --commit "${SOURCE_SHA}" --event push --branch "${RELEASE_BRANCH}" --status success --json databaseId --jq 'length')"
+            if [[ "${ci_runs}" == 0 ]]; then
+              echo "::error::No successful ${CI_WORKFLOW} push run found for ${SOURCE_SHA}."
+              exit 1
+            fi
+          else
+            echo '::notice::Skipping the external CI check because the caller embeds CI in its release workflow.'
           fi
           version="$(python3 - <<'PY'
           import os
