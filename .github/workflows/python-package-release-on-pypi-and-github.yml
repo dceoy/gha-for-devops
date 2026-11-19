@@ -18,6 +18,11 @@ on:
         type: string
         description: Successful push CI required for prepare
         default: ci.yml
+      skip-ci-check:
+        required: false
+        type: boolean
+        description: Whether to skip the successful push CI requirement for prepare
+        default: false
       release-tag:
         required: false
         type: string
@@ -394,6 +399,7 @@ jobs:
           PACKAGE_PATH: ${{ inputs.package-path }}
           RELEASE_BRANCH: ${{ inputs.release-branch }}
           CI_WORKFLOW: ${{ inputs.ci-workflow }}
+          SKIP_CI_CHECK: ${{ inputs.skip-ci-check }}
         run: |
           if [[ "$(git rev-parse HEAD)" != "${SOURCE_SHA}" || "${GITHUB_SHA}" != "${SOURCE_SHA}" ]]; then
             echo '::notice::Workflow SHA differs from the validated source; skipping.'
@@ -404,10 +410,12 @@ jobs:
             echo '::notice::Release branch advanced since validation; skipping stale release.'
             exit 0
           fi
-          ci_runs="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow "${CI_WORKFLOW}" --commit "${SOURCE_SHA}" --event push --branch "${RELEASE_BRANCH}" --status success --json databaseId --jq 'length')"
-          if [[ "${ci_runs}" == 0 ]]; then
-            echo "::error::No successful ${CI_WORKFLOW} push run found for ${SOURCE_SHA}."
-            exit 1
+          if [[ "${SKIP_CI_CHECK}" != true ]]; then
+            ci_runs="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow "${CI_WORKFLOW}" --commit "${SOURCE_SHA}" --event push --branch "${RELEASE_BRANCH}" --status success --json databaseId --jq 'length')"
+            if [[ "${ci_runs}" == 0 ]]; then
+              echo "::error::No successful ${CI_WORKFLOW} push run found for ${SOURCE_SHA}."
+              exit 1
+            fi
           fi
           version="$(python3 - <<'PY'
           import os
