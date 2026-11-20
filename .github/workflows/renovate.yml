@@ -76,6 +76,7 @@ jobs:
           GH_TELEMETRY: 'false'
           DO_NOT_TRACK: '1'
           OTEL_SDK_DISABLED: 'true'
+          RENOVATE_CUSTOM_ENV_VARIABLES: '{"MISE_USE_VERSIONS_HOST_TRACK":"false"}'
           RENOVATE_PLATFORM: github
           RENOVATE_ENDPOINT: ${{ github.api_url }}
           RENOVATE_REPOSITORIES: ${{ github.repository }}
