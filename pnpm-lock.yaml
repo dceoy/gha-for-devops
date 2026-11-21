@@ -556,8 +556,8 @@ packages:
     resolution: {integrity: sha512-XjH1AECxf0giL2V1aU8vKyRR2ppRUb5c0EvT7zuJTokQ74bNo52zOtghqdWIqrhUD79fo3x0WfKZdOqxF6LG1Q==}
     engines: {node: '>=18'}
 
-  ignore@7.0.14:
-    resolution: {integrity: sha512-wCBiZ77u1tuWde6G/nfOtLaCTYcFDU5yCzARzK10y+rLhzYoL7a7yEemcopcc2Mzow7gZOIjnV2ym1NYmdiJOQ==}
+  ignore@7.0.16:
+    resolution: {integrity: sha512-52N+Y4HRMOJmbLmr+DqO4iSRyyB7N52gm7PWCT6h0p978+oKbqHCB7gIJIwZvBUsjlSdWbrBFqUSmIFNZMpn0A==}
     engines: {node: '>= 4'}
 
   ini@7.0.0:
@@ -603,8 +603,8 @@ packages:
     engines: {node: '>=22'}
     hasBin: true
 
-  markdownlint@0.42.1:
-    resolution: {integrity: sha512-Otolm9JX12iO2NG5cetlKfzGygpiLSlHuqXKxoT6HGhN5HtbxprJPicKZqqCQd88qOvUi/TEs3o1AmcYioVscA==}
+  markdownlint@0.42.2:
+    resolution: {integrity: sha512-IhlUBVT+kHBX+u3EjEsQdFB4q0Rl0Hx+JsGsvVkonNut1/n8Kv8yXzwk0pazC9uF35JlwMZ+LxV4CQ9YNAbG8w==}
     engines: {node: '>=22'}
 
   mdurl@2.1.0:
@@ -1185,7 +1185,7 @@ snapshots:
 
   get-east-asian-width@1.7.0: {}
 
-  ignore@7.0.14: {}
+  ignore@7.0.16: {}
 
   ini@7.0.0: {}
 
@@ -1229,12 +1229,12 @@ snapshots:
     dependencies:
       commander: 15.0.0
       deep-extend: 0.6.0
-      ignore: 7.0.14
+      ignore: 7.0.16
       js-yaml: 5.5.0
       jsonc-parser: 3.3.1
       jsonpointer: 5.0.1
       markdown-it: 14.3.3
-      markdownlint: 0.42.1
+      markdownlint: 0.42.2
       minimatch: 10.2.6
       run-con: 1.3.3
       smol-toml: 1.9.1
@@ -1242,7 +1242,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  markdownlint@0.42.1:
+  markdownlint@0.42.2:
     dependencies:
       micromark: 4.0.3
       micromark-core-commonmark: 2.0.4
