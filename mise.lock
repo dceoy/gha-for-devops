@@ -46,28 +46,6 @@ url = "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_
 url_api = "https://api.github.com/repos/rhysd/actionlint/releases/assets/384924919"
 provenance = "github-attestations"
 
-[[tools.checkov]]
-version = "3.4.0"
-backend = "aqua:bridgecrewio/checkov"
-
-[tools.checkov."platforms.linux-x64"]
-checksum = "sha256:59f301aab502600dc1bd547e0fa66f3871fd79b20cbd36594ac03d0190d5e913"
-checksum_source = "mise-versions"
-url = "https://github.com/bridgecrewio/checkov/releases/download/3.4.0/checkov_linux_X86_64.zip"
-url_api = "https://api.github.com/repos/bridgecrewio/checkov/releases/assets/686637877"
-
-[tools.checkov."platforms.macos-arm64"]
-checksum = "sha256:07f6e06a609c87139924945e84c37b94afddd9b4367131c17cfc2f0e9dc7238e"
-checksum_source = "mise-versions"
-url = "https://github.com/bridgecrewio/checkov/releases/download/3.4.0/checkov_darwin_X86_64.zip"
-url_api = "https://api.github.com/repos/bridgecrewio/checkov/releases/assets/686638589"
-
-[tools.checkov."platforms.macos-x64"]
-checksum = "sha256:07f6e06a609c87139924945e84c37b94afddd9b4367131c17cfc2f0e9dc7238e"
-checksum_source = "mise-versions"
-url = "https://github.com/bridgecrewio/checkov/releases/download/3.4.0/checkov_darwin_X86_64.zip"
-url_api = "https://api.github.com/repos/bridgecrewio/checkov/releases/assets/686638589"
-
 [[tools."github:securego/gosec"]]
 version = "2.30.0"
 backend = "github:securego/gosec"
@@ -855,32 +833,4 @@ checksum = "sha256:066ea0a09a282e47588ec1e1867280ff5ede458f7183617a2d99012e4e34f
 url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_windows_amd64.exe"
 url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219881"
 provenance = "cosign"
-
-[[tools.zizmor]]
-version = "1.31.1"
-backend = "aqua:zizmorcore/zizmor"
-
-[tools.zizmor."platforms.linux-arm64"]
-checksum = "sha256:37eebbd5762a44f262d94875431b14a6d2402991e90a685113ea97b8b41be833"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.31.1/zizmor-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/645467282"
-provenance = "github-attestations"
-
-[tools.zizmor."platforms.linux-x64"]
-checksum = "sha256:d185f726bdaf92df78273217dfdd24ebcd6b0ef48cf3ce776ff5762b6e138c99"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.31.1/zizmor-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/645467284"
-provenance = "github-attestations"
-
-[tools.zizmor."platforms.macos-arm64"]
-checksum = "sha256:ad5aa633cd56215b11e6c51d51f90c7e6b22904a75047d1215abbd422f61d698"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.31.1/zizmor-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/645467283"
-provenance = "github-attestations"
-
-[tools.zizmor."platforms.macos-x64"]
-checksum = "sha256:72ae63bb85b67229c06242f04195cb43927e9fab5f43803c6434dc701a517d61"
-url = "https://github.com/zizmorcore/zizmor/releases/download/v1.31.1/zizmor-x86_64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/zizmorcore/zizmor/releases/assets/645467287"
-provenance = "github-attestations"
 
