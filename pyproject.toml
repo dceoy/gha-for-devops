@@ -1,6 +1,6 @@
 [project]
 name = "local-qa"
-version = "0.1.0"
+version = "0.0.0"
 description = "Local QA tooling for gha-for-devops"
 authors = [{name = "dceoy", email = "dceoy@users.noreply.github.com"}]
 maintainers = [{name = "dceoy", email = "dceoy@users.noreply.github.com"}]
