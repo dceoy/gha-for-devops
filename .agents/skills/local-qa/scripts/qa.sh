@@ -25,6 +25,44 @@ osv-scanner scan source --recursive --include-git-root . || osv_status=$?
 if [[ "${osv_status}" -ne 0 && "${osv_status}" -ne 128 ]]; then
   exit "${osv_status}"
 fi
+# Scan the repository directly for fixable high/critical vulnerabilities.
+(
+  set +x
+  umask 077
+  GRYPE_REPORT="$(mktemp)"
+  trap 'rm -f -- "${GRYPE_REPORT}"' EXIT
+
+  GRYPE_CHECK_FOR_APP_UPDATE=false \
+    grype "dir:${REPO_ROOT}" --output json --file "${GRYPE_REPORT}" \
+    --fail-on high --only-fixed || grype_status=$?
+  grype_status=${grype_status:-0}
+  jq -e '.matches | type == "array"' "${GRYPE_REPORT}" > /dev/null
+  jq -r '"Grype fixable vulnerabilities: \(.matches | length)"' "${GRYPE_REPORT}"
+  if [[ "${grype_status}" -ne 0 ]]; then
+    jq -r '.matches[] | select(.vulnerability.severity | ascii_downcase | . == "high" or . == "critical") | [.vulnerability.id, .vulnerability.severity, .artifact.name, .artifact.version, ((.vulnerability.fix.versions // []) | join(","))] | @tsv' "${GRYPE_REPORT}" >&2 || true
+  fi
+  exit "${grype_status}"
+)
+
+# Assess the checked-out repository without requiring a GitHub API token.
+scorecard --local=. --format=json | jq -e '.checks | type == "array"' > /dev/null
+
+# Inspect Git history for secrets. Never print or retain raw secret values.
+(
+  set +x
+  umask 077
+  TRUFFLEHOG_RESULTS="$(mktemp)"
+  trap 'rm -f "${TRUFFLEHOG_RESULTS}"' EXIT
+  trufflehog git "file://${REPO_ROOT}" --no-update --no-verification \
+    --no-ignore-tag --fail-on-scan-errors --results=verified,unknown,unverified \
+    --json --fail > "${TRUFFLEHOG_RESULTS}" || trufflehog_status=$?
+  trufflehog_status=${trufflehog_status:-0}
+  if [[ "${trufflehog_status}" -eq 183 ]]; then
+    jq -r 'select(type == "object") | [.DetectorName // "unknown", .SourceMetadata.Data.Git.file // "unknown", .SourceMetadata.Data.Git.line // 0] | @tsv' "${TRUFFLEHOG_RESULTS}" >&2
+  fi
+  exit "${trufflehog_status}"
+)
+
 PYTHON_LINE_LENGTH=88
 RUFF_LINT_SELECT='ALL'
 RUFF_LINT_IGNORE='CPY,RET,COM812,FBT001,FBT002'
@@ -179,6 +217,10 @@ fi
 
 N_TERRAFORM_FILES=$(git ls-files -- '*.tf' '*.hcl' | wc -l)
 if [[ "${N_TERRAFORM_FILES}" -gt 0 ]]; then
+  # Validate tracked Terraform/HCL syntax before other IaC checks.
+  while IFS= read -r -d '' HCL_FILE; do
+    hcl2json "${HCL_FILE}" | jq -e 'type == "object"' > /dev/null
+  done < <(git ls-files -z -- '*.tf' '*.hcl')
   terraform fmt -recursive .
   terragrunt hcl format --diff --working-dir .
   tflint --recursive --chdir=.
