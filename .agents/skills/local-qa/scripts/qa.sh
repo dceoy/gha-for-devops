@@ -197,7 +197,7 @@ N_SEMGREP_FILES=$(git ls-files -- '*.py' '*.go' '*.js' '*.jsx' '*.mjs' '*.cjs' '
 if [[ "${N_SEMGREP_FILES}" -gt 0 ]]; then
   # Process workers avoid native OCaml thread startup failures on constrained runners.
   # Ignore p/default's package-manager cooldown rules in this broad configuration scan.
-  uv run --locked semgrep scan --x-parmap --jobs 2 --config p/default \
+  semgrep scan --x-parmap --jobs 2 --config p/default \
     --exclude-rule package_managers.bun.bun-missing-minimum-release-age.bun-missing-minimum-release-age \
     --exclude-rule package_managers.dependabot.dependabot-missing-cooldown.dependabot-missing-cooldown \
     --exclude-rule package_managers.npm.npm-missing-minimum-release-age.npm-missing-minimum-release-age \
