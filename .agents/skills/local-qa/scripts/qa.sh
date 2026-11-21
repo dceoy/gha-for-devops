@@ -30,6 +30,7 @@ scorecard --local=. --format=json | jq -e '.checks | type == "array"' > /dev/nul
 
 # Inspect Git history for secrets. Never print or retain raw secret values.
 (
+  set +x
   umask 077
   TRUFFLEHOG_RESULTS="$(mktemp)"
   trap 'rm -f "${TRUFFLEHOG_RESULTS}"' EXIT
