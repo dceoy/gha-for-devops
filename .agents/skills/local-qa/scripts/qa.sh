@@ -25,6 +25,24 @@ osv-scanner scan source --recursive --include-git-root . || osv_status=$?
 if [[ "${osv_status}" -ne 0 && "${osv_status}" -ne 128 ]]; then
   exit "${osv_status}"
 fi
+# Assess the checked-out repository without requiring a GitHub API token.
+scorecard --local=. --format=json | jq -e '.checks | type == "array"' > /dev/null
+
+# Inspect Git history for secrets. Never print or retain raw secret values.
+(
+  umask 077
+  TRUFFLEHOG_RESULTS="$(mktemp)"
+  trap 'rm -f "${TRUFFLEHOG_RESULTS}"' EXIT
+  trufflehog git "file://${REPO_ROOT}" --no-update --no-verification \
+    --no-ignore-tag --fail-on-scan-errors --results=verified,unknown,unverified \
+    --json --fail > "${TRUFFLEHOG_RESULTS}" || trufflehog_status=$?
+  trufflehog_status=${trufflehog_status:-0}
+  if [[ "${trufflehog_status}" -eq 183 ]]; then
+    jq -r 'select(type == "object") | [.DetectorName // "unknown", .SourceMetadata.Data.Git.file // "unknown", .SourceMetadata.Data.Git.line // 0] | @tsv' "${TRUFFLEHOG_RESULTS}" >&2
+  fi
+  exit "${trufflehog_status}"
+)
+
 PYTHON_LINE_LENGTH=88
 RUFF_LINT_SELECT='ALL'
 RUFF_LINT_IGNORE='CPY,RET,COM812,FBT001,FBT002'
@@ -179,6 +197,10 @@ fi
 
 N_TERRAFORM_FILES=$(git ls-files -- '*.tf' '*.hcl' | wc -l)
 if [[ "${N_TERRAFORM_FILES}" -gt 0 ]]; then
+  # Validate tracked Terraform/HCL syntax before other IaC checks.
+  while IFS= read -r -d '' HCL_FILE; do
+    hcl2json "${HCL_FILE}" | jq -e 'type == "object"' > /dev/null
+  done < <(git ls-files -z -- '*.tf' '*.hcl')
   terraform fmt -recursive .
   terragrunt hcl format --diff --working-dir .
   tflint --recursive --chdir=.
