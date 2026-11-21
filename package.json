@@ -1,6 +1,5 @@
 {
   "name": "gha-for-devops",
-  "version": "0.0.0",
   "private": true,
   "description": "Local QA tooling for reusable GitHub Actions workflows",
   "license": "MIT",
