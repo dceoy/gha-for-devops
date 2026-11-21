@@ -25,6 +25,29 @@ osv-scanner scan source --recursive --include-git-root . || osv_status=$?
 if [[ "${osv_status}" -ne 0 && "${osv_status}" -ne 128 ]]; then
   exit "${osv_status}"
 fi
+# Generate a local SBOM and reject fixable high/critical vulnerabilities.
+(
+  set +x
+  umask 077
+  SBOM_DIRECTORY="$(mktemp -d)"
+  trap 'rm -rf -- "${SBOM_DIRECTORY}"' EXIT
+
+  SYFT_CHECK_FOR_APP_UPDATE=false \
+    syft "dir:${REPO_ROOT}" -o "syft-json=${SBOM_DIRECTORY}/sbom.json"
+  jq -e '.artifacts | type == "array"' "${SBOM_DIRECTORY}/sbom.json" > /dev/null
+
+  GRYPE_CHECK_FOR_APP_UPDATE=false \
+    grype "sbom:${SBOM_DIRECTORY}/sbom.json" --output json \
+      --file "${SBOM_DIRECTORY}/grype.json" --fail-on high --only-fixed \
+    || grype_status=$?
+  grype_status=${grype_status:-0}
+  jq -e '.matches | type == "array"' "${SBOM_DIRECTORY}/grype.json" > /dev/null
+
+  jq -r '"Syft packages: \(.artifacts | length)"' "${SBOM_DIRECTORY}/sbom.json"
+  jq -r '"Grype fixable vulnerabilities: \(.matches | length)"' "${SBOM_DIRECTORY}/grype.json"
+  exit "${grype_status}"
+)
+
 # Assess the checked-out repository without requiring a GitHub API token.
 scorecard --local=. --format=json | jq -e '.checks | type == "array"' > /dev/null
 
