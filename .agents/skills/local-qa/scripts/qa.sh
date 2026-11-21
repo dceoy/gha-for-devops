@@ -38,7 +38,7 @@ fi
 
   GRYPE_CHECK_FOR_APP_UPDATE=false \
     grype "sbom:${SBOM_DIRECTORY}/sbom.json" --output json \
-      --file "${SBOM_DIRECTORY}/grype.json" --fail-on high --only-fixed \
+    --file "${SBOM_DIRECTORY}/grype.json" --fail-on high --only-fixed \
     || grype_status=$?
   grype_status=${grype_status:-0}
   jq -e '.matches | type == "array"' "${SBOM_DIRECTORY}/grype.json" > /dev/null
