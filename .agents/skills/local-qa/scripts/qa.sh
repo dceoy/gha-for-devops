@@ -38,6 +38,9 @@ fi
   grype_status=${grype_status:-0}
   jq -e '.matches | type == "array"' "${GRYPE_REPORT}" > /dev/null
   jq -r '"Grype fixable vulnerabilities: \(.matches | length)"' "${GRYPE_REPORT}"
+  if [[ "${grype_status}" -ne 0 ]]; then
+    jq -r '.matches[] | select(.vulnerability.severity | ascii_downcase | . == "high" or . == "critical") | [.vulnerability.id, .vulnerability.severity, .artifact.name, .artifact.version, ((.vulnerability.fix.versions // []) | join(","))] | @tsv' "${GRYPE_REPORT}" >&2 || true
+  fi
   exit "${grype_status}"
 )
 
