@@ -418,10 +418,6 @@ url = "https://github.com/pnpm/pnpm/releases/download/v12.21.0/pnpm-win32-x64.zi
 url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/744357265"
 provenance = "github-attestations"
 
-[[tools."pypi:semgrep"]]
-version = "1.185.0"
-backend = "pypi:semgrep"
-
 [[tools.scorecard]]
 version = "5.6.0"
 backend = "aqua:ossf/scorecard"
