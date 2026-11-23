@@ -10,8 +10,8 @@
   "type": "module",
   "scripts": {
     "qa": "bash .agents/skills/local-qa/scripts/qa.sh",
-    "format": "oxfmt --write '**/*.{md,mdx,markdown}' --no-error-on-unmatched-pattern",
-    "format:check": "oxfmt --check '**/*.{md,mdx,markdown}' --no-error-on-unmatched-pattern",
+    "format": "oxfmt --write '**/*.{md,mdx,markdown}' '!**/node_modules/**' '!**/.venv/**' --no-error-on-unmatched-pattern",
+    "format:check": "oxfmt --check '**/*.{md,mdx,markdown}' '!**/node_modules/**' '!**/.venv/**' --no-error-on-unmatched-pattern",
     "lint": "markdownlint-cli2 '**/*.{md,mdx,markdown}'",
     "lint:fix": "markdownlint-cli2 --fix '**/*.{md,mdx,markdown}'"
   },

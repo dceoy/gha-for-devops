@@ -5,6 +5,7 @@
     "MD041": false
   },
   "ignores": [
-    "**/node_modules/**"
+    "**/node_modules/**",
+    "**/.venv/**"
   ]
 }
