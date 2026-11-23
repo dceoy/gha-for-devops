@@ -12,8 +12,8 @@
     "qa": "bash .agents/skills/local-qa/scripts/qa.sh",
     "format": "oxfmt --write '**/*.{md,mdx,markdown}' '!**/node_modules/**' '!**/.venv/**' --no-error-on-unmatched-pattern",
     "format:check": "oxfmt --check '**/*.{md,mdx,markdown}' '!**/node_modules/**' '!**/.venv/**' --no-error-on-unmatched-pattern",
-    "lint": "git ls-files -z -- '*.md' '*.markdown' '*.mdx' | sed -z 's|^|:./|' | xargs -0 -r markdownlint-cli2",
-    "lint:fix": "git ls-files -z -- '*.md' '*.markdown' '*.mdx' | sed -z 's|^|:./|' | xargs -0 -r markdownlint-cli2 --fix"
+    "lint": "bash -o pipefail -c 'git ls-files -z -- \"*.md\" \"*.markdown\" \"*.mdx\" | perl -0pe \"s|^|:./|\" | xargs -0 -r markdownlint-cli2'",
+    "lint:fix": "bash -o pipefail -c 'git ls-files -z -- \"*.md\" \"*.markdown\" \"*.mdx\" | perl -0pe \"s|^|:./|\" | xargs -0 -r markdownlint-cli2 --fix'"
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
