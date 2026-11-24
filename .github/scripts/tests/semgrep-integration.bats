@@ -47,7 +47,11 @@ run_semgrep_step() {
 @test "All eight linters delegate Semgrep to the shared source security workflow" {
   for workflow in "${WORKFLOWS[@]}"; do
     local path="${REPO_ROOT}/.github/workflows/${workflow}"
-    [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${path}")" = true ]
+    local expected_default=true
+    if [[ "${workflow}" == python-package-lint-and-scan.yml ]]; then
+      expected_default=false
+    fi
+    [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${path}")" = "${expected_default}" ]
     [ "$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml").uses' "${path}")" = '$/.github/workflows/source-security-scan.yml' ]
     [ "$(yq -r '.on.workflow_call.inputs."security-runs-on".default' "${path}")" = ubuntu-slim ]
     # shellcheck disable=SC2016
