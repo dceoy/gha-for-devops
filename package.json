@@ -9,11 +9,16 @@
   },
   "type": "module",
   "scripts": {
-    "qa": "bash .agents/skills/local-qa/scripts/qa.sh"
+    "qa": "bash .agents/skills/local-qa/scripts/qa.sh",
+    "format": "oxfmt --write '**/*.{md,mdx,markdown}' '!**/node_modules/**' '!**/.venv/**' --no-error-on-unmatched-pattern",
+    "format:check": "oxfmt --check '**/*.{md,mdx,markdown}' '!**/node_modules/**' '!**/.venv/**' --no-error-on-unmatched-pattern",
+    "lint": "bash -o pipefail -c 'git ls-files -z -- \"*.md\" \"*.markdown\" \"*.mdx\" | perl -0pe \"s|^|:./|\" | xargs -0 -r markdownlint-cli2'",
+    "lint:fix": "bash -o pipefail -c 'git ls-files -z -- \"*.md\" \"*.markdown\" \"*.mdx\" | perl -0pe \"s|^|:./|\" | xargs -0 -r markdownlint-cli2 --fix'"
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
     "markdownlint-cli": "latest",
+    "markdownlint-cli2": "latest",
     "oxfmt": "latest",
     "oxlint": "latest",
     "typescript": "latest"
