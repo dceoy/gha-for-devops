@@ -33,17 +33,17 @@ workflows:
     '.github/workflows/ci.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+        - 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         - 'bats-core/bats-action@3566550e0f594451ac0f58fcbfdeca93aa29a45e'
         - 'jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d'
         - 'pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc'
+        - 'anthropics/claude-code-action@cc98b3ae241b0fcfb6a42a2690751afffecb4452'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/claude-code-review.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc'
+        - 'anthropics/claude-code-action@cc98b3ae241b0fcfb6a42a2690751afffecb4452'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/container-security.yml':
         - 'docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550'
@@ -98,7 +98,7 @@ workflows:
         - 'zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd'
     '.github/workflows/github-codeql-analysis.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+        - 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         - 'github/codeql-action@33d7b85da1a04171e211befe2c739303b9a4c066'
     '.github/workflows/github-major-version-tag.yml': []
     '.github/workflows/github-pages-deploy.yml':
@@ -110,17 +110,17 @@ workflows:
     '.github/workflows/go-package-lint-and-scan.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+        - 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         - 'github/codeql-action@33d7b85da1a04171e211befe2c739303b9a4c066'
     '.github/workflows/go-package-release-on-github.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
-        - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+        - 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
     '.github/workflows/go-package-test.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+        - 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
     '.github/workflows/html-lint-and-scan.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
@@ -131,7 +131,7 @@ workflows:
     '.github/workflows/hugo-deploy-to-gh-pages.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d'
-        - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+        - 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         - 'actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9'
         - 'peaceiris/actions-hugo@d1c81a15d4e6dca7086a17b9c2565cb70fd576bf'
     '.github/workflows/joern-scan.yml':
@@ -143,7 +143,7 @@ workflows:
         - 'pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1'
     '.github/workflows/maintenance.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+        - 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
         - 'bats-core/bats-action@3566550e0f594451ac0f58fcbfdeca93aa29a45e'
         - 'github/codeql-action@33d7b85da1a04171e211befe2c739303b9a4c066'
@@ -211,7 +211,7 @@ workflows:
     '.github/workflows/source-security-scan.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+        - 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
         - 'bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3'
         - 'jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d'
@@ -335,9 +335,9 @@ dependencies:
         commit: 'sha1-9000827ccba6bdab643e8b6fd33ac0654aef8333'
         owner_id: 44036562
         repo_id: 192626254
-    'actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e':
-        ref: 'v7.0.0'
-        commit: 'sha1-b7ad1dad31e06c5925ef5d2fc7ad053ef454303e'
+    'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5':
+        ref: 'v7.1.0'
+        commit: 'sha1-d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         owner_id: 44036562
         repo_id: 192624594
     'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1':
@@ -377,9 +377,9 @@ dependencies:
         repo_id: 496012378
         uses:
             - 'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f'
-    'anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc':
-        ref: 'v1.0.276'
-        commit: 'sha1-f3b070c88125d33dbae5653df5f143101d4ea9dc'
+    'anthropics/claude-code-action@cc98b3ae241b0fcfb6a42a2690751afffecb4452':
+        ref: 'v1.0.278'
+        commit: 'sha1-cc98b3ae241b0fcfb6a42a2690751afffecb4452'
         owner_id: 76263028
         repo_id: 986421638
         uses:
