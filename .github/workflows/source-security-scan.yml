@@ -241,9 +241,15 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
           enable-cache: auto
+      - name: Install Semgrep
+        if: inputs.use-semgrep
+        working-directory: ${{ runner.temp }}
+        run: | # zizmor: ignore[adhoc-packages] installs Semgrep via uv with release age enforcement
+          uv tool install semgrep
+          uv tool dir --bin >> "${GITHUB_PATH}"
       - name: Run Semgrep SAST scan
         id: semgrep
-        if: ${{ !cancelled() && inputs.use-semgrep }}
+        if: inputs.use-semgrep
         continue-on-error: true
         working-directory: ${{ inputs.semgrep-working-directory }}
         env:
@@ -252,8 +258,8 @@ jobs:
           SEMGREP_FILE_NAMES: ${{ inputs.semgrep-file-names }}
           SEMGREP_RESTRICT_TO_FILES: ${{ inputs.semgrep-restrict-to-files }}
           SEMGREP_EXCLUDE_COOLDOWN_RULES: ${{ inputs.semgrep-exclude-cooldown-rules }}
-        run: | # zizmor: ignore[adhoc-packages] runs Semgrep via uvx
-          args=(semgrep scan --config p/default --metrics off --error)
+        run: |
+          args=(scan --config p/default --metrics off --error)
           if [[ "${SEMGREP_EXCLUDE_COOLDOWN_RULES}" == true ]]; then
             args+=(
               --exclude-rule package_managers.bun.bun-missing-minimum-release-age.bun-missing-minimum-release-age
@@ -289,9 +295,9 @@ jobs:
               echo "No tracked files matched semgrep-file-names; skipping Semgrep."
               exit 0
             fi
-            uvx "${args[@]}" -- "${targets[@]}"
+            semgrep "${args[@]}" -- "${targets[@]}"
           else
-            uvx "${args[@]}" -- "${SEMGREP_TARGET}"
+            semgrep "${args[@]}" -- "${SEMGREP_TARGET}"
           fi
       - name: Enforce security scan results
         if: ${{ !cancelled() && steps.semgrep.outcome == 'failure' }}

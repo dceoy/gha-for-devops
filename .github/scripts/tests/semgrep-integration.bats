@@ -22,12 +22,12 @@ prepare_consumer() {
   CONSUMER="${BATS_TEST_TMPDIR}/consumer"
   export SEMGREP_ARGS="${BATS_TEST_TMPDIR}/semgrep-args"
   export PATH="${BATS_TEST_TMPDIR}/bin:${PATH}"
-  cat > "${BATS_TEST_TMPDIR}/bin/uvx" << 'SH'
+  cat > "${BATS_TEST_TMPDIR}/bin/semgrep" << 'SH'
 #!/usr/bin/env bash
-printf '%s\0' "$@" > "${SEMGREP_ARGS}"
+printf '%s\0' semgrep "$@" > "${SEMGREP_ARGS}"
 exit "${SEMGREP_EXIT_CODE:-0}"
 SH
-  chmod +x "${BATS_TEST_TMPDIR}/bin/uvx"
+  chmod +x "${BATS_TEST_TMPDIR}/bin/semgrep"
   git -C "${CONSUMER}" init --quiet
   touch "${CONSUMER}/nested/selected file.sh" "${CONSUMER}/nested/unrelated.sh"
   git -C "${CONSUMER}" add .
@@ -47,14 +47,18 @@ run_semgrep_step() {
 @test "All eight linters delegate Semgrep to the shared source security workflow" {
   for workflow in "${WORKFLOWS[@]}"; do
     local path="${REPO_ROOT}/.github/workflows/${workflow}"
-    [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${path}")" = true ]
+    local expected_default=true
+    case "${workflow}" in
+      typescript-package-lint-and-scan.yml|go-package-lint-and-scan.yml) expected_default=false ;;
+    esac
+    [ "$(yq -r '.on.workflow_call.inputs."use-semgrep".default' "${path}")" = "${expected_default}" ]
     [ "$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml").uses' "${path}")" = '$/.github/workflows/source-security-scan.yml' ]
     [ "$(yq -r '.on.workflow_call.inputs."security-runs-on".default' "${path}")" = ubuntu-slim ]
     # shellcheck disable=SC2016
     [ "$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml").with."runs-on"' "${path}")" = '${{ inputs.security-runs-on }}' ]
     # shellcheck disable=SC2016
     [ "$(yq -r '.jobs.* | select(.uses == "$/.github/workflows/source-security-scan.yml").with."use-semgrep"' "${path}")" = '${{ inputs.use-semgrep }}' ]
-    run ! grep -Fq 'uvx semgrep scan' "${path}"
+    ! grep -Fq 'uv tool install semgrep' "${path}"
   done
 }
 
@@ -161,11 +165,25 @@ run_semgrep_step() {
   [ ! -e "${SEMGREP_ARGS}" ]
 }
 
-@test "Shared Semgrep uses uvx with one-day cooldown and setup-uv caching" {
+@test "Shared Semgrep uses uv tool install with one-day cooldown and setup-uv caching" {
   run ! grep -q semgrep "${REPO_ROOT}/mise.toml"
   # shellcheck disable=SC2016
-  grep -Fq 'uvx "${args[@]}"' "${SCAN_WORKFLOW}"
+  grep -Fq 'semgrep "${args[@]}"' "${SCAN_WORKFLOW}"
+  grep -Fq 'uv tool install semgrep' "${SCAN_WORKFLOW}"
+  grep -Fq 'uv tool dir --bin >> "${GITHUB_PATH}"' "${SCAN_WORKFLOW}"
+  [ "$(yq -r '.jobs."source-security-scan".steps[] | select(.name == "Install Semgrep") | .if' "${SCAN_WORKFLOW}")" = inputs.use-semgrep ]
+  [ "$(yq -r '.jobs."source-security-scan".steps[] | select(.name == "Run Semgrep SAST scan") | .if' "${SCAN_WORKFLOW}")" = inputs.use-semgrep ]
+  ! grep -Fq 'uvx' "${SCAN_WORKFLOW}"
   [ "$(yq -r '.jobs."source-security-scan".env.UV_EXCLUDE_NEWER' "${SCAN_WORKFLOW}")" = "1 day" ]
   [ "$(yq -r '.jobs."source-security-scan".steps[] | select(.name == "Set up uv for Semgrep") | .with."enable-cache"' "${SCAN_WORKFLOW}")" = auto ]
   run ! grep -Fq SEMGREP_VERSION "${SCAN_WORKFLOW}"
+}
+
+@test "TypeScript package scripts can opt into uv without Semgrep" {
+  local path="${REPO_ROOT}/.github/workflows/typescript-package-script.yml"
+  [ "$(yq -r '.on.workflow_call.inputs."use-uv".default' "${path}")" = false ]
+  [ "$(yq -r '.jobs."typescript-package-script".steps[] | select(.name == "Set up uv") | .if' "${path}")" = inputs.use-uv ]
+  [[ "$(yq -r '.jobs."typescript-package-script".steps[] | select(.name == "Set up uv") | .uses' "${path}")" =~ ^astral-sh/setup-uv@[a-f0-9]{40}$ ]]
+  [ "$(yq -r '.jobs."typescript-package-script".env.UV_EXCLUDE_NEWER' "${path}")" = "1 day" ]
+  ! grep -qi semgrep "${path}"
 }

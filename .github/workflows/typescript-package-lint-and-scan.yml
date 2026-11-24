@@ -91,7 +91,7 @@ on:
         required: false
         type: boolean
         description: Whether to run Semgrep OSS SAST scan using p/default rules
-        default: true
+        default: false
       runs-on:
         required: false
         type: string

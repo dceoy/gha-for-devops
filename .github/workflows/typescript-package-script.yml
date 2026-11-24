@@ -33,6 +33,11 @@ on:
         type: string
         description: Lockfile used to scope the package-manager cache
         default: null
+      use-uv:
+        required: false
+        type: boolean
+        description: Whether to set up uv for package scripts
+        default: false
       audit:
         required: false
         type: boolean
@@ -54,6 +59,7 @@ jobs:
       contents: read
     runs-on: ${{ inputs.runs-on }}
     env:
+      UV_EXCLUDE_NEWER: 1 day
       npm_config_min_release_age: '1'
       NPM_CONFIG_MINIMUM_RELEASE_AGE: '1440'
       PNPM_CONFIG_MINIMUM_RELEASE_AGE: '1440'
@@ -63,6 +69,11 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
+      - name: Set up uv
+        if: inputs.use-uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: ${{ inputs.enable-cache && 'auto' || 'false' }}
       - name: Detect the package manager
         env:
           PNPM_VERSION: ${{ inputs.pnpm-version }}
