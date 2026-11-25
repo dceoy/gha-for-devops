@@ -148,14 +148,14 @@ jobs:
           output-credentials: true
           output-env-credentials: false
       - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd  # v2.1.7
+        uses: aws-actions/amazon-ecr-login@7290e214a610b32bc0eef81748948b6d466a8783  # v2.2.0
         env:
           AWS_ACCESS_KEY_ID: ${{ steps.aws-credentials.outputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.aws-credentials.outputs.aws-secret-access-key }}
           AWS_SESSION_TOKEN: ${{ steps.aws-credentials.outputs.aws-session-token }}
           AWS_REGION: ${{ inputs.aws-region }}
       - name: Login to Amazon ECR Public
-        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd  # v2.1.7
+        uses: aws-actions/amazon-ecr-login@7290e214a610b32bc0eef81748948b6d466a8783  # v2.2.0
         with:
           registry-type: public
         env:
