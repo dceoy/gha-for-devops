@@ -11,11 +11,11 @@ workflows:
     '.github/workflows/ansible-lint.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
     '.github/workflows/aws-cloudformation-lint.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
         - 'bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3'
     '.github/workflows/aws-codebuild-run.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -27,7 +27,7 @@ workflows:
     '.github/workflows/bats-test.yml':
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
         - 'bats-core/bats-action@3566550e0f594451ac0f58fcbfdeca93aa29a45e'
         - 'pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1'
     '.github/workflows/ci.yml':
@@ -39,11 +39,11 @@ workflows:
         - 'pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1'
     '.github/workflows/claude-code-bot.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@cc98b3ae241b0fcfb6a42a2690751afffecb4452'
+        - 'anthropics/claude-code-action@e5812cd75691ca7bbfc57c0ecf4441db3a1ab7dd'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/claude-code-review.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'anthropics/claude-code-action@cc98b3ae241b0fcfb6a42a2690751afffecb4452'
+        - 'anthropics/claude-code-action@e5812cd75691ca7bbfc57c0ecf4441db3a1ab7dd'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/container-security.yml':
         - 'docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550'
@@ -78,7 +78,7 @@ workflows:
     '.github/workflows/docker-pull-from-aws.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
-        - 'aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd'
+        - 'aws-actions/amazon-ecr-login@7290e214a610b32bc0eef81748948b6d466a8783'
         - 'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd'
     '.github/workflows/docker-save-and-terraform-deploy-to-aws.yml': []
     '.github/workflows/gcloud-infra-manager-deployments.yml':
@@ -94,7 +94,7 @@ workflows:
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
         - 'zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd'
     '.github/workflows/github-codeql-analysis.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -161,34 +161,34 @@ workflows:
     '.github/workflows/python-package-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
         - 'peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1'
     '.github/workflows/python-package-lint-and-scan.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
     '.github/workflows/python-package-mkdocs-gh-deploy.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
         - 'peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453'
     '.github/workflows/python-package-release-on-pypi-and-github.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
         - 'pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086'
         - 'sigstore/gh-action-sigstore-python@790bc6befb9d733738f18d8f895854b453640ec9'
     '.github/workflows/python-package-test.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
     '.github/workflows/python-pyinstaller.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
     '.github/workflows/r-package-format-and-pr.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1'
@@ -212,7 +212,7 @@ workflows:
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
         - 'bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3'
         - 'jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d'
     '.github/workflows/syft-grype-scan.yml':
@@ -283,7 +283,7 @@ workflows:
         - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
         - 'pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115'
         - 'pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1'
     '.github/workflows/web-api-monitoring-with-slack.yml':
@@ -293,7 +293,7 @@ workflows:
         - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
     '.github/workflows/yaml-lint.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2'
+        - 'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d'
 dependencies:
     'actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae':
         ref: 'v5.0.5'
@@ -377,9 +377,9 @@ dependencies:
         repo_id: 496012378
         uses:
             - 'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f'
-    'anthropics/claude-code-action@cc98b3ae241b0fcfb6a42a2690751afffecb4452':
-        ref: 'v1.0.278'
-        commit: 'sha1-cc98b3ae241b0fcfb6a42a2690751afffecb4452'
+    'anthropics/claude-code-action@e5812cd75691ca7bbfc57c0ecf4441db3a1ab7dd':
+        ref: 'v1.0.281'
+        commit: 'sha1-e5812cd75691ca7bbfc57c0ecf4441db3a1ab7dd'
         owner_id: 76263028
         repo_id: 986421638
         uses:
@@ -400,14 +400,14 @@ dependencies:
         uses:
             - 'actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae'
             - 'aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514'
-    'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2':
-        ref: 'v10.3.3'
-        commit: 'sha1-68559e99cc807c1eb7e9238fd43a15bba460eec2'
+    'astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d':
+        ref: 'v10.4.0'
+        commit: 'sha1-1db35dd8eee11c5894872e0b383ae6c406cf738d'
         owner_id: 115962839
         repo_id: 846733598
-    'aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd':
-        ref: 'v2.1.7'
-        commit: 'sha1-03f1aad4c6c7ffd436567f42f9384779290529bd'
+    'aws-actions/amazon-ecr-login@7290e214a610b32bc0eef81748948b6d466a8783':
+        ref: 'v2.2.0'
+        commit: 'sha1-7290e214a610b32bc0eef81748948b6d466a8783'
         owner_id: 57468012
         repo_id: 220389860
     'aws-actions/aws-codebuild-run-build@7e46c3fa1c1f217e26a73712796b1f78938b534b':
