@@ -154,7 +154,7 @@ jobs:
           persist-credentials: false
       # mise runs only in a trusted directory outside the caller's checkout.
       - name: Set up mise
-        uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d  # v5.2.9
+        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a  # v5.2.10
         with:
           version: ${{ env.MISE_VERSION }}
           install: false
@@ -338,7 +338,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Checkov
-        uses: bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3  # v12.3141.0
+        uses: bridgecrewio/checkov-action@b17b606d6ec72bb8ba5721ad5b7e340b80a9fc39  # v12.3142.0
         with:
           directory: ${{ inputs.package-path }}
           framework: ${{ inputs.checkov-framework }}

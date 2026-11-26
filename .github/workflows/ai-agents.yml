@@ -51,7 +51,7 @@ jobs:
       issues: write
       id-token: write
       actions: read
-    uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@1a46f6a4207e3c67c901874c6abad73b3b3f11c1  # v0.9.0
+    uses: dceoy/opencode-action/.github/workflows/opencode-review.yml@c9f89e8a02bc7eb64d52808ff8f1603f0a0713e3  # v1.0.0
     with:
       model: opencode/mimo-v2.6-flash-free
     secrets:
